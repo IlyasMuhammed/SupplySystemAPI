@@ -34,7 +34,7 @@
       </div>
       <div class="sf-kpi">
         <span class="l">Created</span>
-        <span class="v sm">{{ warehouse.createdDate | date:'mediumDate' }}</span>
+        <span class="v sm">{{ warehouse.createdDate | date:'dd MMM yyyy' }}</span>
       </div>
       <div class="sf-kpi">
         <span class="l">Total Stock Lines</span>
@@ -135,7 +135,7 @@
                 <i class="pi pi-check-circle" style="color:var(--sms-ok)"></i>
               </span>
             </td>
-            <td class="text-nowrap">{{ item.lastUpdated | date:'short' }}</td>
+            <td class="text-nowrap">{{ item.lastUpdated | date:'dd MMM yyyy, HH:mm' }}</td>
           </tr>
         </ng-template>
 

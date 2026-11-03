@@ -313,11 +313,11 @@
           <div class="info-card-body cols-3">
             <div class="detail-cell">
               <div class="cell-label">Created</div>
-              <div class="cell-value muted" style="font-weight:500;">{{ product.createdDate | date:'medium' }}</div>
+              <div class="cell-value muted" style="font-weight:500;">{{ product.createdDate | date:'dd MMM yyyy, HH:mm' }}</div>
             </div>
             <div class="detail-cell" *ngIf="product.updatedDate">
               <div class="cell-label">Last Updated</div>
-              <div class="cell-value muted" style="font-weight:500;">{{ product.updatedDate | date:'medium' }}</div>
+              <div class="cell-value muted" style="font-weight:500;">{{ product.updatedDate | date:'dd MMM yyyy, HH:mm' }}</div>
             </div>
           </div>
         </div>
@@ -466,7 +466,7 @@
                   {{ stock.qtyAvailable | number }}
                 </span>
               </td>
-              <td>{{ stock.lastUpdated | date:'short' }}</td>
+              <td>{{ stock.lastUpdated | date:'dd MMM yyyy, HH:mm' }}</td>
             </tr>
           </ng-template>
 

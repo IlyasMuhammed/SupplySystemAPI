@@ -34,6 +34,10 @@ public static class TenancyModuleExtensions
         services.AddScoped<IOrganizationCurrencyService, OrganizationCurrencyService>();
         // A32 — other modules' startup backfill of per-organization data (Demand's rejection reasons).
         services.AddScoped<IOrganizationDirectory, OrganizationDirectory>();
+        // A49 — the organization's name on generated HR letters.
+        services.AddScoped<IOrganizationNameLookup, OrganizationNameLookup>();
+        // A49 — attendance reads shifts in the organization's zone.
+        services.AddScoped<IOrganizationTimeZoneLookup, OrganizationTimeZoneLookup>();
         // Lookups asks every checker before it deletes a currency or changes its code.
         services.AddScoped<ILookupReferenceChecker, TenancyCurrencyReferenceChecker>();
         services.AddScoped<TenancyDataSeeder>();
@@ -44,6 +48,9 @@ public static class TenancyModuleExtensions
         // A37 — module registry: org-admin module switches, the jobs' module gate, the daily grace expiry.
         services.AddScoped<IModuleRegistryService, ModuleRegistryService>();
         services.AddScoped<IModuleGate, ModuleGate>();
+        // A49 D-14, FD-9
+        services.AddScoped<IModuleLicenceReader, ModuleLicenceReader>();
+        services.AddScoped<IModuleProfileService, ModuleProfileService>();
         services.AddScoped<ModuleGraceExpiryJob>();
 
         return services;

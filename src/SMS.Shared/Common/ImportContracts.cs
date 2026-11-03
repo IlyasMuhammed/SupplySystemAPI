@@ -11,7 +11,9 @@ public static class ImportEntityTypes
     public const string Unit = "UNIT", ProductCategory = "PRODUCT_CATEGORY", Product = "PRODUCT", Warehouse = "WAREHOUSE",
         WarehouseLocation = "WAREHOUSE_LOCATION", TaxCode = "TAX_CODE", Customer = "CUSTOMER", Supplier = "SUPPLIER",
         SupplierContact = "SUPPLIER_CONTACT", PricingRule = "PRICING_RULE", OpeningStock = "OPENING_STOCK",
-        CustomerOpeningBalance = "CUSTOMER_OPENING_BALANCE", SupplierOpeningBalance = "SUPPLIER_OPENING_BALANCE";
+        CustomerOpeningBalance = "CUSTOMER_OPENING_BALANCE", SupplierOpeningBalance = "SUPPLIER_OPENING_BALANCE",
+        /// <summary>A49 E-14.</summary>
+        Employee = "HRM_EMPLOYEE";
 }
 
 /// <summary>Field kinds (spec field_type): TEXT INTEGER DECIMAL DATE BOOLEAN LOOKUP EMAIL PHONE CURRENCY.</summary>
@@ -28,14 +30,27 @@ public sealed record ImportFieldDefinition(
     int SortOrder, string? SampleValue, int? MaxLength = null, decimal? MinValue = null, decimal? MaxValue = null,
     int? DecimalPlaces = null, string? ValidationRegex = null, string? DefaultValue = null,
     /// <summary>For LOOKUP: a key of the target's template lists (dropdown source), e.g. "categories".</summary>
-    string? LookupList = null, IReadOnlyList<string>? Aliases = null);
+    string? LookupList = null, IReadOnlyList<string>? Aliases = null,
+    /// <summary>A49: refuse dates that could be read two ways (05/01/2024): only year-first, a named month or an Excel date.</summary>
+    bool UnambiguousDateOnly = false);
 
 /// <summary>What a target is. MatchFields = natural key used for duplicate detection (spec match_fields).</summary>
 public sealed record ImportProfileDefinition(
     string EntityType, string Name, string? Description, int ImportOrder, bool IsOpeningBalance,
     IReadOnlyList<string> MatchFields, IReadOnlyList<ImportFieldDefinition> Fields,
     /// <summary>Opening balances force duplicate strategy ERROR (IMP-OB-06).</summary>
-    bool AllowUpdate = true);
+    bool AllowUpdate = true,
+    /// <summary>A49: listed only while this module is on for the organization, and not part of the migration workbook. Null = always.</summary>
+    string? RequiresModule = null,
+    /// <summary>A49: every one of these, on top of the import rights, to start, validate or run an import of this type.</summary>
+    IReadOnlyList<string>? RequiredPermissions = null,
+    /// <summary>
+    /// A49: fields holding S3 data. A profile with any: its rows are encrypted at rest, these fields and every unmapped column are masked in
+    /// each read and report, never echoed in an error, and every read needs <see cref="RequiredPermissions"/> too.
+    /// </summary>
+    IReadOnlyList<string>? SensitiveFields = null,
+    /// <summary>A49: replaces the generic External ID help when re-importing does something else in this profile.</summary>
+    string? ExternalIdHelp = null);
 
 /// <summary>A row after generic parsing: values keyed by FieldName, already trimmed, empty → null, booleans "true"/"false",
 /// dates ISO yyyy-MM-dd, decimals invariant culture.</summary>

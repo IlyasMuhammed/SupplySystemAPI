@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using SMS.Modules.Integration.Core.Providers;
 using SMS.Modules.Integration.Data;
 using SMS.Modules.Integration.Domain;
+using SMS.Modules.Integration.Gateway.JournalEntries;
 using SMS.Shared.Integration.QuickBooks;
 
 namespace SMS.Modules.Integration.Core.Sync;
@@ -49,10 +50,14 @@ internal sealed class QboObjectBuilder : IQboObjectBuilder
     private readonly IRemoteNameResolver     _names;
     private readonly ICurrencyRules          _currency;
     private readonly IDocumentDefaultsSource? _defaults;
+    private readonly IJournalEntryRefSource? _journalRefs;
 
     /// <param name="defaults">A44 D-15 provider defaults. Optional: without it nothing extra is sent.</param>
-    public QboObjectBuilder(IntegrationDbContext db, IRemoteNameResolver names, ICurrencyRules currency, IDocumentDefaultsSource? defaults = null)
+    /// <param name="journalRefs">A49 G-1. Optional: without it journal entries cannot be built.</param>
+    public QboObjectBuilder(IntegrationDbContext db, IRemoteNameResolver names, ICurrencyRules currency, IDocumentDefaultsSource? defaults = null,
+                            IJournalEntryRefSource? journalRefs = null)
     {
+        _journalRefs = journalRefs;
         _db       = db;
         _names    = names;
         _currency = currency;
@@ -75,6 +80,7 @@ internal sealed class QboObjectBuilder : IQboObjectBuilder
             CreditMemoPayload m    => await BuildSalesDocumentAsync(map, SyncKind.CreditMemo, m, connection, settings, dryRun, ct),
             RefundReceiptPayload f => await BuildSalesDocumentAsync(map, SyncKind.RefundReceipt, f, connection, settings, dryRun, ct),
             VendorCreditPayload vc => await BuildVendorCreditAsync(map, vc, connection, settings, dryRun, ct),
+            JournalEntryPayload je => await BuildJournalEntryAsync(je, connection, ct),
             _ => throw new ArgumentException($"Unsupported payload type {payload.GetType().Name}.", nameof(payload))
         };
 
@@ -209,7 +215,7 @@ internal sealed class QboObjectBuilder : IQboObjectBuilder
         // Plan D-5: every line at gross — QuickBooks checks Amount against Qty × UnitPrice — and all the
         // discounts (per line and on the header) in one discount line. That line is the residue that makes
         // QuickBooks' total equal the caller's grand total; see InvoiceMath.
-        invoice.Lines.AddRange(SalesLines(p.Lines, refs, taxes, dryRun, missing));
+        invoice.Lines.AddRange(SalesLines(p.Lines, refs, taxes, dryRun, missing, defaults.ServiceItemId));
 
         var math = InvoiceMath.Of(p);
         invoice.DiscountAmount    = math.DiscountLine;
@@ -295,10 +301,13 @@ internal sealed class QboObjectBuilder : IQboObjectBuilder
 
     private static IEnumerable<RemoteSalesLine> SalesLines(
         IEnumerable<SalesInvoiceLinePayload>? lines, Dictionary<(SyncKind, string), string?> refs, TaxCodeLookup taxes,
-        bool dryRun, List<GatewayDependency> missing) =>
+        bool dryRun, List<GatewayDependency> missing, string? serviceItemId = null) =>
         (lines ?? []).Select(line => new RemoteSalesLine
         {
-            ItemId      = Ref(refs, SyncKind.Item, line.ItemExternalId, dryRun, missing),
+            // A49 E-13. Validation has refused a service line while no item is chosen.
+            ItemId      = line.ItemExternalId == ServiceInvoiceLines.ItemExternalId
+                ? serviceItemId ?? throw new InvalidOperationException("No default service item is chosen.")
+                : Ref(refs, SyncKind.Item, line.ItemExternalId, dryRun, missing),
             Description = Trim(line.Description),
             Quantity    = line.Quantity,
             UnitPrice   = line.UnitPrice,
@@ -543,6 +552,48 @@ internal sealed class QboObjectBuilder : IQboObjectBuilder
         };
         if (rateNote is not null) built.Warnings.Add(rateNote);
         return built;
+    }
+
+    // ── A49: journal entry (G-1) ─────────────────────────────────────────────
+
+    /// <summary>
+    /// Role → account → QuickBooks account, cost center → Class / Location. Validation has just refused anything unmapped; only a mapping
+    /// removed in between gets past it, and that throws rather than sending an unclassified line (the executor reports it).
+    /// </summary>
+    private async Task<BuiltRemoteEntity> BuildJournalEntryAsync(JournalEntryPayload p, IntegrationConnection connection, CancellationToken ct)
+    {
+        if (_journalRefs is null) throw new InvalidOperationException("Journal entry references are not available in this host.");
+        var refs = await _journalRefs.LoadAsync(connection.Id, ct);
+
+        var entry = new RemoteJournalEntry
+        {
+            DocNumber    = p.DocNumber.Trim(),
+            TxnDate      = p.TxnDate,
+            CurrencyCode = CurrencyRules.Normalize(p.CurrencyCode),
+            PrivateNote  = Trim(p.PrivateNote)
+        };
+        foreach (var line in p.Lines)
+        {
+            var costCenter = refs.CostCenter(line.CostCenterCode)
+                ?? throw new InvalidOperationException($"Cost center {line.CostCenterCode} lost its QuickBooks Class.");
+            entry.Lines.Add(new RemoteJournalEntryLine
+            {
+                IsDebit      = line.PostingType == JournalEntryPostingTypes.Debit,
+                Amount       = SyncPayloads.Money(line.Amount),
+                AccountId    = refs.Account(line.AccountRole, line.AccountCode)
+                    ?? throw new InvalidOperationException($"{line.AccountCode ?? line.AccountRole} lost its QuickBooks account."),
+                ClassId      = costCenter.QboClassRef,
+                DepartmentId = Trim(costCenter.QboDepartmentRef),
+                Description  = line.CostCenterName
+            });
+        }
+
+        return new BuiltRemoteEntity
+        {
+            Entity    = entry,
+            DocNumber = entry.DocNumber,
+            Lookup    = new RemoteLookup(DocNumber: entry.DocNumber)
+        };
     }
 
     /// <summary>A resolved reference, or null for a missing one / a dry-run placeholder.</summary>

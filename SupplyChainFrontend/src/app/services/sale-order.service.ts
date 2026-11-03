@@ -7,6 +7,7 @@ import {
 } from './logistics.service';
 import { FulfillmentRouteSource } from './fulfillment-routes.service';
 import type { LeadTimeResultModel } from './lead-time.service';
+import type { CreditCheckResult } from './ar-ap.service';
 
 // A29 — sale orders (/api/sale-orders, Demand) and the fulfilment endpoints Logistics mounts
 // under the same prefix (P6-05: create-delivery, deliveries).
@@ -382,6 +383,10 @@ export interface SaleOrderConfirmResultModel {
   /** True → show productionMessage and "Create production orders". */
   productionCreationFailed?: boolean;
   productionMessage?: string | null;
+  // A48 §2 — credit control (null / absent when the organization's mode is Off).
+  /** Warn mode: the order is confirmed but exceeds the credit limit. */
+  creditWarning?: string | null;
+  creditCheck?: CreditCheckResult | null;
 }
 
 /** POST /api/sale-orders/{id}/create-deliveries — the recovery button (D-12). Idempotent. */
@@ -602,8 +607,10 @@ export class SaleOrderService {
    * DRAFT to CONFIRMED: reserves what stock there is and raises purchase orders for the rest. A33: 400 with one
    * line per blocker when a line has no usable route; on success, the deliveries created per route (D-1).
    */
-  confirmSaleOrder(uuid: string): Observable<ApiResponse<SaleOrderConfirmResultModel>> {
-    return this.http.post<ApiResponse<SaleOrderConfirmResultModel>>(`${this.baseUrl}/${uuid}/confirm`, {});
+  /** A48 §2 — `creditOverrideReason` confirms an order the credit check blocks (needs CREDIT_OVERRIDE). */
+  confirmSaleOrder(uuid: string, creditOverrideReason?: string | null): Observable<ApiResponse<SaleOrderConfirmResultModel>> {
+    return this.http.post<ApiResponse<SaleOrderConfirmResultModel>>(`${this.baseUrl}/${uuid}/confirm`,
+      creditOverrideReason ? { creditOverrideReason } : {});
   }
 
   /**

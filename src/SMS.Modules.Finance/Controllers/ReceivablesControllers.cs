@@ -44,9 +44,11 @@ public class SalesInvoicesController : ControllerBase
         var result = await _svc.CreateFromFulfillmentAsync(req.DeliveryUuid, User.GetUserId());
         return Ok(ApiResponse<SalesInvoiceCreated>.Ok(
             result,
-            result.AlreadyExisted
+            (result.AlreadyExisted
                 ? $"An invoice already exists for this delivery: {result.InvoiceNumber}."
-                : StaticResponseMessage.recordCreatedSuccessfully));
+                : StaticResponseMessage.recordCreatedSuccessfully)
+            // A48 (AR, D-5) — warning only.
+            + (result.CreditWarning is null ? "" : $" Credit warning: {result.CreditWarning}")));
     }
 
     [HttpGet]

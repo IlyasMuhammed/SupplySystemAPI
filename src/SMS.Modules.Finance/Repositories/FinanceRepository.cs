@@ -20,6 +20,9 @@ internal sealed class InvoiceRepository : IInvoiceRepository
     internal const string ApprovedLedgerType = "INVOICE_APPROVED";
     internal const string ReversedLedgerType = "INVOICE_REVERSED";
 
+    /// <summary>A48 D-AP-15 — the app lock every INV- numbering takes (this repository and the supplier opening-balance import).</summary>
+    internal const string NumberingLock = "finance.supplier-invoice-number";
+
     /// <summary>Invoice.ReversalReason's column length.</summary>
     internal const int ReversalReasonMaxLength = 500;
     /// <summary>Invoice.Notes' column length — where a rejection reason, and an approval's notes, are kept.</summary>
@@ -135,6 +138,29 @@ internal sealed class InvoiceRepository : IInvoiceRepository
             po.State = EntityState.Detached;
     }
 
+    /// <summary>
+    /// A48 BR-MT-007 (API-CONTRACT §6) — 409 when this organization already has a live invoice of the supplier under the
+    /// same supplier invoice number (trimmed, case-insensitive). Rejected, reversed and deleted invoices do not count; a
+    /// blank number is never a duplicate. A service check, not a unique index (existing data may hold duplicates).
+    /// </summary>
+    private async Task EnsureSupplierInvoiceNoFreeAsync(Guid supplierId, string? supplierInvoiceNo, Guid? exceptUuid, string? supplierName)
+    {
+        var no = supplierInvoiceNo?.Trim();
+        if (string.IsNullOrEmpty(no) || supplierId == Guid.Empty) return;
+
+        var upper = no.ToUpperInvariant();
+        var clash = await OwnInvoices
+            .Where(i => i.SupplierId == supplierId && i.SupplierInvoiceNo != null && i.SupplierInvoiceNo.Trim().ToUpper() == upper
+                     && i.MatchStatus != InvoiceMatchStatus.Rejected && i.MatchStatus != InvoiceMatchStatus.Reversed
+                     && (exceptUuid == null || i.UUID != exceptUuid))
+            .Select(i => new { i.InvoiceNumber, i.SupplierName })
+            .FirstOrDefaultAsync();
+
+        if (clash is not null)
+            throw new ConflictException(
+                $"Supplier invoice number {no} is already recorded for {supplierName ?? clash.SupplierName} (invoice {clash.InvoiceNumber}).");
+    }
+
     /// <summary>400 instead of a database error when a value is longer than its column.</summary>
     private static void CheckLength(string? value, int max, string what)
     {
@@ -189,6 +215,9 @@ internal sealed class InvoiceRepository : IInvoiceRepository
                 $"Purchase order {po.PoNumber} was placed with {po.SupplierName}; an invoice against it is that supplier's.");
         var supplierId = po?.SupplierId ?? req.SupplierId;
 
+        // A48 BR-MT-007 — one live invoice per supplier invoice number (D-CORE-6: a service check, no unique index).
+        await EnsureSupplierInvoiceNoFreeAsync(supplierId, req.SupplierInvoiceNo, exceptUuid: null, po?.SupplierName);
+
         // When lines are provided, compute subtotal from them — each line rounded to the cent as it is stored
         // (decimal(18,2)), so the Subtotal is the sum of the stored line totals and the tax below is worked out
         // from the Subtotal that is stored, not from a figure with more decimals than the column keeps.
@@ -214,7 +243,7 @@ internal sealed class InvoiceRepository : IInvoiceRepository
         var (currencyCode, currencyId) = await ResolveInvoiceCurrencyAsync(req, po);
 
         var now           = DateTime.UtcNow;
-        var invoiceNumber = await GenerateInvoiceNumberAsync(now.Year);
+        var invoiceNumber = string.Empty; // A48 QA-2: numbered in the insert's transaction, below
 
         var e = new Invoice
         {
@@ -278,9 +307,15 @@ internal sealed class InvoiceRepository : IInvoiceRepository
             }
         }
 
-        _db.Invoices.Add(e);
-        await _db.SaveChangesAsync();
-        return e.UUID;
+        // A48 QA-2 — number and insert in one transaction, the numbering lock held to the commit (retry-safe: a retried
+        // attempt starts from a cleared tracker and numbers again).
+        return await InvoiceRowLocks.InTransactionAsync(_db, async () =>
+        {
+            e.InvoiceNumber = await GenerateInvoiceNumberAsync(now.Year);
+            _db.Invoices.Add(e);
+            await _db.SaveChangesAsync();
+            return e.UUID;
+        });
     }
 
     public async Task<PaginatedResponse<InvoiceListItemModel>> GetListAsync(InvoiceFilter filter)
@@ -625,6 +660,9 @@ internal sealed class InvoiceRepository : IInvoiceRepository
               : supplierNoChange ? $"Payments have been recorded against invoice {e.InvoiceNumber}, so the supplier's invoice number they were made against can no longer change."
               :                    $"Payments have been recorded against invoice {e.InvoiceNumber}, so its payment status now follows them.");
 
+        // A48 BR-MT-007 — the new number must not be another live invoice's of the same supplier.
+        if (supplierNoChange) await EnsureSupplierInvoiceNoFreeAsync(e.SupplierId, supplierNo, e.UUID, e.SupplierName);
+
         var taxCode = codeToApply is null ? null : await ResolvePurchaseTaxCodeAsync(codeToApply);
 
         // ── Apply ──────────────────────────────────────────────────────────────
@@ -713,6 +751,20 @@ internal sealed class InvoiceRepository : IInvoiceRepository
             throw new ConflictException(InvoiceMatchStatus.Is(inv.MatchStatus, InvoiceMatchStatus.Approved)
                 ? $"Invoice {inv.InvoiceNumber} is already approved. Approving it again would book it to the supplier ledger twice."
                 : $"Invoice {inv.InvoiceNumber} is {inv.MatchStatus}, so it cannot be approved. Only a Pending, Matched or Variance invoice can be.");
+
+        // A48 BR-MT-008 (D-AP-4): once the per-line match has judged the invoice a variance, only an override lets it
+        // through. An invoice the A48 match never ran on is approved as before.
+        if (ArAp.Payables.MatchGate.Blocks(inv.LineMatchResult, inv.MatchOverrideReason))
+            throw new ConflictException(ArAp.Payables.MatchGate.Text(inv.InvoiceNumber));
+
+        // REV-8 (D-AP-19): a stored A48 match is re-evaluated now, under the PO's lock (taken after the invoice's — the one
+        // order), against what approved invoices have already billed.
+        if (inv.LineMatchResult is not null && inv.MatchOverrideReason is null && inv.PoUuid is { } matchedPo)
+        {
+            await LockPurchaseOrderAsync(matchedPo);
+            if (await ArAp.Payables.MatchRecheck.ProblemAsync(_db, _demand, _warehouse, inv) is { } stale)
+                throw new ConflictException(stale);
+        }
 
         if (_currency is not null)
         {
@@ -866,6 +918,11 @@ internal sealed class InvoiceRepository : IInvoiceRepository
             .Where(d => d.AppliedToInvoiceUuid == inv.UUID && !d.IsDelete)
             .Select(d => d.DebitNoteNumber)
             .ToListAsync());
+        // A48 (D-6) — a note applied in part to this invoice (supplier_note_applications) is a deduction as well.
+        notes.AddRange((await _db.Set<SupplierNoteApplication>()
+            .Where(a => a.InvoiceId == inv.Id && a.ReversedAt == null)
+            .Select(a => a.NoteNumber)
+            .ToListAsync()).Where(n => !notes.Contains(n)).Distinct());
         if (notes.Count > 0)
             throw new ConflictException(
                 $"{string.Join(", ", notes)} {(notes.Count == 1 ? "has" : "have")} been deducted from invoice {inv.InvoiceNumber}. "
@@ -1192,13 +1249,23 @@ internal sealed class InvoiceRepository : IInvoiceRepository
         return (expected, grnValue, within && !overBilled ? InvoiceMatchStatus.Matched : InvoiceMatchStatus.Variance);
     }
 
+    /// <summary>
+    /// INV-YYYY-NNNNN (format unchanged): this organization's next free number this year. A48 QA-2 — under the numbering
+    /// lock (<see cref="DocumentNumbers.SerializeAsync"/>, held to the commit of the caller's transaction), and the first
+    /// number after count + 1 that is not taken (gaps, imported opening balances): two creations at once — a person and the
+    /// GRN's automatic invoice — used to both take count + 1 and the second failed on the unique index (500).
+    /// </summary>
     private async Task<string> GenerateInvoiceNumberAsync(int year)
     {
+        var organizationId = _db.TenantContext.OrganizationId;
         var yearStart = new DateTime(year, 1, 1, 0, 0, 0, DateTimeKind.Utc);
         var yearEnd   = yearStart.AddYears(1);
-        var count     = await _db.Invoices
-            .CountAsync(i => i.CreatedDate >= yearStart && i.CreatedDate < yearEnd);
-        return $"INV-{year}-{(count + 1):D5}";
+        var own       = _db.Invoices.IgnoreQueryFilters().Where(i => i.OrganizationId == organizationId);
+
+        await DocumentNumbers.SerializeAsync(_db, NumberingLock, organizationId);
+        var count = await own.CountAsync(i => i.CreatedDate >= yearStart && i.CreatedDate < yearEnd);
+        return await DocumentNumbers.NextFreeAsync(count, n => $"INV-{year}-{n:D5}",
+            number => own.AnyAsync(i => i.InvoiceNumber == number));
     }
 }
 

@@ -172,11 +172,13 @@ internal sealed class ImportExecutionService : IImportExecutionService
     private readonly IImportJobScheduler? _scheduler;
     private readonly IImportHubNotifier? _hub;
     private readonly ILogger _log;
+    private readonly ImportRowProtector _protector;
 
     public ImportExecutionService(ImportDbContext db, ImportTargetRegistry registry, ITenantContext tenant, ImportOpeningGate opening,
         IImportSessionService sessions, IImportJobScheduler? scheduler = null, IImportHubNotifier? hub = null,
-        ILogger<ImportExecutionService>? log = null)
+        ILogger<ImportExecutionService>? log = null, ImportRowProtector? protector = null)
     {
+        _protector = protector ?? new ImportRowProtector();
         _db = db; _registry = registry; _tenant = tenant; _opening = opening; _sessions = sessions; _scheduler = scheduler; _hub = hub;
         _log = log ?? (ILogger)NullLogger.Instance;
     }
@@ -317,7 +319,7 @@ internal sealed class ImportExecutionService : IImportExecutionService
             }
             var update = row.ExistingEntityUuid is not null && strategy == ImportDuplicateStrategy.Update;
             var values = (row.ValuesJson is null ? new Dictionary<string, string?>()
-                    : JsonSerializer.Deserialize<Dictionary<string, string?>>(row.ValuesJson, ImportSessionService.Json) ?? new())
+                    : JsonSerializer.Deserialize<Dictionary<string, string?>>(_protector.Open(row.ValuesJson), ImportSessionService.Json) ?? new())
                 .Where(kv => !kv.Key.Equals(ImportLimits.ExternalIdField, StringComparison.OrdinalIgnoreCase))
                 .ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase);
             toApply.Add((row, new ImportApplyRow(row.RowNumber, values, update ? "UPDATE" : "CREATE", update ? row.ExistingEntityUuid : null)));

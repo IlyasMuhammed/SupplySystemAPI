@@ -574,6 +574,11 @@ public class CreateSupplierPaymentLineRequest
     public Guid    InvoiceUuid     { get; set; }
     public decimal AllocatedAmount { get; set; }
     public string? Notes           { get; set; }
+    /// <summary>
+    /// A48 (AP-1, C15) — early-payment discount taken on this invoice: AllocatedAmount is the gross settled on it, the
+    /// cash for the line is AllocatedAmount − DiscountAmount. 0 (the default) = no discount, as before.
+    /// </summary>
+    public decimal DiscountAmount  { get; set; }
 }
 
 public class CreateSupplierPaymentRequest
@@ -644,6 +649,8 @@ public class SupplierPaymentLineModel
     public string? Notes                       { get; set; }
     /// <summary>A35 C7 — realized gain (+) / loss (−) in the purchase base on this line, set when the payment posts.</summary>
     public decimal? ExchangeDifference         { get; set; }
+    /// <summary>A48 AP-1 — early-payment discount taken on this line (0 = none).</summary>
+    public decimal DiscountAmount              { get; set; }
 }
 
 public class SupplierPaymentDetailModel

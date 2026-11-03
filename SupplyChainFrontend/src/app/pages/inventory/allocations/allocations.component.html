@@ -88,7 +88,7 @@
               </td>
               <td><div class="ref">{{ d.reference }}</div><div class="sub">{{ demandTypeLabel(d.demandType) }}</div></td>
               <td><p-tag [value]="priorityLabel(d.priority)" [severity]="prioritySeverity(d.priority)"></p-tag></td>
-              <td>{{ d.requiredDate | date:'mediumDate' }}</td>
+              <td>{{ d.requiredDate | date:'dd MMM yyyy' }}</td>
               <td>{{ warehouseName(d.warehouseUuid) }}</td>
               <td class="num">{{ d.requiredQty | number:'1.0-4' }}</td>
               <td class="num">{{ d.reservedQty | number:'1.0-4' }}</td>
@@ -165,12 +165,12 @@
                 <td>{{ a.supplyType === 'ON_HAND' ? 'On hand' : (a.supplyReference || a.supplyType) }}</td>
                 <td class="num">{{ a.allocatedQty | number:'1.0-4' }}</td>
                 <td class="num">{{ a.consumedQty | number:'1.0-4' }}</td>
-                <td>{{ a.requiredDate | date:'mediumDate' }}</td>
+                <td>{{ a.requiredDate | date:'dd MMM yyyy' }}</td>
                 <td>
                   <p-tag [value]="a.status" [severity]="statusSeverity(a.status)"></p-tag>
                   <div class="sub" *ngIf="a.releaseReason">{{ a.releaseReason }}</div>
                 </td>
-                <td>{{ a.allocatedAt | date:'short' }}</td>
+                <td>{{ a.allocatedAt | date:'dd MMM yyyy, HH:mm' }}</td>
                 <td *ngIf="canAdmin" class="actions">
                   <ng-container *ngIf="a.status === 'ACTIVE'">
                     <p-button icon="pi pi-arrow-right-arrow-left" [text]="true" size="small"

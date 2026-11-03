@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using SMS.Modules.Accounting.Data;
 using SMS.Modules.Accounting.Domain;
 using SMS.Modules.Accounting.Models;
@@ -70,7 +70,9 @@ internal sealed class DefaultsService : IDefaultsService
         var key = NormalizeKey(defaultKey) ?? throw new NotFoundException($"Unknown accounting default {defaultKey}.");
         if (DefaultKeys.IsLocked(key)) throw new BadRequestException(LockedMessage);
 
-        var row = await _db.AccountingDefaults.IgnoreQueryFilters().SingleAsync(d => d.OrganizationId == org && d.DefaultKey == key, ct);
+        // A49 G-4 — an HR role has no row while the organization's HRM is off: unknown to it.
+        var row = await _db.AccountingDefaults.IgnoreQueryFilters().SingleOrDefaultAsync(d => d.OrganizationId == org && d.DefaultKey == key, ct)
+            ?? throw new NotFoundException($"Unknown accounting default {defaultKey}.");
         var complete = await _setup.GetStatusCodeAsync(org, ct) == SetupStatuses.Complete;
         var (account, problem) = await ResolveAsync(org, row, accountUuid, complete, ct);
         if (problem is not null) throw new BadRequestException(problem);
@@ -108,7 +110,7 @@ internal sealed class DefaultsService : IDefaultsService
         foreach (var item in request.Items ?? [])
         {
             var key = NormalizeKey(item.DefaultKey);
-            if (key is null)
+            if (key is null || rows.All(r => r.DefaultKey != key)) // A49 G-4 — an HR role has no row while HRM is off
             {
                 problems.Add(new DefaultMessageModel { DefaultKey = item.DefaultKey ?? "", Message = $"Unknown accounting default {item.DefaultKey}." });
                 continue;
@@ -254,7 +256,7 @@ internal sealed class DefaultsService : IDefaultsService
 
         return new AccountingDefaultsModel
         {
-            Categories = DefaultCategories.All
+            Categories = DefaultCategories.AllWithHr
                 .Select(c => new AccountingDefaultCategoryModel { Category = c, Items = items.Where(i => i.Category == c).ToList() })
                 .Where(c => c.Items.Count > 0)
                 .ToList(),

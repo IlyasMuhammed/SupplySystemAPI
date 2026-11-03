@@ -39,6 +39,8 @@ public static class SuppliersModuleExtensions
         services.AddScoped<ISupplierNameLookupService, SupplierNameLookupService>();
         // A32 — Demand's sale inquiry/quotation customer check (BR-C1-01/BR-C2-01).
         services.AddScoped<IPartnerRoleLookup, PartnerRoleLookup>();
+        // A48 D-3 — partners (names, contacts, credit limit, bank details) for Finance's AR/AP sub-ledgers.
+        services.AddScoped<IPartnerLookupService, PartnerLookupService>();
         // A34 D-11 tier 4 — the supplier record's lead time, for Inventory's lead-time calculator.
         services.AddScoped<ISupplierLeadTimeLookup, SupplierLeadTimeLookup>();
         services.AddScoped<ISupplierScoreLookupService, SupplierScoreLookupService>();

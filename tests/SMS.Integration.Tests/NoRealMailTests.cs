@@ -54,4 +54,18 @@ public sealed class NoRealMailTests : IClassFixture<SapWebApplicationFactory>
 
         watch.Elapsed.Should().BeLessThan(NoNetwork);
     }
+
+    [Fact]
+    public async Task A48_REV1_the_result_returning_send_reports_the_disarmed_failure_at_once()
+    {
+        using var scope = _f.Services.CreateScope();
+        var sender = scope.ServiceProvider.GetRequiredService<IEmailSender>();
+
+        var watch = Stopwatch.StartNew();
+        var result = await sender.SendWithResultAsync("someone@example.com", "Test", "<p>Test</p>");
+
+        result.Success.Should().BeFalse("nothing can go out of a disarmed host, and the caller must learn that");
+        result.Error.Should().NotBeNullOrWhiteSpace();
+        watch.Elapsed.Should().BeLessThan(NoNetwork);
+    }
 }

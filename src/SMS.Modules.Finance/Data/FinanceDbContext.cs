@@ -44,6 +44,24 @@ internal sealed class FinanceDbContext : DbContext, ITenantScopedDbContext
     // A40 (TFIN, D-7) — per-organization Finance settings (the opening balance date).
     internal DbSet<FinanceOrgSettings> OrgSettings => Set<FinanceOrgSettings>();
 
+    // A48 (CORE) — AR & AP sub-ledgers (docs/ar-ap-subledgers/API-CONTRACT.md §11).
+    internal DbSet<PartnerFinancialProfile>   PartnerFinancialProfiles   => Set<PartnerFinancialProfile>();
+    internal DbSet<CreditHoldRequest>         CreditHoldRequests         => Set<CreditHoldRequest>();
+    internal DbSet<StatementLog>              StatementLogs              => Set<StatementLog>();
+    internal DbSet<DunningProcedure>          DunningProcedures          => Set<DunningProcedure>();
+    internal DbSet<DunningLevel>              DunningLevels              => Set<DunningLevel>();
+    internal DbSet<DunningRun>                DunningRuns                => Set<DunningRun>();
+    internal DbSet<DunningRunItem>            DunningRunItems            => Set<DunningRunItem>();
+    internal DbSet<MatchToleranceRule>        MatchToleranceRules        => Set<MatchToleranceRule>();
+    internal DbSet<InvoiceMatchLine>          InvoiceMatchLines          => Set<InvoiceMatchLine>();
+    internal DbSet<EarlyPaymentTerm>          EarlyPaymentTerms          => Set<EarlyPaymentTerm>();
+    internal DbSet<PaymentSchedule>           PaymentSchedules           => Set<PaymentSchedule>();
+    internal DbSet<PaymentRun>                PaymentRuns                => Set<PaymentRun>();
+    internal DbSet<PaymentRunBatch>           PaymentRunBatches          => Set<PaymentRunBatch>();
+    internal DbSet<PaymentRunItem>            PaymentRunItems            => Set<PaymentRunItem>();
+    internal DbSet<CustomerCreditApplication> CustomerCreditApplications => Set<CustomerCreditApplication>();
+    internal DbSet<SupplierNoteApplication>   SupplierNoteApplications   => Set<SupplierNoteApplication>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasDefaultSchema("finance");

@@ -275,6 +275,12 @@ internal sealed class FakeFinance : ICounterSaleService
         if (!Voids.ContainsKey(sourceUuid)) Voids[sourceUuid] = Guid.NewGuid();
         return Task.FromResult(new CounterReturnResult(Voids[sourceUuid], $"CN-V{_n}", 0m, []));
     }
+
+    /// <summary>A48 QA-5 — what Finance says may still be credited, per sales invoice (absent = unknown → no up-front check).</summary>
+    public Dictionary<Guid, decimal> CreditableRemaining { get; } = [];
+
+    public Task<decimal?> GetCreditableRemainingAsync(Guid organizationId, Guid salesInvoiceUuid, CancellationToken ct = default) =>
+        Task.FromResult<decimal?>(CreditableRemaining.TryGetValue(salesInvoiceUuid, out var r) ? r : null);
 }
 
 /// <summary>One organization, real POS services over EF InMemory, fakes for every seam.</summary>

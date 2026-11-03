@@ -50,6 +50,13 @@ public interface ISaleOrderService
     /// </summary>
     Task<SaleOrderConfirmResultModel?> ConfirmWithResultAsync(Guid uuid, int userId);
 
+    /// <summary>
+    /// A48 (AR, D-5) — the same, with the credit check: <paramref name="credit"/> carries the override reason and whether the
+    /// caller holds CREDIT_OVERRIDE. Default (an implementation without credit control): the plain confirm.
+    /// </summary>
+    Task<SaleOrderConfirmResultModel?> ConfirmWithResultAsync(Guid uuid, int userId, SaleOrderCreditContext? credit) =>
+        ConfirmWithResultAsync(uuid, userId);
+
     /// <summary><see cref="CancelAsync"/> with the deliveries it cancelled and the issued ones it left (D-15). Null = not found.</summary>
     Task<SaleOrderCancelResultModel?> CancelWithResultAsync(Guid uuid, int userId, string? reason);
 

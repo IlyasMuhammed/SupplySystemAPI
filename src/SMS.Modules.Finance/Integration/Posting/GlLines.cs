@@ -13,7 +13,7 @@ internal sealed class GlLines
     /// <summary>The most a balanced document may differ by before <see cref="Build"/> refuses it.</summary>
     internal const decimal MaxRoundingDifference = 0.05m;
 
-    private readonly List<(string Role, decimal Debit, decimal Credit, string? TaxCode, decimal? TaxAmount, string? Label, Guid? Partner)> _lines = [];
+    private readonly List<(string? Role, string? AccountCode, decimal Debit, decimal Credit, string? TaxCode, decimal? TaxAmount, string? Label, Guid? Partner)> _lines = [];
     private readonly Guid? _partner;
 
     public GlLines(Guid? partner = null) => _partner = partner;
@@ -24,6 +24,16 @@ internal sealed class GlLines
     public GlLines Credit(string role, decimal amount, string? label = null, string? taxCode = null) =>
         Add(role, amount, label, taxCode, debit: false);
 
+    /// <summary>A49 E-13: a line on an explicit leaf account instead of a role.</summary>
+    public GlLines AccountLine(string accountCode, decimal amount, string? label, bool debit)
+    {
+        var value = Round(amount);
+        if (value == 0m) return this;
+        if (value < 0m) { value = -value; debit = !debit; }
+        _lines.Add((null, accountCode, debit ? value : 0m, debit ? 0m : value, null, null, label, _partner));
+        return this;
+    }
+
     private GlLines Add(string role, decimal amount, string? label, string? taxCode, bool debit)
     {
         var value = Round(amount);
@@ -31,7 +41,7 @@ internal sealed class GlLines
         if (value < 0m) { value = -value; debit = !debit; }
 
         var tax = role is PostingRoles.TaxPayable or PostingRoles.TaxReceivable ? value : (decimal?)null;
-        _lines.Add((role, debit ? value : 0m, debit ? 0m : value, taxCode, tax, label, _partner));
+        _lines.Add((role, null, debit ? value : 0m, debit ? 0m : value, taxCode, tax, label, _partner));
         return this;
     }
 
@@ -52,6 +62,7 @@ internal sealed class GlLines
         {
             LineNumber  = i + 1,
             AccountRole = l.Role,
+            AccountCode = l.AccountCode,
             Debit       = l.Debit,
             Credit      = l.Credit,
             TaxCode     = l.TaxCode,

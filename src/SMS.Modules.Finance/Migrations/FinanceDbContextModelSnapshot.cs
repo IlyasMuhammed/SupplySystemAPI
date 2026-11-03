@@ -23,6 +23,109 @@ namespace SMS.Modules.Finance.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
+            modelBuilder.Entity("SMS.Modules.Finance.Domain.CreditHoldRequest", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<decimal?>("Amount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime?>("ApprovedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("ApprovedBy")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ApprovedByName")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateOnly?>("ExpiryDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("NewValue")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("PartnerName")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<Guid>("PartnerUuid")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("PreviousValue")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int>("ProfileId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime>("RequestedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("RequestedBy")
+                        .HasColumnType("int");
+
+                    b.Property<string>("RequestedByName")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("SourceDocumentNumber")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("SourceDocumentType")
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<Guid?>("SourceDocumentUuid")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasDefaultValue("Completed");
+
+                    b.Property<Guid>("Uuid")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProfileId");
+
+                    b.HasIndex("Uuid")
+                        .IsUnique();
+
+                    b.HasIndex("OrganizationId", "PartnerUuid", "RequestedAt");
+
+                    b.ToTable("credit_hold_requests", "finance", t =>
+                        {
+                            t.HasCheckConstraint("CK_credit_hold_requests_Action", "[Action] IN ('Hold','Release','TempIncrease','TempExpired','RiskTier','Override','DunningHold','DunningReset')");
+
+                            t.HasCheckConstraint("CK_credit_hold_requests_Status", "[Status] IN ('Pending','Completed','Rejected')");
+                        });
+                });
+
             modelBuilder.Entity("SMS.Modules.Finance.Domain.CreditNote", b =>
                 {
                     b.Property<int>("Id")
@@ -217,6 +320,93 @@ namespace SMS.Modules.Finance.Migrations
                         });
                 });
 
+            modelBuilder.Entity("SMS.Modules.Finance.Domain.CustomerCreditApplication", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime>("AppliedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("AppliedBy")
+                        .HasColumnType("int");
+
+                    b.Property<string>("AppliedByName")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int>("CreditNoteId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("CreditNoteNumber")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<Guid>("CreditNoteUuid")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("InvoiceId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("InvoiceNumber")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<Guid>("InvoiceUuid")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("PartnerUuid")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ReversalReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime?>("ReversedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("ReversedBy")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("Uuid")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreditNoteId");
+
+                    b.HasIndex("InvoiceId");
+
+                    b.HasIndex("Uuid")
+                        .IsUnique();
+
+                    b.HasIndex("OrganizationId", "CreditNoteUuid");
+
+                    b.HasIndex("OrganizationId", "InvoiceUuid");
+
+                    b.ToTable("customer_credit_applications", "finance", t =>
+                        {
+                            t.HasCheckConstraint("CK_customer_credit_applications_Amount", "[Amount] > 0");
+
+                            t.HasCheckConstraint("CK_customer_credit_applications_Distinct", "[CreditNoteId] <> [InvoiceId]");
+                        });
+                });
+
             modelBuilder.Entity("SMS.Modules.Finance.Domain.CustomerLedgerEntry", b =>
                 {
                     b.Property<int>("Id")
@@ -293,6 +483,10 @@ namespace SMS.Modules.Finance.Migrations
 
                     b.HasIndex("OrganizationId", "PartnerId", "SequenceNo")
                         .IsUnique();
+
+                    b.HasIndex(new[] { "OrganizationId", "ReferenceId" }, "IX_customer_ledger_OrganizationId_ReferenceId");
+
+                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex(new[] { "OrganizationId", "ReferenceId" }, "IX_customer_ledger_OrganizationId_ReferenceId"), new[] { "EntryType", "ReferenceType", "EntryDate" });
 
                     b.ToTable("customer_ledger", "finance");
                 });
@@ -574,6 +768,13 @@ namespace SMS.Modules.Finance.Migrations
                     b.Property<Guid>("OrganizationId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("Origin")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)")
+                        .HasDefaultValue("SRO");
+
                     b.Property<DateTime?>("SettledAt")
                         .HasColumnType("datetime2");
 
@@ -617,7 +818,10 @@ namespace SMS.Modules.Finance.Migrations
                     b.HasIndex("OrganizationId", "DebitNoteNumber")
                         .IsUnique();
 
-                    b.ToTable("debit_notes", "finance");
+                    b.ToTable("debit_notes", "finance", t =>
+                        {
+                            t.HasCheckConstraint("CK_debit_notes_Origin", "[Origin] IN ('SRO','MEMO')");
+                        });
                 });
 
             modelBuilder.Entity("SMS.Modules.Finance.Domain.DebtWriteOff", b =>
@@ -681,6 +885,472 @@ namespace SMS.Modules.Finance.Migrations
                         .IsUnique();
 
                     b.ToTable("debt_write_offs", "finance");
+                });
+
+            modelBuilder.Entity("SMS.Modules.Finance.Domain.DunningLevel", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("ActionType")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasDefaultValue("Email");
+
+                    b.Property<string>("BodyTemplate")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<decimal?>("ChargeAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("DaysAfterPrevious")
+                        .HasColumnType("int");
+
+                    b.Property<int>("DunningProcedureId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("EscalationNote")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<bool>("IncludeInvoiceList")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
+                    b.Property<bool>("IncludeStatement")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("LevelNumber")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("SubjectTemplate")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<Guid>("Uuid")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrganizationId");
+
+                    b.HasIndex("Uuid")
+                        .IsUnique();
+
+                    b.HasIndex("DunningProcedureId", "LevelNumber")
+                        .IsUnique();
+
+                    b.ToTable("dunning_levels", "finance", t =>
+                        {
+                            t.HasCheckConstraint("CK_dunning_levels_ActionType", "[ActionType] IN ('Email','Letter','Manual')");
+
+                            t.HasCheckConstraint("CK_dunning_levels_ChargeAmount", "[ChargeAmount] IS NULL OR [ChargeAmount] >= 0");
+
+                            t.HasCheckConstraint("CK_dunning_levels_DaysAfterPrevious", "[DaysAfterPrevious] >= 0");
+
+                            t.HasCheckConstraint("CK_dunning_levels_LevelNumber", "[LevelNumber] >= 1");
+                        });
+                });
+
+            modelBuilder.Entity("SMS.Modules.Finance.Domain.DunningProcedure", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("BlockSalesAtLevel")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<string>("CreatedByName")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int>("GraceDays")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
+                    b.Property<bool>("IsDefault")
+                        .HasColumnType("bit");
+
+                    b.Property<decimal>("MinimumAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime?>("ModifiedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("ModifiedBy")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ModifiedByName")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("Uuid")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Uuid")
+                        .IsUnique();
+
+                    b.HasIndex("OrganizationId", "Code")
+                        .IsUnique();
+
+                    b.HasIndex(new[] { "OrganizationId" }, "UX_dunning_procedures_Default")
+                        .IsUnique()
+                        .HasFilter("[IsDefault] = 1");
+
+                    b.ToTable("dunning_procedures", "finance", t =>
+                        {
+                            t.HasCheckConstraint("CK_dunning_procedures_BlockSalesAtLevel", "[BlockSalesAtLevel] IS NULL OR [BlockSalesAtLevel] >= 1");
+
+                            t.HasCheckConstraint("CK_dunning_procedures_GraceDays", "[GraceDays] >= 0");
+
+                            t.HasCheckConstraint("CK_dunning_procedures_MinimumAmount", "[MinimumAmount] >= 0");
+                        });
+                });
+
+            modelBuilder.Entity("SMS.Modules.Finance.Domain.DunningRun", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateOnly>("AsOfDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("CancelReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime?>("CancelledAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CancelledBy")
+                        .HasColumnType("int");
+
+                    b.Property<string>("CancelledByName")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<string>("CreatedByName")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("CurrencyCode")
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<DateTime?>("ExecutedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("ExecutedBy")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ExecutedByName")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int>("ItemsFailed")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ItemsProcessed")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ItemsSent")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ItemsSkipped")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateOnly>("RunDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("RunNumber")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasDefaultValue("Draft");
+
+                    b.Property<decimal>("TotalAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("TotalCustomers")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("Uuid")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Uuid")
+                        .IsUnique();
+
+                    b.HasIndex("OrganizationId", "RunNumber")
+                        .IsUnique();
+
+                    b.HasIndex(new[] { "OrganizationId", "RunDate" }, "UX_dunning_runs_OrgDay")
+                        .IsUnique()
+                        .HasFilter("[Status] <> 'Cancelled'");
+
+                    b.ToTable("dunning_runs", "finance", t =>
+                        {
+                            t.HasCheckConstraint("CK_dunning_runs_Status", "[Status] IN ('Draft','Processing','Completed','Cancelled')");
+                        });
+                });
+
+            modelBuilder.Entity("SMS.Modules.Finance.Domain.DunningRunItem", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("ActionType")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasDefaultValue("Email");
+
+                    b.Property<string>("Body")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<decimal?>("ChargeAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("ChargeDocumentNumber")
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<Guid?>("ChargeDocumentUuid")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("CurrencySummary")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int>("DaysOverdue")
+                        .HasColumnType("int");
+
+                    b.Property<int>("DunningLevel")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("DunningProcedureId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("DunningRunId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("FailureReason")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("InvoiceUuids")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateOnly>("OldestDueDate")
+                        .HasColumnType("date");
+
+                    b.Property<int>("OpenItemCount")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("OverdueAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("PartnerCode")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("PartnerName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<Guid>("PartnerUuid")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("PreviousLevel")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("SentAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("SentTo")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("SkipReason")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasDefaultValue("Pending");
+
+                    b.Property<string>("Subject")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<Guid>("Uuid")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DunningRunId");
+
+                    b.HasIndex("Uuid")
+                        .IsUnique();
+
+                    b.HasIndex("OrganizationId", "PartnerUuid");
+
+                    b.ToTable("dunning_run_items", "finance", t =>
+                        {
+                            t.HasCheckConstraint("CK_dunning_run_items_ActionType", "[ActionType] IN ('Email','Letter','Manual')");
+
+                            t.HasCheckConstraint("CK_dunning_run_items_Status", "[Status] IN ('Pending','Sent','Skipped','Failed','Manual')");
+                        });
+                });
+
+            modelBuilder.Entity("SMS.Modules.Finance.Domain.EarlyPaymentTerm", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<string>("CreatedByName")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int>("DiscountDays")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("DiscountPercent")
+                        .HasColumnType("decimal(9,4)");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
+                    b.Property<DateTime?>("ModifiedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("ModifiedBy")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ModifiedByName")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int>("NetDays")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("Uuid")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Uuid")
+                        .IsUnique();
+
+                    b.HasIndex("OrganizationId", "Code")
+                        .IsUnique();
+
+                    b.ToTable("early_payment_terms", "finance", t =>
+                        {
+                            t.HasCheckConstraint("CK_early_payment_terms_DiscountDays", "[DiscountDays] >= 0 AND [DiscountDays] < [NetDays]");
+
+                            t.HasCheckConstraint("CK_early_payment_terms_DiscountPercent", "[DiscountPercent] > 0 AND [DiscountPercent] < 100");
+                        });
                 });
 
             modelBuilder.Entity("SMS.Modules.Finance.Domain.ExchangeDifference", b =>
@@ -898,6 +1568,13 @@ namespace SMS.Modules.Finance.Migrations
                     b.Property<DateTime>("CreatedDate")
                         .HasColumnType("datetime2");
 
+                    b.Property<string>("CreditControlMode")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)")
+                        .HasDefaultValue("Off");
+
                     b.Property<int?>("ModifiedBy")
                         .HasColumnType("int");
 
@@ -915,7 +1592,10 @@ namespace SMS.Modules.Finance.Migrations
                     b.HasIndex("OrganizationId")
                         .IsUnique();
 
-                    b.ToTable("org_settings", "finance");
+                    b.ToTable("org_settings", "finance", t =>
+                        {
+                            t.HasCheckConstraint("CK_org_settings_CreditControlMode", "[CreditControlMode] IN ('Off','Warn','Block')");
+                        });
                 });
 
             modelBuilder.Entity("SMS.Modules.Finance.Domain.Invoice", b =>
@@ -935,6 +1615,11 @@ namespace SMS.Modules.Finance.Migrations
                     b.Property<string>("AttachmentUrl")
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
+
+                    b.Property<bool>("AutoApproved")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
 
                     b.Property<string>("BaseCurrencyCode")
                         .HasMaxLength(10)
@@ -994,12 +1679,47 @@ namespace SMS.Modules.Finance.Migrations
                     b.Property<bool>("IsDelete")
                         .HasColumnType("bit");
 
+                    b.Property<string>("LineMatchResult")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<DateTime?>("MatchOverriddenAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("MatchOverriddenBy")
+                        .HasColumnType("int");
+
+                    b.Property<string>("MatchOverriddenByName")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("MatchOverrideReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
                     b.Property<string>("MatchStatus")
                         .IsRequired()
                         .ValueGeneratedOnAdd()
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)")
                         .HasDefaultValue("Pending");
+
+                    b.Property<string>("MatchType")
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<decimal?>("MatchVariancePercent")
+                        .HasColumnType("decimal(9,4)");
+
+                    b.Property<DateTime?>("MatchedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("MatchedBy")
+                        .HasColumnType("int");
+
+                    b.Property<string>("MatchedByName")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
 
                     b.Property<decimal>("MatchedGrnValue")
                         .HasColumnType("decimal(18,2)");
@@ -1091,6 +1811,9 @@ namespace SMS.Modules.Finance.Migrations
                     b.Property<decimal?>("TaxPercent")
                         .HasColumnType("decimal(5,2)");
 
+                    b.Property<int?>("ToleranceRuleId")
+                        .HasColumnType("int");
+
                     b.Property<decimal>("TotalAmount")
                         .HasColumnType("decimal(18,2)");
 
@@ -1105,9 +1828,14 @@ namespace SMS.Modules.Finance.Migrations
                     b.Property<decimal>("VarianceAmount")
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<bool?>("WithinTolerance")
+                        .HasColumnType("bit");
+
                     b.HasKey("Id");
 
                     b.HasIndex("OrganizationId");
+
+                    b.HasIndex("ToleranceRuleId");
 
                     b.HasIndex("TraceId");
 
@@ -1121,7 +1849,18 @@ namespace SMS.Modules.Finance.Migrations
                         .IsUnique()
                         .HasFilter("[SourceUuid] IS NOT NULL AND [IsDelete] = 0");
 
-                    b.ToTable("invoices", "finance");
+                    b.HasIndex(new[] { "OrganizationId", "MatchStatus", "SupplierId" }, "IX_invoices_ApAging");
+
+                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex(new[] { "OrganizationId", "MatchStatus", "SupplierId" }, "IX_invoices_ApAging"), new[] { "TotalAmount", "PaidAmount", "DueDate", "InvoiceDate", "ApprovedAt", "Currency", "IsDelete" });
+
+                    b.HasIndex(new[] { "OrganizationId", "SupplierId", "SupplierInvoiceNo" }, "IX_invoices_VendorInvoiceNo");
+
+                    b.ToTable("invoices", "finance", t =>
+                        {
+                            t.HasCheckConstraint("CK_invoices_LineMatchResult", "[LineMatchResult] IS NULL OR [LineMatchResult] IN ('Matched','PartialMatch','Mismatch')");
+
+                            t.HasCheckConstraint("CK_invoices_MatchType", "[MatchType] IS NULL OR [MatchType] IN ('ThreeWay','TwoWay')");
+                        });
                 });
 
             modelBuilder.Entity("SMS.Modules.Finance.Domain.InvoiceLine", b =>
@@ -1178,6 +1917,102 @@ namespace SMS.Modules.Finance.Migrations
                         .IsUnique();
 
                     b.ToTable("invoice_lines", "finance");
+                });
+
+            modelBuilder.Entity("SMS.Modules.Finance.Domain.InvoiceMatchLine", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("GrnLineUuid")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal?>("GrnQuantity")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<int>("InvoiceId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("InvoiceLineTotal")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<Guid?>("InvoiceLineUuid")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("InvoiceQuantity")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal>("InvoiceUnitPrice")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<string>("ItemDescription")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<int>("LineNo")
+                        .HasColumnType("int");
+
+                    b.Property<string>("LineStatus")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasDefaultValue("Pending");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal?>("PoLineTotal")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<Guid?>("PoLineUuid")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal?>("PoQuantity")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal?>("PoUnitPrice")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal?>("PriceVariance")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal?>("PriceVariancePercent")
+                        .HasColumnType("decimal(9,4)");
+
+                    b.Property<decimal?>("QuantityVariance")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal?>("TotalVariance")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<Guid>("Uuid")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("InvoiceId");
+
+                    b.HasIndex("OrganizationId");
+
+                    b.HasIndex("Uuid")
+                        .IsUnique();
+
+                    b.ToTable("invoice_match_lines", "finance", t =>
+                        {
+                            t.HasCheckConstraint("CK_invoice_match_lines_LineStatus", "[LineStatus] IN ('Pending','Matched','QuantityMismatch','PriceMismatch','Unmatched','Overridden')");
+                        });
                 });
 
             modelBuilder.Entity("SMS.Modules.Finance.Domain.MasterFinancialLedger", b =>
@@ -1399,6 +2234,102 @@ namespace SMS.Modules.Finance.Migrations
                     b.ToTable("master_product_ledger", "finance");
                 });
 
+            modelBuilder.Entity("SMS.Modules.Finance.Domain.MatchToleranceRule", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("AutoApproveWithin")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<string>("CreatedByName")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
+                    b.Property<bool>("IsDefault")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("ModifiedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("ModifiedBy")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ModifiedByName")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("PriceToleranceAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("PriceTolerancePercent")
+                        .HasColumnType("decimal(9,4)");
+
+                    b.Property<decimal>("QuantityTolerancePercent")
+                        .HasColumnType("decimal(9,4)");
+
+                    b.Property<decimal>("TotalToleranceAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("TotalTolerancePercent")
+                        .HasColumnType("decimal(9,4)");
+
+                    b.Property<Guid>("Uuid")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("VendorName")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<Guid?>("VendorUuid")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Uuid")
+                        .IsUnique();
+
+                    b.HasIndex("OrganizationId", "Name")
+                        .IsUnique();
+
+                    b.HasIndex(new[] { "OrganizationId" }, "UX_match_tolerance_rules_Default")
+                        .IsUnique()
+                        .HasFilter("[IsDefault] = 1");
+
+                    b.HasIndex(new[] { "OrganizationId", "VendorUuid" }, "UX_match_tolerance_rules_Vendor")
+                        .IsUnique()
+                        .HasFilter("[VendorUuid] IS NOT NULL AND [IsActive] = 1");
+
+                    b.ToTable("match_tolerance_rules", "finance", t =>
+                        {
+                            t.HasCheckConstraint("CK_match_tolerance_rules_NonNegative", "[PriceTolerancePercent] >= 0 AND [PriceToleranceAmount] >= 0 AND [QuantityTolerancePercent] >= 0 AND [TotalTolerancePercent] >= 0 AND [TotalToleranceAmount] >= 0");
+
+                            t.HasCheckConstraint("CK_match_tolerance_rules_Percent", "[PriceTolerancePercent] <= 100 AND [QuantityTolerancePercent] <= 100 AND [TotalTolerancePercent] <= 100");
+                        });
+                });
+
             modelBuilder.Entity("SMS.Modules.Finance.Domain.OrgCurrency", b =>
                 {
                     b.Property<int>("Id")
@@ -1490,6 +2421,171 @@ namespace SMS.Modules.Finance.Migrations
                             t.HasCheckConstraint("CK_org_currencies_Rounding", "[Rounding] > 0");
 
                             t.HasCheckConstraint("CK_org_currencies_SymbolPosition", "[SymbolPosition] IN ('before','after')");
+                        });
+                });
+
+            modelBuilder.Entity("SMS.Modules.Finance.Domain.PartnerFinancialProfile", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("AverageDaysToPay")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("BlockSalesAtDunning")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<string>("CreatedByName")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<bool>("CreditHold")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("CreditHoldAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreditHoldBy")
+                        .HasColumnType("int");
+
+                    b.Property<string>("CreditHoldByName")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("CreditHoldReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int>("CurrentDunningLevel")
+                        .HasColumnType("int");
+
+                    b.Property<string>("DefaultPaymentMethod")
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<int?>("DunningProcedureId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("EarlyPaymentTermId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("ExcludeFromDunning")
+                        .HasColumnType("bit");
+
+                    b.Property<DateOnly?>("LastDunningDate")
+                        .HasColumnType("date");
+
+                    b.Property<DateOnly?>("LastPaymentDate")
+                        .HasColumnType("date");
+
+                    b.Property<DateTime?>("ModifiedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("ModifiedBy")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ModifiedByName")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("PartnerRole")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<Guid>("PartnerUuid")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("PaymentPriority")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)")
+                        .HasDefaultValue("Normal");
+
+                    b.Property<string>("PreferredPaymentMethod")
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<string>("RiskTier")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)")
+                        .HasDefaultValue("Medium");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<DateTime?>("StatisticsUpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateOnly?>("TemporaryCreditExpiry")
+                        .HasColumnType("date");
+
+                    b.Property<decimal?>("TemporaryCreditLimit")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal?>("TotalOverdueAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<Guid>("Uuid")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("WithholdingTaxApplicable")
+                        .HasColumnType("bit");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DunningProcedureId")
+                        .HasFilter("[DunningProcedureId] IS NOT NULL");
+
+                    b.HasIndex("EarlyPaymentTermId")
+                        .HasFilter("[EarlyPaymentTermId] IS NOT NULL");
+
+                    b.HasIndex("Uuid")
+                        .IsUnique();
+
+                    b.HasIndex("OrganizationId", "PartnerRole");
+
+                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex("OrganizationId", "PartnerRole"), new[] { "CreditHold", "RiskTier" });
+
+                    b.HasIndex("OrganizationId", "PartnerUuid", "PartnerRole")
+                        .IsUnique();
+
+                    b.HasIndex(new[] { "OrganizationId" }, "IX_partner_financial_profiles_CreditHold")
+                        .HasFilter("[CreditHold] = 1");
+
+                    b.ToTable("partner_financial_profiles", "finance", t =>
+                        {
+                            t.HasCheckConstraint("CK_partner_financial_profiles_DunningLevel", "[CurrentDunningLevel] >= 0");
+
+                            t.HasCheckConstraint("CK_partner_financial_profiles_PartnerRole", "[PartnerRole] IN ('Customer','Vendor')");
+
+                            t.HasCheckConstraint("CK_partner_financial_profiles_PaymentPriority", "[PaymentPriority] IN ('High','Normal','Low')");
+
+                            t.HasCheckConstraint("CK_partner_financial_profiles_RiskTier", "[RiskTier] IN ('Low','Medium','High')");
+
+                            t.HasCheckConstraint("CK_partner_financial_profiles_TemporaryCreditLimit", "[TemporaryCreditLimit] IS NULL OR [TemporaryCreditLimit] > 0");
                         });
                 });
 
@@ -1639,6 +2735,505 @@ namespace SMS.Modules.Finance.Migrations
                         .IsUnique();
 
                     b.ToTable("payment_allocations", "finance");
+                });
+
+            modelBuilder.Entity("SMS.Modules.Finance.Domain.PaymentRun", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("ApprovedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("ApprovedBy")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ApprovedByName")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("BankAccount")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("BaseCurrencyCode")
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<string>("CancelReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime?>("CancelledAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CancelledBy")
+                        .HasColumnType("int");
+
+                    b.Property<string>("CancelledByName")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateOnly>("DueDateCutoff")
+                        .HasColumnType("date");
+
+                    b.Property<DateTime?>("ExecutedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("ExecutedBy")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ExecutedByName")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTime?>("ExportedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("FailedBatchCount")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IncludeDiscount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
+                    b.Property<decimal>("NetPaymentAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateOnly>("PaymentDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("PaymentFileName")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("PaymentMethod")
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<DateTime?>("ProposedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("ProposedBy")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ProposedByName")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<DateOnly>("RunDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("RunNumber")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<string>("SelectionCriteria")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasDefaultValue("Draft");
+
+                    b.Property<decimal>("TotalAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("TotalDiscount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("TotalItems")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TotalVendors")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("Uuid")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Uuid")
+                        .IsUnique();
+
+                    b.HasIndex("OrganizationId", "RunDate");
+
+                    b.HasIndex("OrganizationId", "RunNumber")
+                        .IsUnique();
+
+                    b.HasIndex("OrganizationId", "Status");
+
+                    b.ToTable("payment_runs", "finance", t =>
+                        {
+                            t.HasCheckConstraint("CK_payment_runs_Status", "[Status] IN ('Draft','Proposed','Reviewing','Approved','Executing','Completed','Cancelled')");
+                        });
+                });
+
+            modelBuilder.Entity("SMS.Modules.Finance.Domain.PaymentRunBatch", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("BankDetailsMasked")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("CurrencyCode")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<DateTime?>("ExecutedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("FailureReason")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<int>("ItemCount")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("NetAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("PaymentMethod")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<string>("PaymentReference")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int>("PaymentRunId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasDefaultValue("Pending");
+
+                    b.Property<string>("SupplierPaymentNumber")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<Guid?>("SupplierPaymentUuid")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("TotalAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("TotalDiscount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<Guid>("Uuid")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("VendorName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<Guid>("VendorUuid")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrganizationId");
+
+                    b.HasIndex("Uuid")
+                        .IsUnique();
+
+                    b.HasIndex("PaymentRunId", "VendorUuid", "CurrencyCode", "PaymentMethod")
+                        .IsUnique();
+
+                    b.ToTable("payment_run_batches", "finance", t =>
+                        {
+                            t.HasCheckConstraint("CK_payment_run_batches_Status", "[Status] IN ('Pending','Paid','Failed')");
+                        });
+                });
+
+            modelBuilder.Entity("SMS.Modules.Finance.Domain.PaymentRunItem", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("BatchId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("CurrencyCode")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<decimal>("DiscountAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateOnly>("DueDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("InvoiceNumber")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<Guid>("InvoiceUuid")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("NetPaymentAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("OriginalAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime?>("PaidAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("PaymentMethod")
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<int>("PaymentRunId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("PaymentScheduleId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("RemovedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("RemovedBy")
+                        .HasColumnType("int");
+
+                    b.Property<string>("RemovedByName")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("RemovedReason")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasDefaultValue("Proposed");
+
+                    b.Property<Guid>("Uuid")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("VendorName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<Guid>("VendorUuid")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BatchId");
+
+                    b.HasIndex("PaymentScheduleId");
+
+                    b.HasIndex("Uuid")
+                        .IsUnique();
+
+                    b.HasIndex("OrganizationId", "VendorUuid");
+
+                    b.HasIndex("PaymentRunId", "PaymentScheduleId")
+                        .IsUnique();
+
+                    b.ToTable("payment_run_items", "finance", t =>
+                        {
+                            t.HasCheckConstraint("CK_payment_run_items_Status", "[Status] IN ('Proposed','Approved','Removed','Paid','Failed')");
+                        });
+                });
+
+            modelBuilder.Entity("SMS.Modules.Finance.Domain.PaymentSchedule", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("AmountRemaining")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("BlockReason")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTime?>("BlockedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("BlockedBy")
+                        .HasColumnType("int");
+
+                    b.Property<string>("BlockedByName")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CurrencyCode")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<decimal?>("DiscountAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateOnly?>("DiscountDate")
+                        .HasColumnType("date");
+
+                    b.Property<decimal?>("DiscountPercent")
+                        .HasColumnType("decimal(9,4)");
+
+                    b.Property<DateOnly>("DueDate")
+                        .HasColumnType("date");
+
+                    b.Property<int?>("EarlyPaymentTermId")
+                        .HasColumnType("int");
+
+                    b.Property<DateOnly>("InvoiceDate")
+                        .HasColumnType("date");
+
+                    b.Property<int>("InvoiceId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("InvoiceNumber")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<Guid>("InvoiceUuid")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("ModifiedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("OriginalAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int?>("PaidInRunId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("PaymentBlock")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("PaymentMethod")
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<string>("PaymentPriority")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)")
+                        .HasDefaultValue("Normal");
+
+                    b.Property<int?>("ReservedByRunId")
+                        .HasColumnType("int");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasDefaultValue("Open");
+
+                    b.Property<string>("SupplierInvoiceNo")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<Guid>("Uuid")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("VendorName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<Guid>("VendorUuid")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EarlyPaymentTermId");
+
+                    b.HasIndex("InvoiceId")
+                        .IsUnique();
+
+                    b.HasIndex("PaidInRunId");
+
+                    b.HasIndex("ReservedByRunId")
+                        .HasFilter("[ReservedByRunId] IS NOT NULL");
+
+                    b.HasIndex("Uuid")
+                        .IsUnique();
+
+                    b.HasIndex("OrganizationId", "DiscountDate")
+                        .HasFilter("[DiscountDate] IS NOT NULL");
+
+                    b.HasIndex("OrganizationId", "Status", "DueDate");
+
+                    b.HasIndex("OrganizationId", "VendorUuid", "Status");
+
+                    b.ToTable("payment_schedules", "finance", t =>
+                        {
+                            t.HasCheckConstraint("CK_payment_schedules_PaymentPriority", "[PaymentPriority] IN ('High','Normal','Low')");
+
+                            t.HasCheckConstraint("CK_payment_schedules_Status", "[Status] IN ('Open','Blocked','Scheduled','PartiallyPaid','Paid','Cancelled')");
+                        });
                 });
 
             modelBuilder.Entity("SMS.Modules.Finance.Domain.ProductLedgerEntry", b =>
@@ -1950,6 +3545,10 @@ namespace SMS.Modules.Finance.Migrations
                     b.Property<decimal>("DiscountPercent")
                         .HasColumnType("decimal(5,2)");
 
+                    b.Property<string>("IncomeAccountCode")
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
                     b.Property<int>("LineNo")
                         .HasColumnType("int");
 
@@ -2012,6 +3611,113 @@ namespace SMS.Modules.Finance.Migrations
                         .IsUnique();
 
                     b.ToTable("sales_invoice_lines", "finance");
+                });
+
+            modelBuilder.Entity("SMS.Modules.Finance.Domain.StatementLog", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<Guid?>("BatchUuid")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("ClosingBalance")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("CurrencyCode")
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<string>("EmailError")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("EmailStatus")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)")
+                        .HasDefaultValue("NotSent");
+
+                    b.Property<DateTime?>("EmailedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("EmailedTo")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("Format")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)")
+                        .HasDefaultValue("PDF");
+
+                    b.Property<DateOnly>("FromDate")
+                        .HasColumnType("date");
+
+                    b.Property<DateTime>("GeneratedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("GeneratedBy")
+                        .HasColumnType("int");
+
+                    b.Property<string>("GeneratedByName")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int>("LineCount")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("OpeningBalance")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("PartnerName")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("PartnerRole")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<Guid>("PartnerUuid")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("StatementType")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<DateOnly>("ToDate")
+                        .HasColumnType("date");
+
+                    b.Property<Guid>("Uuid")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Uuid")
+                        .IsUnique();
+
+                    b.HasIndex("OrganizationId", "PartnerUuid", "PartnerRole", "GeneratedAt");
+
+                    b.ToTable("statement_log", "finance", t =>
+                        {
+                            t.HasCheckConstraint("CK_statement_log_Dates", "[ToDate] >= [FromDate]");
+
+                            t.HasCheckConstraint("CK_statement_log_EmailStatus", "[EmailStatus] IN ('NotSent','Sent','Failed')");
+
+                            t.HasCheckConstraint("CK_statement_log_PartnerRole", "[PartnerRole] IN ('Customer','Vendor')");
+
+                            t.HasCheckConstraint("CK_statement_log_StatementType", "[StatementType] IN ('Activity','OpenItems')");
+                        });
                 });
 
             modelBuilder.Entity("SMS.Modules.Finance.Domain.SupplierAdvancePayment", b =>
@@ -2128,6 +3834,93 @@ namespace SMS.Modules.Finance.Migrations
                         .IsUnique();
 
                     b.ToTable("supplier_ledger_entries", "finance");
+                });
+
+            modelBuilder.Entity("SMS.Modules.Finance.Domain.SupplierNoteApplication", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime>("AppliedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("AppliedBy")
+                        .HasColumnType("int");
+
+                    b.Property<string>("AppliedByName")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int>("InvoiceId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("InvoiceNumber")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<Guid>("InvoiceUuid")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("NoteNumber")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("NoteType")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<Guid>("NoteUuid")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ReversalReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime?>("ReversedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("ReversedBy")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("Uuid")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("VendorUuid")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("InvoiceId");
+
+                    b.HasIndex("Uuid")
+                        .IsUnique();
+
+                    b.HasIndex("OrganizationId", "InvoiceUuid");
+
+                    b.HasIndex("OrganizationId", "NoteType", "NoteUuid");
+
+                    b.ToTable("supplier_note_applications", "finance", t =>
+                        {
+                            t.HasCheckConstraint("CK_supplier_note_applications_Amount", "[Amount] > 0");
+
+                            t.HasCheckConstraint("CK_supplier_note_applications_NoteType", "[NoteType] IN ('DebitNote','CreditNote')");
+                        });
                 });
 
             modelBuilder.Entity("SMS.Modules.Finance.Domain.SupplierPayment", b =>
@@ -2279,6 +4072,11 @@ namespace SMS.Modules.Finance.Migrations
                     b.Property<decimal>("AllocatedAmount")
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<decimal>("DiscountAmount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("decimal(18,2)")
+                        .HasDefaultValue(0m);
+
                     b.Property<decimal?>("ExchangeDifference")
                         .HasColumnType("decimal(18,4)");
 
@@ -2391,6 +4189,68 @@ namespace SMS.Modules.Finance.Migrations
                     b.ToTable("tax_codes", "finance");
                 });
 
+            modelBuilder.Entity("SMS.Modules.Finance.Domain.CreditHoldRequest", b =>
+                {
+                    b.HasOne("SMS.Modules.Finance.Domain.PartnerFinancialProfile", "Profile")
+                        .WithMany()
+                        .HasForeignKey("ProfileId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Profile");
+                });
+
+            modelBuilder.Entity("SMS.Modules.Finance.Domain.CustomerCreditApplication", b =>
+                {
+                    b.HasOne("SMS.Modules.Finance.Domain.SalesInvoice", "CreditNote")
+                        .WithMany()
+                        .HasForeignKey("CreditNoteId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("SMS.Modules.Finance.Domain.SalesInvoice", "Invoice")
+                        .WithMany()
+                        .HasForeignKey("InvoiceId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.Navigation("CreditNote");
+
+                    b.Navigation("Invoice");
+                });
+
+            modelBuilder.Entity("SMS.Modules.Finance.Domain.DunningLevel", b =>
+                {
+                    b.HasOne("SMS.Modules.Finance.Domain.DunningProcedure", "DunningProcedure")
+                        .WithMany("Levels")
+                        .HasForeignKey("DunningProcedureId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("DunningProcedure");
+                });
+
+            modelBuilder.Entity("SMS.Modules.Finance.Domain.DunningRunItem", b =>
+                {
+                    b.HasOne("SMS.Modules.Finance.Domain.DunningRun", "DunningRun")
+                        .WithMany("Items")
+                        .HasForeignKey("DunningRunId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("DunningRun");
+                });
+
+            modelBuilder.Entity("SMS.Modules.Finance.Domain.Invoice", b =>
+                {
+                    b.HasOne("SMS.Modules.Finance.Domain.MatchToleranceRule", "ToleranceRule")
+                        .WithMany()
+                        .HasForeignKey("ToleranceRuleId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("ToleranceRule");
+                });
+
             modelBuilder.Entity("SMS.Modules.Finance.Domain.InvoiceLine", b =>
                 {
                     b.HasOne("SMS.Modules.Finance.Domain.Invoice", "Invoice")
@@ -2400,6 +4260,34 @@ namespace SMS.Modules.Finance.Migrations
                         .IsRequired();
 
                     b.Navigation("Invoice");
+                });
+
+            modelBuilder.Entity("SMS.Modules.Finance.Domain.InvoiceMatchLine", b =>
+                {
+                    b.HasOne("SMS.Modules.Finance.Domain.Invoice", "Invoice")
+                        .WithMany("MatchLines")
+                        .HasForeignKey("InvoiceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Invoice");
+                });
+
+            modelBuilder.Entity("SMS.Modules.Finance.Domain.PartnerFinancialProfile", b =>
+                {
+                    b.HasOne("SMS.Modules.Finance.Domain.DunningProcedure", "DunningProcedure")
+                        .WithMany()
+                        .HasForeignKey("DunningProcedureId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("SMS.Modules.Finance.Domain.EarlyPaymentTerm", "EarlyPaymentTerm")
+                        .WithMany()
+                        .HasForeignKey("EarlyPaymentTermId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("DunningProcedure");
+
+                    b.Navigation("EarlyPaymentTerm");
                 });
 
             modelBuilder.Entity("SMS.Modules.Finance.Domain.Payment", b =>
@@ -2432,6 +4320,75 @@ namespace SMS.Modules.Finance.Migrations
                     b.Navigation("SalesInvoice");
                 });
 
+            modelBuilder.Entity("SMS.Modules.Finance.Domain.PaymentRunBatch", b =>
+                {
+                    b.HasOne("SMS.Modules.Finance.Domain.PaymentRun", "PaymentRun")
+                        .WithMany("Batches")
+                        .HasForeignKey("PaymentRunId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("PaymentRun");
+                });
+
+            modelBuilder.Entity("SMS.Modules.Finance.Domain.PaymentRunItem", b =>
+                {
+                    b.HasOne("SMS.Modules.Finance.Domain.PaymentRunBatch", "Batch")
+                        .WithMany("Items")
+                        .HasForeignKey("BatchId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("SMS.Modules.Finance.Domain.PaymentRun", "PaymentRun")
+                        .WithMany("Items")
+                        .HasForeignKey("PaymentRunId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("SMS.Modules.Finance.Domain.PaymentSchedule", "PaymentSchedule")
+                        .WithMany()
+                        .HasForeignKey("PaymentScheduleId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Batch");
+
+                    b.Navigation("PaymentRun");
+
+                    b.Navigation("PaymentSchedule");
+                });
+
+            modelBuilder.Entity("SMS.Modules.Finance.Domain.PaymentSchedule", b =>
+                {
+                    b.HasOne("SMS.Modules.Finance.Domain.EarlyPaymentTerm", "EarlyPaymentTerm")
+                        .WithMany()
+                        .HasForeignKey("EarlyPaymentTermId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("SMS.Modules.Finance.Domain.Invoice", "Invoice")
+                        .WithMany()
+                        .HasForeignKey("InvoiceId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("SMS.Modules.Finance.Domain.PaymentRun", "PaidInRun")
+                        .WithMany()
+                        .HasForeignKey("PaidInRunId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("SMS.Modules.Finance.Domain.PaymentRun", "ReservedByRun")
+                        .WithMany()
+                        .HasForeignKey("ReservedByRunId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("EarlyPaymentTerm");
+
+                    b.Navigation("Invoice");
+
+                    b.Navigation("PaidInRun");
+
+                    b.Navigation("ReservedByRun");
+                });
+
             modelBuilder.Entity("SMS.Modules.Finance.Domain.SalesInvoiceLine", b =>
                 {
                     b.HasOne("SMS.Modules.Finance.Domain.SalesInvoice", "SalesInvoice")
@@ -2441,6 +4398,17 @@ namespace SMS.Modules.Finance.Migrations
                         .IsRequired();
 
                     b.Navigation("SalesInvoice");
+                });
+
+            modelBuilder.Entity("SMS.Modules.Finance.Domain.SupplierNoteApplication", b =>
+                {
+                    b.HasOne("SMS.Modules.Finance.Domain.Invoice", "Invoice")
+                        .WithMany()
+                        .HasForeignKey("InvoiceId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Invoice");
                 });
 
             modelBuilder.Entity("SMS.Modules.Finance.Domain.SupplierPaymentLine", b =>
@@ -2459,11 +4427,35 @@ namespace SMS.Modules.Finance.Migrations
                     b.Navigation("Allocations");
                 });
 
+            modelBuilder.Entity("SMS.Modules.Finance.Domain.DunningProcedure", b =>
+                {
+                    b.Navigation("Levels");
+                });
+
+            modelBuilder.Entity("SMS.Modules.Finance.Domain.DunningRun", b =>
+                {
+                    b.Navigation("Items");
+                });
+
             modelBuilder.Entity("SMS.Modules.Finance.Domain.Invoice", b =>
                 {
                     b.Navigation("Lines");
 
+                    b.Navigation("MatchLines");
+
                     b.Navigation("Payments");
+                });
+
+            modelBuilder.Entity("SMS.Modules.Finance.Domain.PaymentRun", b =>
+                {
+                    b.Navigation("Batches");
+
+                    b.Navigation("Items");
+                });
+
+            modelBuilder.Entity("SMS.Modules.Finance.Domain.PaymentRunBatch", b =>
+                {
+                    b.Navigation("Items");
                 });
 
             modelBuilder.Entity("SMS.Modules.Finance.Domain.SalesInvoice", b =>

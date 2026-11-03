@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using SMS.Modules.Accounting.Domain;
 
@@ -172,8 +172,8 @@ internal sealed class AccountingDefaultMap : IEntityTypeConfiguration<Accounting
     {
         b.ToTable("AccountingDefaults", t =>
         {
-            t.HasCheckConstraint("CK_AccountingDefaults_Key", GlColumn.In(nameof(AccountingDefault.DefaultKey), DefaultKeys.All));
-            t.HasCheckConstraint("CK_AccountingDefaults_Category", GlColumn.In(nameof(AccountingDefault.Category), DefaultCategories.All));
+            t.HasCheckConstraint("CK_AccountingDefaults_Key", GlColumn.In(nameof(AccountingDefault.DefaultKey), DefaultKeys.AllWithHr));
+            t.HasCheckConstraint("CK_AccountingDefaults_Category", GlColumn.In(nameof(AccountingDefault.Category), DefaultCategories.AllWithHr));
         });
         b.HasKey(x => x.Id);
         b.HasIndex(x => x.Uuid).IsUnique();

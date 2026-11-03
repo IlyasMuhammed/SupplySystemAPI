@@ -269,7 +269,7 @@ export class PickWalkComponent implements OnInit {
   /** Where to walk, as one readable string. Stock not yet put away has no bin. */
   location(line: PickListLineModel): string {
     const parts = [line.zoneName, line.binCode].filter(Boolean);
-    return parts.length ? parts.join(' · ') : 'Not put away';
+    return parts.length ? parts.join(' · ') : 'No bin assigned';
   }
 
   reasonLabel(code?: string): string {

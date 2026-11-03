@@ -73,6 +73,13 @@ internal sealed class BlockedRecordRevalidator : IBlockedRecordRevalidator
         Gateway.Validation.PayloadValidator.BankAccountMissingCode,
         // A44 D-55a: a not-for-sale product goes once a default income account exists (or the product is made saleable).
         SaleableItems.NotSaleableCode,
+        // A49: a journal entry goes once its accounts and cost centers are mapped and the currencies match.
+        Gateway.Validation.PayloadValidator.AccountUnmappedCode,
+        Gateway.Validation.PayloadValidator.CostCenterUnmappedCode,
+        Gateway.Validation.PayloadValidator.CurrencyMismatchCode,
+        "JE_CLASSES_OFF",
+        Gateway.Validation.PayloadValidator.ServiceItemMissingCode,
+        "JE_ACCOUNT_NEEDS_PARTY",
         "VALIDATION_FAILED"
     ];
 

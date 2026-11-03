@@ -47,6 +47,15 @@ internal sealed class QuickBooksStatusRefresher
         [nameof(FinDocType.CreditNote)]    = SyncKind.CreditMemo,
         [nameof(FinDocType.RefundReceipt)] = SyncKind.RefundReceipt,
         [nameof(FinDocType.VendorCredit)]  = SyncKind.VendorCredit,
+        // A49 G-2: HRM documents carry no document, only lines; QuickBooks has them as journal entries.
+        [nameof(FinDocType.PayrollRun)]          = SyncKind.JournalEntry,
+        [nameof(FinDocType.PayrollPayment)]      = SyncKind.JournalEntry,
+        [nameof(FinDocType.LoanDisbursement)]    = SyncKind.JournalEntry,
+        [nameof(FinDocType.Expense)]             = SyncKind.JournalEntry,
+        [nameof(FinDocType.ExpensePayment)]      = SyncKind.JournalEntry,
+        [nameof(FinDocType.StatutoryRemittance)] = SyncKind.JournalEntry,
+        [nameof(FinDocType.FinalSettlement)]     = SyncKind.JournalEntry,
+        [nameof(FinDocType.PayrollProvision)]    = SyncKind.JournalEntry,
     };
 
     private readonly AccountingDbContext _db;
@@ -92,7 +101,11 @@ internal sealed class QuickBooksStatusRefresher
             var source = row.Posting.Kind == PostingKinds.Post ? row.Posting
                 : originals.GetValueOrDefault($"{row.Posting.SourceModule}:{row.Posting.DocumentType}:{row.Posting.SourceDocumentUuid}") ?? row.Posting;
             if (KindOf(source) is not { } kind) continue;
-            keyed.Add((row, kind, ExternalIdOf(source)));
+            // A49 G-12: a journal entry's undo is its own entry, so a void asks about that one, not the original.
+            var externalId = kind == SyncKind.JournalEntry && row.Posting.Kind != PostingKinds.Post
+                ? $"{row.Posting.SourceDocumentUuid}:void"
+                : ExternalIdOf(source);
+            keyed.Add((row, kind, externalId));
         }
 
         var changed = 0;
@@ -121,7 +134,7 @@ internal sealed class QuickBooksStatusRefresher
         var isPost = row.Posting.Kind == PostingKinds.Post;
         switch (status.State)
         {
-            case SyncState.Synced when isPost:
+            case SyncState.Synced when isPost || status.Kind == SyncKind.JournalEntry:
                 SetPosted(row, status, note: null);
                 return true;
             case SyncState.Voided:

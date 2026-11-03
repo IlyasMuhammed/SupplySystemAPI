@@ -282,8 +282,9 @@ internal sealed class PreflightService : IPreflightService
             return Warn(PreflightCodes.Country, title, "Not known yet. Refresh the reference data.");
 
         return UnitedStates.Contains(country.ToUpperInvariant())
-            ? Fail(PreflightCodes.Country, title,
-                "US companies use QuickBooks' automated sales tax, which this integration does not support.")
+            ? Warn(PreflightCodes.Country, title,
+                "US company: QuickBooks calculates sales tax itself (automated sales tax). Map zero-tax SMS codes to QuickBooks 'NON' "
+              + "and taxable ones to 'TAX'. Zero-tax documents match SMS exactly; taxed totals can differ slightly from SMS.")
             : Pass(PreflightCodes.Country, title, $"{country}.");
     }
 

@@ -33,7 +33,7 @@ internal static class ProviderDefaultDefinitions
     public static readonly IReadOnlyList<string> Methods = ["CASH", "CHEQUE", "BANK_TRANSFER", "CARD", "ONLINE", "MOBILE"];
 
     public const string Class = "Class", Department = "Department", Term = "Term", PaymentMethod = "PaymentMethod",
-                        Account = "Account", Customer = "Customer";
+                        Account = "Account", Customer = "Customer", Item = "Item";
 
     private static readonly string[] DepositTypes = ["Bank", "Other Current Asset"];
     private static readonly string[] BankTypes    = ["Bank", "Credit Card"];
@@ -55,7 +55,9 @@ internal static class ProviderDefaultDefinitions
             new(ProviderDefaultKeys.DepartmentRef, ProviderDefaultKeys.DepartmentRef, null, "Location (department)", Department, []),
             new(ProviderDefaultKeys.SalesTermRef,  ProviderDefaultKeys.SalesTermRef,  null, "Sales terms",          Term,       []),
             new(ProviderDefaultKeys.RefundFromAccountRef, ProviderDefaultKeys.RefundFromAccountRef, null, "Refunds paid from", Account, RefundTypes),
-            new(ProviderDefaultKeys.PosDefaultCustomerRef, ProviderDefaultKeys.PosDefaultCustomerRef, null, "Walk-in POS customer", Customer, [])
+            new(ProviderDefaultKeys.PosDefaultCustomerRef, ProviderDefaultKeys.PosDefaultCustomerRef, null, "Walk-in POS customer", Customer, []),
+            // QuickBooks' reference data holds no items, so the id cannot be checked here; QuickBooks refuses a wrong one and the invoice shows why.
+            new(ProviderDefaultKeys.ServiceItemRef, ProviderDefaultKeys.ServiceItemRef, null, "Service invoice item", Item, [])
         };
 
         foreach (var method in Methods)
@@ -86,7 +88,8 @@ internal static class ProviderDefaultDefinitions
 
     /// <summary>Document types an override can be set for: the documents, not customers / vendors / items.</summary>
     public static readonly IReadOnlyList<string> OverrideDocumentTypes = SyncControlDocumentTypes.All
-        .Where(t => t is not (SyncControlDocumentTypes.Customer or SyncControlDocumentTypes.Vendor or SyncControlDocumentTypes.Item))
+        .Where(t => t is not (SyncControlDocumentTypes.Customer or SyncControlDocumentTypes.Vendor or SyncControlDocumentTypes.Item)
+                    && !SyncControlDocumentTypes.IsHrm(t)) // A49: journal lines take their class from the cost center, no document default.
         .ToList();
 }
 
@@ -360,7 +363,7 @@ internal sealed class ProviderDefaultsService : IQuickBooksProviderDefaultsServi
             throw new BadRequestException("That is not a QuickBooks id (too long).");
 
         RemoteReferenceData? data = null;
-        if (toCheck.Any(v => v.Def.ReferenceKind != ProviderDefaultDefinitions.Customer))
+        if (toCheck.Any(v => v.Def.ReferenceKind is not (ProviderDefaultDefinitions.Customer or ProviderDefaultDefinitions.Item)))
             data = await _reference.GetCachedAsync(connection.Id, ct)
                 ?? throw new BadRequestException(
                        "QuickBooks' reference data has not been loaded yet. Refresh the reference data first.");

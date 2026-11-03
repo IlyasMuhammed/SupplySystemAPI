@@ -61,10 +61,8 @@ export class UsersComponent implements OnInit {
         { label: 'External', value: 'EXTERNAL' }
     ];
 
-    // Available roles for create/edit (built dynamically from users)
-    availableRoles: { label: string; value: number }[] = [
-        { label: 'System Admin', value: 1 }
-    ];
+    // Available roles for create/edit — loaded from the server (loadRoles); empty until they arrive, never a stand-in list.
+    availableRoles: { label: string; value: number }[] = [];
 
     // REQ-2.x — supplier options for the "Assigned Suppliers" multi-select, shown only for
     // supplierType="EXTERNAL" users.
@@ -255,6 +253,8 @@ export class UsersComponent implements OnInit {
                 if (res.success && res.result?.length) {
                     this.availableRoles    = res.result.filter(r => r.isActive).map(r => ({ label: r.name, value: r.roleId }));
                     this.roleFilterOptions = [...this.availableRoles];
+                    // The edit dialog's list is a snapshot taken when it opens; refresh it if roles arrive after that.
+                    if (this.editingUser) this.editRoleOptions = this.roleOptionsFor(this.editingUser);
                 }
             },
             error: () => {}
@@ -399,12 +399,17 @@ export class UsersComponent implements OnInit {
 
     // ── Edit User ─────────────────────────────────────────────────────────────
 
+    /** The assignable roles, plus the user's current role when it is not one of them. */
+    private roleOptionsFor(user: UserListItem): { label: string; value: number }[] {
+        return user.role && !this.availableRoles.some(r => r.value === user.role!.id)
+            ? [{ label: user.role.value, value: user.role.id }, ...this.availableRoles]
+            : [...this.availableRoles];
+    }
+
     openEditDialog(user: UserListItem) {
         this.editingUser    = user;
         this.originalRoleId = user.role?.id ?? null;
-        this.editRoleOptions = user.role && !this.availableRoles.some(r => r.value === user.role!.id)
-            ? [{ label: user.role.value, value: user.role.id }, ...this.availableRoles]
-            : [...this.availableRoles];
+        this.editRoleOptions = this.roleOptionsFor(user);
         this.editForm.reset({
             firstName:  user.firstName,
             lastName:   user.lastName   || '',

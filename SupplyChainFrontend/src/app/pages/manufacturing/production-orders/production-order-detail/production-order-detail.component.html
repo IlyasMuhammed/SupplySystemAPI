@@ -67,7 +67,7 @@
         <span class="l">Materials short</span>
         <span class="v" [class.er]="order.shortMaterialCount > 0" [class.ok]="order.shortMaterialCount === 0">{{ order.shortMaterialCount }} / {{ order.materialCount }}</span>
       </div>
-      <div class="sf-kpi"><span class="l">Required</span><span class="v sm">{{ order.requiredDate | date:'mediumDate' }}</span></div>
+      <div class="sf-kpi"><span class="l">Required</span><span class="v sm">{{ order.requiredDate | date:'dd MMM yyyy' }}</span></div>
     </div>
 
     <!-- A34 PE-06: planned / accepted / yield. -->
@@ -243,7 +243,7 @@
                 <td>{{ i.issueType | titlecase }}</td>
                 <td class="num">{{ i.totalQuantity | number:'1.0-4' }}</td>
                 <td><p-tag [value]="i.status" [severity]="i.status === 'CONFIRMED' ? 'success' : i.status === 'REVERSED' ? 'danger' : 'secondary'"></p-tag></td>
-                <td>{{ i.createdAt | date:'short' }}</td>
+                <td>{{ i.createdAt | date:'dd MMM yyyy, HH:mm' }}</td>
                 <td class="actions">
                   <p-button *ngIf="canConfirm(i.status)" label="Confirm" size="small" [outlined]="true" (onClick)="confirmIssueRow(i.uuid)"></p-button>
                   <p-button *ngIf="canReverse(i.status)" label="Reverse" size="small" severity="danger" [outlined]="true" (onClick)="openReverse(i.uuid)"></p-button>
@@ -275,7 +275,7 @@
           <div class="sf-ch">
             <div>
               <h3><i class="pi pi-verified"></i> {{ qi.inspectionNumber }} <p-tag [value]="qi.overallResult | titlecase" [severity]="qiResultSeverity(qi.overallResult)"></p-tag></h3>
-              <div class="sf-mu sf-sm">Inspected {{ qi.inspectedAt | date:'medium' }} by user #{{ qi.inspectedBy }}</div>
+              <div class="sf-mu sf-sm">Inspected {{ qi.inspectedAt | date:'dd MMM yyyy, HH:mm' }} by user #{{ qi.inspectedBy }}</div>
             </div>
           </div>
           <div class="sf-grid sf-tiles">
@@ -308,7 +308,7 @@
                 <td class="num">{{ f.totalQuantity | number:'1.0-4' }}</td>
                 <td>{{ f.warehouseName }}</td>
                 <td><p-tag [value]="f.status" [severity]="f.status === 'CONFIRMED' ? 'success' : 'secondary'"></p-tag></td>
-                <td>{{ f.receivedAt | date:'short' }}</td>
+                <td>{{ f.receivedAt | date:'dd MMM yyyy, HH:mm' }}</td>
                 <td class="actions">
                   <p-button *ngIf="canConfirmFgr(f.status)" label="Confirm" size="small" [outlined]="true" (onClick)="confirmFgrRow(f.uuid)"></p-button>
                 </td>
@@ -333,7 +333,7 @@
               <ng-template pTemplate="header"><tr><th>Date</th><th>Type</th><th>Product</th><th class="num">Qty</th><th>UOM</th><th>Warehouse</th><th>Source</th></tr></ng-template>
               <ng-template pTemplate="body" let-e>
                 <tr>
-                  <td>{{ e.transactionDate | date:'short' }}</td>
+                  <td>{{ e.transactionDate | date:'dd MMM yyyy, HH:mm' }}</td>
                   <td><span [class.critical]="e.entryType === 'DEBIT'" [style.color]="e.entryType === 'CREDIT' ? 'var(--sms-ok)' : null">{{ e.entryType }}</span></td>
                   <td>{{ e.productName }} <span class="sub" *ngIf="e.variantName && e.variantName !== 'Default'">– {{ e.variantName }}</span></td>
                   <td class="num">{{ e.quantity | number:'1.0-4' }}</td>
@@ -378,9 +378,9 @@
         <span>Recipe</span><span class="sf-mono">{{ order.bomNumber }} v{{ order.bomVersion }}</span>
         <span>Warehouse</span><span>{{ order.warehouseName }}</span>
         <span>Priority</span><span>{{ priorityLabel(order.priority) }}</span>
-        <span>Required</span><span>{{ order.requiredDate | date:'mediumDate' }}</span>
-        <span>Created</span><span>{{ order.createdAt | date:'short' }}</span>
-        <span>Updated</span><span>{{ order.updatedAt | date:'short' }}</span>
+        <span>Required</span><span>{{ order.requiredDate | date:'dd MMM yyyy' }}</span>
+        <span>Created</span><span>{{ order.createdAt | date:'dd MMM yyyy, HH:mm' }}</span>
+        <span>Updated</span><span>{{ order.updatedAt | date:'dd MMM yyyy, HH:mm' }}</span>
       </div>
     </ng-container>
   </sf-panel>

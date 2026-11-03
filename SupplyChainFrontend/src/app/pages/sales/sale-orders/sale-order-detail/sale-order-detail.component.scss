@@ -113,6 +113,10 @@ tr.line-short td { background: var(--sms-warn-soft); }
   p { margin: 0 0 .375rem; font-weight: 600; }
   ul { margin: 0; padding-left: 1.125rem; }
   li { white-space: pre-line; }
+  // A48 §2 — the credit check behind a refusal.
+  .credit-check { display: grid; grid-template-columns: auto 1fr; gap: .15rem .75rem; margin: .25rem 0 .5rem; color: var(--sms-text);
+    dt { color: var(--sms-text-muted); } dd { margin: 0; font-variant-numeric: tabular-nums; } }
+  textarea { margin-top: .25rem; }
 }
 .fulfil-progress {
   display: flex; flex-wrap: wrap; align-items: baseline; gap: .5rem; margin: .5rem 0 1rem; font-size: .875rem;

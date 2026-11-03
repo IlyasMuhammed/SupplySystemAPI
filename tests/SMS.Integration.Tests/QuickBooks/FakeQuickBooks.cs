@@ -251,6 +251,7 @@ internal sealed class FakeQuickBooksCompany : IAccountingProvider
     {
         RemoteParty   p => p.DisplayName,
         RemoteItem    i => i.Name,
+        RemoteJournalEntry j => j.DocNumber,
         RemoteInvoice v => v.DocNumber,
         RemoteBill    b => b.DocNumber,
         // A44: documents are named by their number (payments: PaymentRefNum).

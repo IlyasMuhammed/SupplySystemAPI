@@ -26,8 +26,11 @@ internal sealed class ImportProfileService : IImportProfileService
     private readonly ImportTargetRegistry _registry;
     private readonly ITenantContext _tenant;
 
-    public ImportProfileService(ImportDbContext db, ImportTargetRegistry registry, ITenantContext tenant)
+    private readonly IModuleGate? _gate;
+
+    public ImportProfileService(ImportDbContext db, ImportTargetRegistry registry, ITenantContext tenant, IModuleGate? gate = null)
     {
+        _gate = gate;
         _db = db; _registry = registry; _tenant = tenant;
     }
 
@@ -53,6 +56,7 @@ internal sealed class ImportProfileService : IImportProfileService
         var result = new List<ImportProfileModel>();
         foreach (var entry in _registry.All)
         {
+            if (entry.Definition.RequiresModule is { } module && (_gate is null || !await _gate.IsEnabledAsync(org, module, ct))) continue;
             var s = await EffectiveAsync(_db, org, entry.Definition, ct);
             var st = stats.GetValueOrDefault(entry.Definition.EntityType);
             var d = entry.Definition;

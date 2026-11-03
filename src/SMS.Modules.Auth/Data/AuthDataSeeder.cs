@@ -27,7 +27,9 @@ internal sealed class AuthDataSeeder
         await SeedCustomerGrantsAsync();
         await SeedImportGrantsAsync();
         await SeedGlGrantsAsync();
+        await SeedArApGrantsAsync();
         await SeedCrmViewGrantsAsync();
+        await SeedHrmGrantsAsync();
         await SeedAdminUserAsync();
     }
 
@@ -322,7 +324,197 @@ internal sealed class AuthDataSeeder
         ("View Period Close",             PermissionCodes.GL_PERIOD_CLOSE_VIEW,    "See the close status of fiscal periods and preview the year-end closing entry"),
         ("Close Periods",                 PermissionCodes.GL_PERIOD_CLOSE_EXECUTE, "Lock periods, set them to adjustment-only and reopen locked periods"),
         ("Administer Period Close",       PermissionCodes.GL_PERIOD_CLOSE_ADMIN,   "Close periods finally (irreversible) and run the year-end close"),
+
+        // A48 D-14 — AR & AP sub-ledgers.
+        ("View Receivables",              PermissionCodes.AR_VIEW,                 "See receivables: aging, DSO, customer balances, open items, statements, credit exposure and history, dunning runs and customer financial profiles"),
+        ("Send Customer Statements",      PermissionCodes.AR_STATEMENT_SEND,       "Email customer statements, one by one or in a batch"),
+        ("Manage Credit Memos",           PermissionCodes.AR_CREDIT_MEMO,          "Create customer credit memos and apply them to open invoices"),
+        ("Run Credit Checks",             PermissionCodes.CREDIT_CHECK,            "Check a customer's available credit on demand"),
+        ("Manage Customer Credit",        PermissionCodes.CREDIT_MANAGE,           "Place and release credit holds, grant temporary credit limits and change a customer's risk tier"),
+        ("Override Credit Checks",        PermissionCodes.CREDIT_OVERRIDE,         "Confirm a sale order the credit check blocks, giving a reason"),
+        ("Run Dunning",                   PermissionCodes.DUNNING_EXECUTE,         "Preview, execute and cancel dunning runs (payment reminders)"),
+        ("Administer Dunning",            PermissionCodes.DUNNING_ADMIN,           "Reset a customer's dunning level by hand"),
+        ("View Payables",                 PermissionCodes.AP_VIEW,                 "See payables: aging, DPO, vendor balances, open items, statements, payment schedules, invoice matches and payment runs"),
+        ("Manage Payment Schedules",      PermissionCodes.AP_EXECUTE,              "Block and unblock supplier payments, change their priority, method and early-payment terms, and reconcile vendor statements"),
+        ("Manage Debit Memos",            PermissionCodes.AP_DEBIT_MEMO,           "Create AP debit memos and apply them to supplier invoices"),
+        ("Run Invoice Matching",          PermissionCodes.MATCH_EXECUTE,           "Run the line-by-line 3-way match of a supplier invoice against its purchase order and goods receipt"),
+        ("Override Match Variances",      PermissionCodes.MATCH_OVERRIDE,          "Accept a supplier invoice's match variance, giving a reason"),
+        ("Approve Matched Invoices",      PermissionCodes.MATCH_APPROVE,           "Approve a matched or overridden supplier invoice for payment"),
+        ("Propose Payment Runs",          PermissionCodes.PAYMENT_RUN_PROPOSE,     "Create a payment run proposal from the invoices that are due"),
+        ("Edit Payment Runs",             PermissionCodes.PAYMENT_RUN_EDIT,        "Remove and restore invoices in a payment run, change their payment method and send the run for review"),
+        ("Approve Payment Runs",          PermissionCodes.PAYMENT_RUN_APPROVE,     "Approve a payment run for execution"),
+        ("Execute Payment Runs",          PermissionCodes.PAYMENT_RUN_EXECUTE,     "Execute an approved payment run (supplier payments are created and posted) and export its payment file"),
+        ("Administer Payment Runs",       PermissionCodes.PAYMENT_RUN_ADMIN,       "Cancel a payment run"),
+        ("Administer Receivables & Payables", PermissionCodes.FINANCE_AR_AP_ADMIN, "Configure dunning procedures, match tolerance rules, early-payment terms, partner financial profiles and the credit control mode"),
+
+        // A49 — HRM (docs/hrm/API-CONTRACT.md §0.2).
+        ("Manage HR Settings",            PermissionCodes.HRM_SETTINGS_MANAGE,     "Choose the payroll cost center and posting mode, and configure HR settings"),
+        ("View HR Account Mapping",       PermissionCodes.HRM_ACCOUNT_MAPPING_VIEW, "See how payroll account roles and cost centers map to accounts and QuickBooks classes"),
+        ("Edit HR Account Mapping",       PermissionCodes.HRM_ACCOUNT_MAPPING_EDIT, "Map payroll account roles, expense categories and cost centers"),
+        ("View Organization Structure",   PermissionCodes.HRM_ORG_VIEW,            "See branches, departments, cost centers, designations and grades (salary bands need View Salaries)"),
+        ("Manage Organization Structure", PermissionCodes.HRM_ORG_MANAGE,          "Create and change branches, departments, cost centers, designations and grades"),
+        ("View Employees",                PermissionCodes.HRM_EMPLOYEE_VIEW,       "See employee records within the user's HR scope; CNIC, NTN and bank details stay masked"),
+        ("Edit Employees",                PermissionCodes.HRM_EMPLOYEE_EDIT,       "Create and change employee records within the user's HR scope, and change their status"),
+        ("View Employee Identity Numbers", PermissionCodes.HRM_EMPLOYEE_SENSITIVE_VIEW, "See CNIC and NTN unmasked; every read is logged"),
+        ("Manage Employment Records",     PermissionCodes.HRM_EMPLOYMENT_MANAGE,   "Record hires, transfers, promotions and other changes of an employee's terms"),
+        ("View Employee Bank Details",    PermissionCodes.HRM_BANK_VIEW,           "See employee bank account numbers and IBANs unmasked; every read is logged"),
+        ("Edit Employee Bank Details",    PermissionCodes.HRM_BANK_EDIT,           "Add and change employee bank accounts"),
+        ("HR Scope: All Employees",       PermissionCodes.HRM_SCOPE_ALL,           "HR access reaches every employee of the organization"),
+        ("HR Scope: Own Branch",          PermissionCodes.HRM_SCOPE_BRANCH,        "HR access reaches the employees of the user's own branch"),
+        ("HR Scope: Own Department",      PermissionCodes.HRM_SCOPE_DEPARTMENT,    "HR access reaches the employees of the user's own department and its sub-departments"),
+        ("HR Self Service",               PermissionCodes.HRM_SELF_SERVICE,        "See one's own profile and payslips, request leave and submit expense claims"),
+        ("Manage Shifts & Holidays",      PermissionCodes.HRM_SHIFT_MANAGE,        "Create shifts and holidays and assign shifts to employees"),
+        ("View Attendance",               PermissionCodes.HRM_ATTENDANCE_VIEW,     "See attendance within the user's HR scope"),
+        ("Manage Attendance",             PermissionCodes.HRM_ATTENDANCE_MANAGE,   "Record and import clock events, correct attendance days"),
+        ("Approve Overtime",              PermissionCodes.HRM_OVERTIME_APPROVE,    "Approve or reject overtime; approved overtime is paid through payroll"),
+        ("View Leave",                    PermissionCodes.HRM_LEAVE_VIEW,          "See leave requests and balances within the user's HR scope"),
+        ("Approve Leave",                 PermissionCodes.HRM_LEAVE_APPROVE,       "Approve or reject leave requests"),
+        ("Manage Leave",                  PermissionCodes.HRM_LEAVE_MANAGE,        "Configure leave types and policies, allocate quota and run the year-end carry forward"),
+        ("View Salaries",                 PermissionCodes.HRM_SALARY_VIEW,         "See salary assignments, grade bands and offered salaries"),
+        ("Edit Salaries",                 PermissionCodes.HRM_SALARY_EDIT,         "Create salary assignments and revisions"),
+        ("Approve Salaries",              PermissionCodes.HRM_SALARY_APPROVE,      "Approve salary assignments and revisions"),
+        ("Configure Payroll",             PermissionCodes.HRM_PAYROLL_CONFIG,      "Manage salary components, structures, tax tables and statutory rates"),
+        ("Verify Statutory Data",         PermissionCodes.HRM_STATUTORY_VERIFY,    "Mark a tax table or statutory rate as reviewed; payroll cannot be finalized on unverified data"),
+        ("View Payroll",                  PermissionCodes.HRM_PAYROLL_VIEW,        "See payroll runs, their lines and journals"),
+        ("Run Payroll",                   PermissionCodes.HRM_PAYROLL_RUN,         "Create and calculate payroll runs and enter adjustments"),
+        ("Approve Payroll",               PermissionCodes.HRM_PAYROLL_APPROVE,     "Review and approve a calculated payroll run"),
+        ("Finalize Payroll",              PermissionCodes.HRM_PAYROLL_FINALIZE,    "Finalize an approved run, post it to the books and retry postings"),
+        ("Pay Payroll",                   PermissionCodes.HRM_PAYROLL_PAY,         "Generate the bank file and mark a run paid"),
+        ("Reverse Payroll",               PermissionCodes.HRM_PAYROLL_REVERSE,     "Reverse a finalized or posted payroll run"),
+        ("View Recruitment",              PermissionCodes.HRM_RECRUITMENT_VIEW,    "See vacancies, candidates, applications and interviews"),
+        ("Manage Recruitment",            PermissionCodes.HRM_RECRUITMENT_MANAGE,  "Run the hiring pipeline, make offers and convert candidates to employees"),
+        ("View Performance",              PermissionCodes.HRM_PERFORMANCE_VIEW,    "See review cycles, reviews and goals within the user's HR scope"),
+        ("Manage Performance",            PermissionCodes.HRM_PERFORMANCE_MANAGE,  "Manage review cycles, reviews and goals"),
+        ("View Training",                 PermissionCodes.HRM_TRAINING_VIEW,       "See the course catalog and enrollments"),
+        ("Manage Training",               PermissionCodes.HRM_TRAINING_MANAGE,     "Manage courses and enrollments"),
+        ("View Loans",                    PermissionCodes.HRM_LOAN_VIEW,           "See employee loans and their schedules"),
+        ("Manage Loans",                  PermissionCodes.HRM_LOAN_MANAGE,         "Create loans and record their disbursement"),
+        ("Approve Loans",                 PermissionCodes.HRM_LOAN_APPROVE,        "Approve or reject employee loans"),
+        ("View Settlements",              PermissionCodes.HRM_SETTLEMENT_VIEW,     "See final settlements"),
+        ("Manage Settlements",            PermissionCodes.HRM_SETTLEMENT_MANAGE,   "Compute, approve, post and pay final settlements"),
+        ("Manage Increments",             PermissionCodes.HRM_INCREMENT_MANAGE,    "Propose salary increments"),
+        ("Approve Increments",            PermissionCodes.HRM_INCREMENT_APPROVE,   "Approve salary increments and apply them"),
+        ("Issue HR Letters",              PermissionCodes.HRM_LETTER_ISSUE,        "Manage letter templates and issue letters"),
+        ("View Tax Certificates",         PermissionCodes.HRM_TAX_CERT_VIEW,       "Generate and see annual tax certificates"),
+        ("View Expense Claims",           PermissionCodes.HRM_EXPENSE_VIEW,        "See expense claims within the user's HR scope"),
+        ("Approve Expense Claims",        PermissionCodes.HRM_EXPENSE_APPROVE,     "Approve or reject expense claims"),
+        ("Pay Expense Claims",            PermissionCodes.HRM_EXPENSE_PAY,         "Record the separate payment of an approved expense claim"),
+        ("View Statutory Remittances",    PermissionCodes.HRM_REMITTANCE_VIEW,     "See tax, EOBI and provident fund due and paid"),
+        ("Manage Statutory Remittances",  PermissionCodes.HRM_REMITTANCE_MANAGE,   "Record payments of tax, EOBI and provident fund to the authorities"),
+        ("View HR Reports",               PermissionCodes.HRM_REPORTS_VIEW,        "See HR and payroll reports"),
     ];
+
+    /// <summary>A49 G-22 — seed labels of the HR built-in roles (resolved by code like the rest).</summary>
+    internal const int HrManagerSeedId = 17, HrOfficerSeedId = 18;
+
+    /// <summary>G-22's list plus what running HR needs: every HRM code.</summary>
+    internal static readonly string[] HrManagerCodes = [.. PermissionCodes.HrmCodes];
+
+    /// <summary>Day-to-day HR, no salaries, payroll, loans or unmasked identity numbers.</summary>
+    internal static readonly string[] HrOfficerCodes =
+    [
+        PermissionCodes.HRM_ORG_VIEW, PermissionCodes.HRM_EMPLOYEE_VIEW, PermissionCodes.HRM_EMPLOYEE_EDIT, PermissionCodes.HRM_EMPLOYMENT_MANAGE,
+        PermissionCodes.HRM_SCOPE_ALL, PermissionCodes.HRM_SELF_SERVICE, PermissionCodes.HRM_SHIFT_MANAGE, PermissionCodes.HRM_ATTENDANCE_VIEW,
+        PermissionCodes.HRM_ATTENDANCE_MANAGE, PermissionCodes.HRM_OVERTIME_APPROVE, PermissionCodes.HRM_LEAVE_VIEW, PermissionCodes.HRM_LEAVE_APPROVE,
+        PermissionCodes.HRM_LEAVE_MANAGE, PermissionCodes.HRM_RECRUITMENT_VIEW, PermissionCodes.HRM_RECRUITMENT_MANAGE, PermissionCodes.HRM_PERFORMANCE_VIEW,
+        PermissionCodes.HRM_TRAINING_VIEW, PermissionCodes.HRM_TRAINING_MANAGE, PermissionCodes.HRM_LETTER_ISSUE, PermissionCodes.HRM_EXPENSE_VIEW,
+        PermissionCodes.HRM_REPORTS_VIEW,
+    ];
+
+    /// <summary>
+    /// A49 G-22 (the spec's FINANCE_QBO_MAPPING_EDIT does not exist: the cost-center map accepts HRM_ACCOUNT_MAPPING_EDIT or
+    /// INTEGRATION_MANAGE). Grants by built-in role CODE; only MISSING grants are added, a switched-off grant stays off.
+    /// </summary>
+    internal static readonly (string RoleCode, string[] Codes)[] HrmGrants =
+    [
+        ("FINANCE_OFFICER", [PermissionCodes.HRM_SETTINGS_MANAGE, PermissionCodes.HRM_ACCOUNT_MAPPING_VIEW, PermissionCodes.HRM_ACCOUNT_MAPPING_EDIT]),
+        ("FINANCE_MANAGER", [PermissionCodes.HRM_SETTINGS_MANAGE, PermissionCodes.HRM_ACCOUNT_MAPPING_VIEW, PermissionCodes.HRM_ACCOUNT_MAPPING_EDIT,
+                             PermissionCodes.HRM_PAYROLL_VIEW, PermissionCodes.HRM_REPORTS_VIEW, PermissionCodes.HRM_REMITTANCE_VIEW,
+                             PermissionCodes.HRM_REMITTANCE_MANAGE, PermissionCodes.HRM_EXPENSE_VIEW, PermissionCodes.HRM_EXPENSE_PAY,
+                             PermissionCodes.HRM_ORG_VIEW]),
+        ("AUDITOR",         [PermissionCodes.HRM_PAYROLL_VIEW, PermissionCodes.HRM_REPORTS_VIEW, PermissionCodes.HRM_ACCOUNT_MAPPING_VIEW,
+                             PermissionCodes.HRM_ORG_VIEW, PermissionCodes.HRM_EMPLOYEE_VIEW, PermissionCodes.HRM_SCOPE_ALL]),
+    ];
+
+    /// <summary>A49 — see <see cref="HrmGrants"/>; every role, built-in or custom, also gets HRM_SELF_SERVICE (harmless while MODULE_HRM is off). Idempotent, every start.</summary>
+    internal async Task SeedHrmGrantsAsync()
+    {
+        var codes = HrmGrants.SelectMany(g => g.Codes).Append(PermissionCodes.HRM_SELF_SERVICE).Distinct().ToList();
+        var permIds = await _db.Permissions.Where(p => codes.Contains(p.Code)).ToDictionaryAsync(p => p.Code, p => p.PermissionID);
+        var roleCodes = HrmGrants.Select(g => g.RoleCode).ToList();
+        var roles = await _db.Roles.IgnoreQueryFilters().Select(r => new { r.RoleID, r.RoleCode }).ToListAsync();
+        var existing = (await _db.RolePermissions.IgnoreQueryFilters().Select(rp => new { rp.RoleID, rp.PermissionID }).ToListAsync())
+            .Select(x => (x.RoleID, x.PermissionID)).ToHashSet();
+
+        void Grant(int roleId, string code)
+        {
+            if (!permIds.TryGetValue(code, out var permId) || !existing.Add((roleId, permId))) return;
+            _db.RolePermissions.Add(new RolePermission
+            {
+                RoleID = roleId, PermissionID = permId, IsAllowed = true, OrganizationId = TenantDefaults.ScmDemoOrganizationId
+            });
+        }
+
+        foreach (var (roleCode, grantCodes) in HrmGrants)
+            foreach (var role in roles.Where(r => r.RoleCode == roleCode))
+                foreach (var code in grantCodes) Grant(role.RoleID, code);
+        foreach (var role in roles) Grant(role.RoleID, PermissionCodes.HRM_SELF_SERVICE);
+        await _db.SaveChangesAsync();
+    }
+
+    /// <summary>
+    /// A48 D-14 / D-CORE-7 — AR/AP grants by built-in role CODE. System Admin and Org Admin hold every code through
+    /// <see cref="PermissionCodes.All"/>. Only MISSING grants are added (see <see cref="SeedArApGrantsAsync"/>).
+    /// </summary>
+    internal static readonly (string RoleCode, string[] Codes)[] ArApGrants =
+    [
+        ("FINANCE_MANAGER", [.. PermissionCodes.ArApCodes]),
+        ("FINANCE_OFFICER", [PermissionCodes.AR_VIEW, PermissionCodes.AP_VIEW, PermissionCodes.AR_STATEMENT_SEND, PermissionCodes.CREDIT_CHECK,
+                             PermissionCodes.AP_EXECUTE, PermissionCodes.MATCH_EXECUTE, PermissionCodes.PAYMENT_RUN_PROPOSE,
+                             PermissionCodes.PAYMENT_RUN_EDIT, PermissionCodes.DUNNING_EXECUTE]),
+        ("AUDITOR",         [PermissionCodes.AR_VIEW, PermissionCodes.AP_VIEW]),
+    ];
+
+    /// <summary>A48 D-14 — a role (built-in or custom) allowed one of these gets AR_VIEW.</summary>
+    internal static readonly string[] ArViewSourceCodes = [PermissionCodes.SALES_INVOICE_VIEW, PermissionCodes.CUSTOMER_LEDGER_VIEW];
+
+    /// <summary>A48 D-14 — a role (built-in or custom) allowed one of these gets AP_VIEW.</summary>
+    internal static readonly string[] ApViewSourceCodes = [PermissionCodes.INVOICE_VIEW, PermissionCodes.PAYMENT_VIEW];
+
+    /// <summary>A48 — see <see cref="ArApGrants"/>. Idempotent, every start; a grant an administrator switched off stays off.</summary>
+    internal async Task SeedArApGrantsAsync()
+    {
+        var codes = PermissionCodes.ArApCodes.Concat(ArViewSourceCodes).Concat(ApViewSourceCodes).Distinct().ToList();
+        var permIds = await _db.Permissions.Where(p => codes.Contains(p.Code)).ToDictionaryAsync(p => p.Code, p => p.PermissionID);
+        var grants = await _db.RolePermissions.IgnoreQueryFilters().Select(rp => new { rp.RoleID, rp.PermissionID, rp.IsAllowed }).ToListAsync();
+        var existing = grants.Select(g => (g.RoleID, g.PermissionID)).ToHashSet();
+
+        var wanted = new List<(int RoleId, string Code)>();
+        var roleCodes = ArApGrants.Select(g => g.RoleCode).ToList();
+        var roleIds = await _db.Roles.IgnoreQueryFilters().Where(r => roleCodes.Contains(r.RoleCode))
+            .ToDictionaryAsync(r => r.RoleCode, r => r.RoleID);
+        foreach (var (roleCode, grantCodes) in ArApGrants)
+            if (roleIds.TryGetValue(roleCode, out var roleId)) wanted.AddRange(grantCodes.Select(c => (roleId, c)));
+
+        int? Id(string code) => permIds.TryGetValue(code, out var id) ? id : null;
+        var arSources = ArViewSourceCodes.Select(Id).Where(i => i is not null).Select(i => i!.Value).ToHashSet();
+        var apSources = ApViewSourceCodes.Select(Id).Where(i => i is not null).Select(i => i!.Value).ToHashSet();
+        foreach (var g in grants.Where(g => g.IsAllowed))
+        {
+            if (arSources.Contains(g.PermissionID)) wanted.Add((g.RoleID, PermissionCodes.AR_VIEW));
+            if (apSources.Contains(g.PermissionID)) wanted.Add((g.RoleID, PermissionCodes.AP_VIEW));
+        }
+
+        foreach (var (roleId, code) in wanted)
+        {
+            if (Id(code) is not { } permId || !existing.Add((roleId, permId))) continue;
+            _db.RolePermissions.Add(new RolePermission
+            {
+                RoleID = roleId, PermissionID = permId, IsAllowed = true, OrganizationId = TenantDefaults.ScmDemoOrganizationId
+            });
+        }
+        await _db.SaveChangesAsync();
+    }
 
     /// <summary>
     /// A42 D-14 — GL grants by built-in role CODE: the Finance Manager (holds FINANCE_SETUP_MANAGE) gets all three; the
@@ -617,6 +809,9 @@ internal sealed class AuthDataSeeder
         // A41 D-4 — CRM (spec Appendix A).
         (SalesRepSeedId,      "Sales Representative", "SALES_REP",     "CRM — captures and works own leads, logs activities, converts and closes own opportunities"),
         (SalesManagerSeedId,  "Sales Manager",        "SALES_MANAGER", "CRM — every lead and opportunity: assigns, re-opens, deletes, manages campaigns; edits sales documents"),
+        // A49 G-22 — HR.
+        (HrManagerSeedId,     "HR Manager",           "HR_MANAGER",    "HR — runs the whole HR module: employees, leave, attendance, salaries, payroll, recruitment, performance, loans and expenses"),
+        (HrOfficerSeedId,     "HR Officer",           "HR_OFFICER",    "HR — day-to-day employee records, attendance, leave and recruitment; no salaries, payroll or unmasked identity numbers"),
     ];
 
     // Matched by RoleCode, not RoleID: RoleID carries no DB identity (RoleMap.ValueGeneratedNever)
@@ -680,8 +875,9 @@ internal sealed class AuthDataSeeder
         // §3.1: "IT Admin / Super Admin may VIEW config, may CHANGE it only if they also hold
         // [SUPPLY_DEPT_ADMIN]" — the one deliberate carve-out from System Admin's otherwise-blanket
         // grant. SALE_ORDER_CONFIG_READ still flows through .All; only WRITE is excluded.
+        // A49 §3.3 — nor the codes that reveal personal money and identity data: platform support has no automatic HR data access.
         [(int)EnumRole.SystemAdmin] = PermissionCodes.All
-            .Except([PermissionCodes.SALE_ORDER_CONFIG_WRITE])
+            .Except([PermissionCodes.SALE_ORDER_CONFIG_WRITE, .. PermissionCodes.HrmSensitiveCodes])
             .ToArray(),
 
         [(int)EnumRole.ProcurementManager] =
@@ -761,6 +957,8 @@ internal sealed class AuthDataSeeder
             // The role that physically moves the goods works the delivery cockpit.
             PermissionCodes.DELIVERY_VIEW,  PermissionCodes.DELIVERY_EDIT,
             PermissionCodes.SHIPMENT_BOOK,
+            // The carriers endpoints (the dispatch dialog's carrier list) are gated by DELIVERY_TRACK.
+            PermissionCodes.DELIVERY_TRACK,
             PermissionCodes.ALLOCATION_VIEW, PermissionCodes.BOM_VIEW,
             // The floor: sees the orders, starts them, reports output, moves the materials.
             PermissionCodes.PROD_VIEW, PermissionCodes.PROD_START, PermissionCodes.PROD_REPORT,
@@ -777,6 +975,8 @@ internal sealed class AuthDataSeeder
             PermissionCodes.INVOICE_VIEW,   PermissionCodes.INVOICE_PROCESS,
             PermissionCodes.PAYMENT_VIEW,   PermissionCodes.PAYMENT_PROCESS,
             PermissionCodes.SALES_INVOICE_VIEW,    PermissionCodes.SALES_INVOICE_MANAGE,
+            // New invoice picks the delivery to bill: without reading deliveries the button never appears.
+            PermissionCodes.DELIVERY_VIEW,
             PermissionCodes.CUSTOMER_PAYMENT_VIEW, PermissionCodes.CUSTOMER_PAYMENT_RECORD,
             PermissionCodes.CUSTOMER_LEDGER_VIEW,  PermissionCodes.PRODUCT_LEDGER_VIEW,
             PermissionCodes.RECONCILIATION,
@@ -820,6 +1020,7 @@ internal sealed class AuthDataSeeder
             PermissionCodes.INVOICE_VIEW,   PermissionCodes.INVOICE_PROCESS,
             PermissionCodes.PAYMENT_VIEW,   PermissionCodes.PAYMENT_PROCESS, PermissionCodes.PAYMENT_APPROVE,
             PermissionCodes.SALES_INVOICE_VIEW,    PermissionCodes.SALES_INVOICE_MANAGE,
+            PermissionCodes.DELIVERY_VIEW, // see the Finance Officer's: the New invoice button needs it
             PermissionCodes.CUSTOMER_PAYMENT_VIEW, PermissionCodes.CUSTOMER_PAYMENT_RECORD,
             PermissionCodes.CUSTOMER_LEDGER_VIEW,  PermissionCodes.PRODUCT_LEDGER_VIEW,
             PermissionCodes.RECONCILIATION,
@@ -877,6 +1078,10 @@ internal sealed class AuthDataSeeder
         // A41 D-4 — CRM built-in roles.
         [SalesRepSeedId]      = SalesRepCodes,
         [SalesManagerSeedId]  = SalesManagerCodes,
+
+        // A49 G-22 — HR built-in roles.
+        [HrManagerSeedId]     = HrManagerCodes,
+        [HrOfficerSeedId]     = HrOfficerCodes,
     };
 
     private async Task SeedRolePermissionsAsync()

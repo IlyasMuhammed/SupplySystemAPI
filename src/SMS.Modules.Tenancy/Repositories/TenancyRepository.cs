@@ -347,6 +347,15 @@ internal sealed class TenancyRepository : ITenancyRepository
     // here unlike CreateOrganizationWithAdminAsync.
     // A37 D-4/D-8 — the super admin's toggle is the licence (licensed + switched on together), logged LICENSED /
     // UNLICENSED, and MOD-08 follows Manufacturing / Service Orders.
+    public async Task GrantLicenceOnlyAsync(Guid orgId, IReadOnlyCollection<string> codes, int modifiedBy, string notes)
+    {
+        var writer = await OrgFeatureWriter.LoadAsync(_db, orgId, DateTime.UtcNow);
+        foreach (var code in codes)
+            if (writer.Find(code) is not null)
+                writer.GrantLicenceOnly(code, modifiedBy, notes);
+        await _db.SaveChangesAsync();
+    }
+
     public async Task SaveFeatureChangesAsync(Guid orgId, Dictionary<string, bool> changes, int modifiedBy)
     {
         if (changes.Count == 0) return;

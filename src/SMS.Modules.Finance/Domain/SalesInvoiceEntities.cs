@@ -47,6 +47,11 @@ internal static class SalesInvoiceSources
     /// The same value marks an opening supplier bill (<see cref="Invoice.SourceType"/>).
     /// </summary>
     public const string Opening   = "OPENING";
+    /// <summary>
+    /// A49 E-13 — a manual service invoice (P2-S): no sale order, no delivery, non-stock lines with <see cref="SalesInvoiceLine.VariantUuid"/>
+    /// = <see cref="Guid.Empty"/>. QuickBooks gets it as an ordinary invoice whose lines are the connection's default service item (D-POST-6).
+    /// </summary>
+    public const string ServiceManual = "SERVICE_MANUAL";
 }
 
 /// <summary>A38 (FIN) — the customer ledger / product ledger reference types of the counter-sale documents.</summary>
@@ -192,4 +197,7 @@ internal class SalesInvoiceLine : ITenantScopedEntity
     public Guid?   TaxCodeUuid     { get; set; }
     /// <summary>The code's text as it was — what prints, even if the code is later renamed.</summary>
     public string? TaxCode         { get; set; }
+
+    /// <summary>A49 E-13: a service line's own income account (leaf code). Null: the GL line goes to DEFAULT_REVENUE.</summary>
+    public string? IncomeAccountCode { get; set; }
 }

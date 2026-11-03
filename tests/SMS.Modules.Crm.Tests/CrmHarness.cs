@@ -131,6 +131,20 @@ internal sealed class FakeAccounts : ICrmAccountGateway
     }
 }
 
+/// <summary>Logistics' address book as lead conversion sees it: records what it was asked to save, or fails on demand.</summary>
+internal sealed class FakeShippingAddresses : ICrmShippingAddressGateway
+{
+    public List<(Guid Org, Guid Account, CrmShippingAddress Address)> Saved { get; } = [];
+    public bool Fail { get; set; }
+
+    public Task AddForCustomerAsync(Guid organizationId, Guid accountUuid, CrmShippingAddress address, int userId, CancellationToken ct = default)
+    {
+        if (Fail) throw new InvalidOperationException("The address book is down.");
+        Saved.Add((organizationId, accountUuid, address));
+        return Task.CompletedTask;
+    }
+}
+
 /// <summary>Demand's documents as the CRM sees them: linked by opportunity uuid.</summary>
 internal sealed class FakeSales : ICrmSalesDocumentGateway
 {
@@ -211,6 +225,7 @@ internal sealed class CrmHarness : IDisposable
     public FakeUsers Users { get; } = new();
     public FakeAccounts Accounts { get; } = new();
     public FakeSales Sales { get; } = new();
+    public FakeShippingAddresses ShippingAddresses { get; } = new();
     public FakeGate Gate { get; } = new();
     public FakeCurrencies Currencies { get; } = new();
     public FakeNotifications Notifications { get; } = new();
@@ -232,6 +247,7 @@ internal sealed class CrmHarness : IDisposable
         services.AddSingleton<IOrgUserDirectory>(Users);
         services.AddSingleton<ICrmAccountGateway>(Accounts);
         if (withSales) services.AddSingleton<ICrmSalesDocumentGateway>(Sales);
+        services.AddSingleton<ICrmShippingAddressGateway>(ShippingAddresses);
         services.AddSingleton<IModuleGate>(Gate);
         services.AddSingleton<IOrgCurrencyLookup>(Currencies);
         services.AddSingleton<INotificationService>(Notifications);

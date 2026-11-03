@@ -74,6 +74,18 @@ public class AttachmentsController : ControllerBase
         if (notes is { Length: > AttachmentService.MaxNotesLength })
             return BadRequest(ApiResponse.Fail($"Notes must not exceed {AttachmentService.MaxNotesLength} characters."));
 
+        if (AttachmentAccessPolicy.KeepsUploadsPrivate(rule.InterfaceCode))
+        {
+            using var buffer = new MemoryStream();
+            await file.CopyToAsync(buffer);
+            var kept = await _svc.StorePrivateUploadAsync(new CreateAttachmentRequest
+            {
+                InterfaceCode = rule.InterfaceCode, DocumentId = documentId, FileName = UploadRules.DisplayName(file.FileName)!,
+                ContentType = UploadRules.ContentTypeOf(file.FileName), Notes = notes
+            }, buffer.ToArray(), User.GetUserId());
+            return Ok(ApiResponse<Guid>.Ok(kept, "Attachment uploaded."));
+        }
+
         // The folder is spelled from the policy's own code — one of a fixed set — never from the request's
         // text, which used to become a path as it came ("../..", or an absolute path, wrote anywhere).
         var folder = rule.InterfaceCode.ToLowerInvariant().Replace('_', '-');
@@ -116,6 +128,10 @@ public class AttachmentsController : ControllerBase
         if (file is null)
             return NotFound(ApiResponse.Fail("Attachment not found."));
 
+        // These turn on whose record holds the file, which this controller cannot know: api/hrm/attachments decides.
+        if (AttachmentAccessPolicy.KeepsUploadsPrivate(file.InterfaceCode))
+            return StatusCode(StatusCodes.Status403Forbidden, ApiResponse.Fail("You do not have permission to open this document."));
+
         var rule = AttachmentAccessPolicy.Find(file.InterfaceCode);
         if (rule is null || !AttachmentAccessPolicy.Allows(User, rule, AttachmentAction.View)
             || (file.RequiredPermission is not null && !User.HasPermission(file.RequiredPermission)))
@@ -138,6 +154,10 @@ public class AttachmentsController : ControllerBase
 
         var (rule, refused) = Authorize(interfaceCode, AttachmentAction.View);
         if (refused is not null) return refused;
+
+        // The rule's own spelling, so another casing of the code cannot get past this.
+        if (AttachmentAccessPolicy.KeepsUploadsPrivate(rule!.InterfaceCode))
+            return Forbidden(AttachmentAction.View);
 
         var list = await _svc.GetByDocumentAsync(rule!.InterfaceCode, documentId);
 

@@ -52,6 +52,7 @@ internal static class SyncPayloads
         SyncKind.CreditMemo    => JsonSerializer.Deserialize<CreditMemoPayload>(json, Canonical)!,
         SyncKind.RefundReceipt => JsonSerializer.Deserialize<RefundReceiptPayload>(json, Canonical)!,
         SyncKind.VendorCredit  => JsonSerializer.Deserialize<VendorCreditPayload>(json, Canonical)!,
+        SyncKind.JournalEntry  => JsonSerializer.Deserialize<JournalEntryPayload>(json, Canonical)!,
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null)
     };
 
@@ -69,6 +70,7 @@ internal static class SyncPayloads
         CreditMemoPayload    => SyncKind.CreditMemo,
         RefundReceiptPayload => SyncKind.RefundReceipt,
         VendorCreditPayload  => SyncKind.VendorCredit,
+        JournalEntryPayload  => SyncKind.JournalEntry,
         _                    => null
     };
 
@@ -78,6 +80,7 @@ internal static class SyncPayloads
         SalesInvoicePayload s  => s.SourceType,
         SalesDocumentPayload d => d.SourceType,
         PaymentPayload p       => p.SourceType,
+        JournalEntryPayload j  => j.SourceType,
         _                      => null
     };
 
@@ -90,6 +93,7 @@ internal static class SyncPayloads
         BillPaymentPayload bp  => bp.DocNumber?.Trim(),
         SalesDocumentPayload d => d.DocNumber?.Trim(),
         VendorCreditPayload v  => v.DocNumber?.Trim(),
+        JournalEntryPayload j  => j.DocNumber?.Trim(),
         _                      => null
     };
 
@@ -102,6 +106,7 @@ internal static class SyncPayloads
         BillPaymentPayload bp  => bp.TxnDate,
         SalesDocumentPayload d => d.TxnDate,
         VendorCreditPayload v  => v.TxnDate,
+        JournalEntryPayload j  => j.TxnDate,
         _                      => null
     };
 
@@ -173,7 +178,7 @@ internal static class SyncPayloads
                 if (!string.IsNullOrWhiteSpace(invoice.CustomerExternalId))
                     list.Add(new GatewayDependency(SyncKind.Customer, invoice.CustomerExternalId.Trim()));
                 foreach (var line in invoice.Lines ?? [])
-                    if (!string.IsNullOrWhiteSpace(line.ItemExternalId))
+                    if (!string.IsNullOrWhiteSpace(line.ItemExternalId) && line.ItemExternalId != ServiceInvoiceLines.ItemExternalId)
                         list.Add(new GatewayDependency(SyncKind.Item, line.ItemExternalId.Trim()));
                 break;
 

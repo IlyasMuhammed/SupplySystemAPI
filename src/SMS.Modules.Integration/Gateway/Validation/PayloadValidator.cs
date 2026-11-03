@@ -2,9 +2,11 @@ using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
 using SMS.Modules.Integration.Core.Connections;
 using SMS.Modules.Integration.Core.Reference;
+using SMS.Modules.Integration.Core.Settings;
 using SMS.Modules.Integration.Core.Sync;
 using SMS.Modules.Integration.Data;
 using SMS.Modules.Integration.Domain;
+using SMS.Modules.Integration.Gateway.JournalEntries;
 using SMS.Shared.Integration.QuickBooks;
 
 namespace SMS.Modules.Integration.Gateway.Validation;
@@ -44,12 +46,14 @@ internal sealed partial class PayloadValidator : IPayloadValidator
     private readonly ICurrencyRules        _currency;
     private readonly IBaseCurrencyResolver? _baseCurrency;
     private readonly IDocumentDefaultsSource? _defaults;
+    private readonly IJournalEntryRefSource? _journalRefs;
 
     /// <param name="baseCurrency">A35 D-19 — the organization's purchase base, for the bill rule. Optional: without it no bill is refused for it.</param>
     /// <param name="defaults">A44 D-15 provider defaults (bill-payment bank accounts). Optional.</param>
     public PayloadValidator(IntegrationDbContext db, IRemoteNameResolver names, ICurrencyRules currency, IBaseCurrencyResolver? baseCurrency = null,
-                            IDocumentDefaultsSource? defaults = null)
+                            IDocumentDefaultsSource? defaults = null, IJournalEntryRefSource? journalRefs = null)
     {
+        _journalRefs  = journalRefs;
         _db           = db;
         _names        = names;
         _currency     = currency;
@@ -92,12 +96,27 @@ internal sealed partial class PayloadValidator : IPayloadValidator
             case SyncKind.VendorCredit:
                 await ValidateVendorCreditAsync((VendorCreditPayload)payload, map, connection, settings, result, ct);
                 break;
+            case SyncKind.JournalEntry:
+                await ValidateJournalEntryAsync((JournalEntryPayload)payload, connection, result, ct);
+                break;
         }
 
         return result;
     }
 
     // ── A44: payments (D-19, D-20) ───────────────────────────────────────────
+
+    /// <summary>A49 E-13: a service line needs the connection's default service item. Re-checked when defaults change.</summary>
+    public const string ServiceItemMissingCode = "SERVICE_ITEM_MISSING";
+
+    private async Task CheckServiceItemAsync(SalesInvoicePayload p, IntegrationConnection connection, PayloadValidationResult r, CancellationToken ct)
+    {
+        if (!p.Lines.Any(l => l.ItemExternalId == ServiceInvoiceLines.ItemExternalId)) return;
+        var defaults = _defaults is null ? DocumentDefaults.None : await _defaults.GetAsync(connection.Id, SyncControlDocumentTypes.SalesInvoice, ct);
+        if (defaults.ServiceItemId is null)
+            r.Error("serviceItem", ServiceItemMissingCode,
+                "This is a service invoice, and QuickBooks invoice lines must name an item. Choose the default service item under QuickBooks Integration → Defaults; the invoice is sent when it is.");
+    }
 
     /// <summary>Error code when a bill payment has no account to be paid from (re-checked when defaults change).</summary>
     public const string BankAccountMissingCode = "BANK_ACCOUNT_MISSING";
@@ -471,7 +490,9 @@ internal sealed partial class PayloadValidator : IPayloadValidator
 
         // Plan S-11: a line with a tax code needs that code mapped; a line without one, its rate.
         await CheckTaxAsync(connection, lines.Select(l => (l.TaxCode, (decimal?)l.TaxPercent)), r, ct);
-        await CheckSaleableAsync(SyncKind.SalesInvoice, p, map, connection, settings, lines.Select(l => l.ItemExternalId), r, ct);
+        await CheckSaleableAsync(SyncKind.SalesInvoice, p, map, connection, settings,
+            lines.Select(l => l.ItemExternalId).Where(i => i != ServiceInvoiceLines.ItemExternalId), r, ct);
+        await CheckServiceItemAsync(p, connection, r, ct);
 
         // Checked the way the caller totals an invoice: rounded once over the whole invoice.
         var math = InvoiceMath.Of(p);

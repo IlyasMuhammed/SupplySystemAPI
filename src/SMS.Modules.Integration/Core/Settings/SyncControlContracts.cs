@@ -21,8 +21,18 @@ internal static class SyncControlDocumentTypes
     public const string BillPayment   = "BillPayment";
     public const string VendorCredit  = "VendorCredit";
 
+    /// <summary>
+    /// A49 G-15 — the HRM document types (all JournalEntry at QuickBooks). The A49 migration gives every existing connection a
+    /// disabled + held row per type; new connections get the same (<c>SyncControlDefaults.NewConnection</c>). Unlike every other
+    /// type, no row does not mean enabled: payroll is never sent because a row is missing.
+    /// </summary>
+    public static readonly IReadOnlyList<string> Hrm =
+        ["PayrollRun", "PayrollPayment", "LoanDisbursement", "Expense", "ExpensePayment", "StatutoryRemittance", "FinalSettlement", "PayrollProvision"];
+
+    public static bool IsHrm(string? documentType) => documentType is not null && Hrm.Contains(documentType, StringComparer.OrdinalIgnoreCase);
+
     public static readonly IReadOnlyList<string> All =
-        [Customer, Vendor, Item, SalesInvoice, CreditNote, Payment, PosSale, PosReturn, PurchaseBill, BillPayment, VendorCredit];
+        [Customer, Vendor, Item, SalesInvoice, CreditNote, Payment, PosSale, PosReturn, PurchaseBill, BillPayment, VendorCredit, .. Hrm];
 
     /// <summary>
     /// The sync-control type governing a record. POS documents (SourceType "POS": the POS invoice, its tender
@@ -44,6 +54,8 @@ internal static class SyncControlDocumentTypes
             SyncKind.Bill          => PurchaseBill,
             SyncKind.BillPayment   => BillPayment,
             SyncKind.VendorCredit  => VendorCredit,
+            // The entry's own document type; "PayrollRun" for a map with no payload yet (off + hold like the rest).
+            SyncKind.JournalEntry  => IsHrm(sourceType) ? sourceType! : Hrm[0],
             _                      => kind.ToString()
         };
     }
@@ -92,6 +104,8 @@ internal static class ProviderDefaultKeys
     public const string RefundFromAccountRef = "RefundFromAccountRef";
     /// <summary>QBO customer id used for walk-in POS documents without a customer.</summary>
     public const string PosDefaultCustomerRef = "PosDefaultCustomerRef";
+    /// <summary>A49 E-13: QBO item id every service invoice line is sent as.</summary>
+    public const string ServiceItemRef = "ServiceItemRef";
 
     public static string ForMethod(string key, string method) => $"{key}.{method.Trim().ToUpperInvariant()}";
 }

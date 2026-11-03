@@ -51,7 +51,7 @@ public sealed class SyncControlE2ETests : IClassFixture<SapWebApplicationFactory
         foreach (var t in new[] { "POSSale", "POSReturn" }) State(t).Should().Be("False/True/Hold", t);
         foreach (var t in new[] { "BillPayment", "VendorCredit" }) State(t).Should().Be("False/False/Skip", t);
         (await _f.QueryAsync("SELECT COUNT(*) AS N FROM integration.SyncControlConfigs s JOIN integration.Connections c ON c.Id = s.ConnectionId " +
-                             "WHERE c.OrganizationId = @o", ("@o", o.OrgId))).Single()["N"].Should().Be(11, "a new connection is seeded with every row");
+                             "WHERE c.OrganizationId = @o", ("@o", o.OrgId))).Single()["N"].Should().Be(19, "a new connection is seeded with every row");
 
         // T-63 — disabled with hold: an issued invoice is held, nothing goes to QuickBooks
         await k.Ok(k.SetSyncControl("SalesInvoice", enabled: false, hold: true), "hold sales invoices");

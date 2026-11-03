@@ -29,6 +29,7 @@ interface Outcome {
   result?: UpdateSyncControlResult;
   error?: string;
   heldCount?: number;
+  problems?: string[];
 }
 
 /**
@@ -60,6 +61,7 @@ export class SyncControlTabComponent implements OnInit {
   loadError = '';
   isSaving = false;
   releasing: Record<string, boolean> = {};
+  notReady: Record<string, string[]> = {};
 
   constructor(
     private service: QuickBooksIntegrationService,
@@ -164,14 +166,17 @@ export class SyncControlTabComponent implements OnInit {
       return this.service.updateSyncControl(r.documentType, { isEnabled: d.isEnabled, holdWhenDisabled: d.holdWhenDisabled, confirmRelease }).pipe(
         map(result => ({ type: r.documentType, result } as Outcome)),
         catchError(err => of({
-          type: r.documentType, error: qboErrorMessage(err, 'Not saved.'),
+          type: r.documentType, error: qboErrorMessage(err, 'Not saved.').replace(/^[A-Z][A-Z0-9_]+:\s+/, ''),
           // 409 { documentType, heldCount }: more is held than this page knew — the banner shows it on the next try.
-          heldCount: err?.status === 409 ? (err?.error?.result as ReleaseConfirmationModel | undefined)?.heldCount : undefined
+          heldCount: err?.status === 409 ? (err?.error?.result as ReleaseConfirmationModel | undefined)?.heldCount : undefined,
+          // A49 §10.5 — 409 HRM_SYNC_NOT_READY says what is missing; the row keeps the list until the next save.
+          problems: Array.isArray(err?.error?.result?.problems) ? err.error.result.problems : undefined
         } as Outcome)));
     })).subscribe(outcomes => {
       this.isSaving = false;
       const ok = outcomes.filter(o => o.result);
       const failed = outcomes.filter(o => o.error);
+      this.notReady = Object.fromEntries(failed.filter(f => f.problems?.length).map(f => [f.type, f.problems!]));
       // Keep the failed rows' drafts so the admin can try again.
       const keep = new Map(failed.map(f => [f.type, this.drafts[f.type]]));
       const updated = this.rows.map(r => {

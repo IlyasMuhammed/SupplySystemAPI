@@ -1,6 +1,8 @@
 using System.Reflection;
 using FluentAssertions;
+using SMS.Modules.Auth.Data;
 using SMS.Shared.Authorization;
+using SMS.Shared.Common;
 using Xunit;
 
 namespace SMS.Modules.Auth.Tests;
@@ -53,6 +55,28 @@ public class LogisticsPermissionSeedTests
             PermissionCodes.CARRIER_CREDENTIAL_MANAGE,
             PermissionCodes.SHIPMENT_RATE_VIEW
         ]);
+    }
+
+    [Theory]
+    [InlineData((int)EnumRole.FinanceOfficer)]
+    [InlineData((int)EnumRole.FinanceManager)]
+    public void A_role_that_raises_sales_invoices_can_also_read_the_deliveries_it_bills(int role)
+    {
+        // Finance › Sales invoices › New invoice lists deliveries to bill, and shows the button only with both codes.
+        var seed = (Dictionary<int, string[]>)typeof(AuthDataSeeder)
+            .GetField("RolePermissionSeed", BindingFlags.NonPublic | BindingFlags.Static)!.GetValue(null)!;
+
+        seed[role].Should().Contain(PermissionCodes.SALES_INVOICE_MANAGE).And.Contain(PermissionCodes.DELIVERY_VIEW);
+    }
+
+    [Fact]
+    public void The_warehouse_operator_who_books_a_shipment_can_list_the_carriers_to_book_it_with()
+    {
+        // The carriers endpoints are gated by DELIVERY_TRACK; without it the dispatch dialog's carrier list is empty.
+        var seed = (Dictionary<int, string[]>)typeof(AuthDataSeeder)
+            .GetField("RolePermissionSeed", BindingFlags.NonPublic | BindingFlags.Static)!.GetValue(null)!;
+
+        seed[(int)EnumRole.WarehouseOperator].Should().Contain(PermissionCodes.SHIPMENT_BOOK).And.Contain(PermissionCodes.DELIVERY_TRACK);
     }
 
     // ── TC-17.3 — grouping in the role editor ───────────────────────────────

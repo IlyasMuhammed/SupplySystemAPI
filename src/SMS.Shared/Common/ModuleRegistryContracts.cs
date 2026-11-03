@@ -1,4 +1,4 @@
-namespace SMS.Shared.Common;
+﻿namespace SMS.Shared.Common;
 
 // A37 — Module Registry & Enablement (docs/module-registry/ADDENDUM-37-ANALYSIS.md). The registry is the existing
 // feature catalog (tenant.FeatureDefinitions / OrganizationFeatures); these are the codes and the cross-module seams.
@@ -34,6 +34,8 @@ public static class ModuleCodes
     public const string Crm            = "MODULE_CRM";
     /// <summary>A42 — general ledger setup: chart of accounts, fiscal periods, GL opening balances (sub-feature of MODULE_FINANCE).</summary>
     public const string GeneralLedger  = AccountingCodes.FeatureGeneralLedger;
+    /// <summary>A49 — Human resources (sub-features in <see cref="HrmFeatureCodes"/>). In no plan: licensed by hand, enabled through the wizard.</summary>
+    public const string Hrm            = "MODULE_HRM";
 
     // Sub-features that are enforced on real endpoints (API-CONTRACT §1.3).
     public const string BomManagement      = "FEATURE_BOM_MANAGEMENT";
@@ -50,6 +52,27 @@ public static class ModuleCodes
     public const string QuickBooksOwnApp   = "FEATURE_QBO_OWN_APP";
 }
 
+/// <summary>A49 — HRM sub-features (A37 registry). Each gates its controllers; the employee master is MODULE_HRM itself.</summary>
+public static class HrmFeatureCodes
+{
+    public const string Attendance  = "FEATURE_HRM_ATTENDANCE";
+    public const string Leave       = "FEATURE_HRM_LEAVE";
+    public const string Payroll     = "FEATURE_HRM_PAYROLL";
+    public const string Recruitment = "FEATURE_HRM_RECRUITMENT";
+    public const string Performance = "FEATURE_HRM_PERFORMANCE";
+    public const string Training    = "FEATURE_HRM_TRAINING";
+    public const string Loans       = "FEATURE_HRM_LOANS";
+    public const string Expenses    = "FEATURE_HRM_EXPENSES";
+}
+
+/// <summary>A49 — the workflow interfaces HRM documents go through (definitions per organization, seeded when HRM is first used).</summary>
+public static class HrmWorkflowCodes
+{
+    public const string LeaveRequest = "LEAVE_REQUEST", ExpenseClaim = "EXPENSE_CLAIM", SalaryChange = "SALARY_CHANGE";
+    /// <summary>The NAMED step key every HRM definition uses; the HRM module supplies the user (line manager, department head, permission holder).</summary>
+    public const string NamedApprover = "HR_APPROVER";
+}
+
 /// <summary>
 /// A37 D-14 — which module a permission code or a workflow interface code belongs to. Derived in code (no column on the
 /// workflow side; Auth stores the permission's module in auth.Permissions.ModuleCode, backfilled from
@@ -62,12 +85,17 @@ public static class ModuleCodeMap
     [
         // A38 D-13 — first, so no shorter prefix (PO_, POD_) could ever claim a POS code.
         ("POS_", ModuleCodes.Pos),
+        // A49
+        ("HRM_", ModuleCodes.Hrm),
         // A40 D-9
         ("IMPORT_", ModuleCodes.DataImport),
         // A41 D-3
         ("CRM_", ModuleCodes.Crm),
         // A42 D-14
         ("GL_", ModuleCodes.Finance),
+        // A48 D-14 (PAYMENT_RUN_* is covered by PAYMENT_ below)
+        ("AR_", ModuleCodes.Finance), ("AP_", ModuleCodes.Finance), ("CREDIT_", ModuleCodes.Finance),
+        ("DUNNING_", ModuleCodes.Finance), ("MATCH_", ModuleCodes.Finance), ("FINANCE_AR_AP_", ModuleCodes.Finance),
         ("MODULES_", ModuleCodes.MasterData), ("SYSTEM_", ModuleCodes.MasterData), ("USER_", ModuleCodes.MasterData),
         ("AUDIT_", ModuleCodes.MasterData), ("PLATFORM_", ModuleCodes.MasterData), ("LOCATION_", ModuleCodes.MasterData),
         ("CURRENCY_", ModuleCodes.MasterData), ("ORG_CURRENCY_", ModuleCodes.MasterData), ("FINANCE_SETUP_", ModuleCodes.MasterData),
@@ -107,6 +135,7 @@ public static class ModuleCodeMap
         "DELIVERY"                                                               => ModuleCodes.Logistics,
         "BOM" or "PRODUCTION_ORDER"                                              => ModuleCodes.Manufacturing,
         "SERVICE_ORDER"                                                          => ModuleCodes.Services,
+        HrmWorkflowCodes.LeaveRequest or HrmWorkflowCodes.ExpenseClaim or HrmWorkflowCodes.SalaryChange => ModuleCodes.Hrm,
         _                                                                        => null
     };
 }

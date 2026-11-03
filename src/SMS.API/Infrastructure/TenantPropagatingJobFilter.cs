@@ -28,6 +28,10 @@ public sealed class TenantPropagatingJobFilter : IClientFilter, IServerFilter
         var claim = _httpContextAccessor.HttpContext?.User?.FindFirst("organizationId")?.Value;
         if (Guid.TryParse(claim, out var organizationId))
             filterContext.SetJobParameter(JobParameterName, organizationId);
+        // A48 REV-9: a job enqueued from inside another job (no HttpContext) carries the running job's organization on,
+        // instead of none (which ran it as the default organization).
+        else if (HangfireTenantScope.OrganizationId is { } jobOrganization)
+            filterContext.SetJobParameter(JobParameterName, jobOrganization);
     }
 
     public void OnCreated(CreatedContext filterContext) { }

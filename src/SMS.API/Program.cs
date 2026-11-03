@@ -28,6 +28,7 @@ using SMS.Modules.Material;
 using SMS.Modules.Pos;
 using SMS.Modules.Import;
 using SMS.Modules.Crm;
+using SMS.Modules.Hrm;
 using SMS.Modules.Accounting;
 using SMS.Shared.Common;
 using SMS.WorkflowEngine;
@@ -197,6 +198,7 @@ builder.Services.AddMaterialModule(builder.Configuration);
 builder.Services.AddPosModule(builder.Configuration); // A38 — Point of Sale
 builder.Services.AddImportModule(builder.Configuration); // A40 — Data import (targets are registered by their owning modules)
 builder.Services.AddCrmModule(builder.Configuration); // A41 — CRM: leads, pipeline, opportunities, activities
+builder.Services.AddHrmModule(builder.Configuration); // A49 — HRM: employees, leave, attendance, payroll, recruitment, loans, expenses
 builder.Services.AddAccountingModule(builder.Configuration); // A42 — GL setup: chart of accounts, fiscal periods, GL opening balances
 // Last on purpose: it replaces the NullQuickBooksGateway the modules above TryAdd.
 builder.Services.AddIntegrationModule(builder.Configuration);
@@ -345,6 +347,7 @@ app.UseIntegrationModule();    // QuickBooks gateway: integration schema migrati
 app.UseImportModule();         // A40: import schema migrations + profile reconcile + daily row purge
 app.UseCrmModule();            // A41: crm schema migrations + per-organization lead sources / pipeline stages
 app.UseAccountingModule();     // A42: GL tables in schema finance (guarded migration)
+app.UseHrmModule();            // A49: hrm schema migrations + seed of organizations with MODULE_HRM on (none until licensed by hand)
 
 app.MapControllers();
 app.MapHub<NotificationHub>("/hubs/notifications");

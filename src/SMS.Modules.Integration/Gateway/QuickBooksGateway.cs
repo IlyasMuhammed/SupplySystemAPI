@@ -108,6 +108,10 @@ internal sealed class QuickBooksGateway : IQuickBooksGateway
     public Task<GatewayResult> UpsertVendorCreditAsync(VendorCreditPayload payload, CancellationToken ct = default) =>
         UpsertAsync(SyncKind.VendorCredit, payload, payload?.ExternalId, ct);
 
+    // A49 G-1
+    public Task<GatewayResult> UpsertJournalEntryAsync(JournalEntryPayload payload, CancellationToken ct = default) =>
+        UpsertAsync(SyncKind.JournalEntry, payload, payload?.ExternalId, ct);
+
     // ── Upsert ───────────────────────────────────────────────────────────────
 
     private async Task<GatewayResult> UpsertAsync(SyncKind kind, object? payload, string? externalId, CancellationToken ct)
@@ -457,12 +461,15 @@ internal sealed class QuickBooksGateway : IQuickBooksGateway
         if (connection is null) return [];
 
         var sourceSystem = _caller.SourceSystem;
+        var provider = TryProvider(connection.ProviderKey);
+
+        if (kind == SyncKind.JournalEntry)
+            return await JournalEntryStatusAsync(connection, sourceSystem, ids, provider, ct);
+
         var maps = await _db.EntityMaps
             .AsNoTracking()
             .Where(m => m.ConnectionId == connection.Id && m.SourceSystem == sourceSystem && m.Kind == kind && ids.Contains(m.ExternalId))
             .ToListAsync(ct);
-
-        var provider = TryProvider(connection.ProviderKey);
 
         return maps
             .OrderBy(m => ids.IndexOf(m.ExternalId))
@@ -471,6 +478,47 @@ internal sealed class QuickBooksGateway : IQuickBooksGateway
                 m.RemoteId is null ? null : provider?.BuildDeepLink(connection.Environment, m.Kind, m.RemoteId)))
             .ToList();
     }
+
+    /// <summary>
+    /// A49 G-16: a document may be several entries (":batch{N}"), and the posting log asks about the document. It stands where its
+    /// furthest-behind entry stands; RemoteId is the first entry's. A single entry answers exactly as any record does.
+    /// </summary>
+    private async Task<IReadOnlyList<SyncStatus>> JournalEntryStatusAsync(
+        IntegrationConnection connection, string sourceSystem, List<string> ids, IAccountingProvider? provider, CancellationToken ct)
+    {
+        var result = new List<SyncStatus>();
+        foreach (var id in ids)
+        {
+            var prefix = id + ":batch";
+            var maps = await _db.EntityMaps.AsNoTracking()
+                .Where(m => m.ConnectionId == connection.Id && m.SourceSystem == sourceSystem && m.Kind == SyncKind.JournalEntry
+                            && (m.ExternalId == id || m.ExternalId.StartsWith(prefix)))
+                .OrderBy(m => m.Id).ToListAsync(ct);
+            if (maps.Count == 0) continue;
+
+            var worst = maps.OrderBy(m => JournalStateRank(m.State)).First();
+            var first = maps[0];
+            result.Add(new SyncStatus(
+                SyncKind.JournalEntry, id, worst.State, first.RemoteId, first.RemoteDocNumber, worst.LastErrorCode, worst.LastError,
+                maps.Any(m => m.LastSyncedAt is null) ? null : maps.Max(m => m.LastSyncedAt),
+                first.RemoteId is null ? null : provider?.BuildDeepLink(connection.Environment, SyncKind.JournalEntry, first.RemoteId)));
+        }
+        return result;
+    }
+
+    private static int JournalStateRank(SyncState state) => state switch
+    {
+        SyncState.NeedsResolution     => 0,
+        SyncState.Failed              => 1,
+        SyncState.Blocked             => 2,
+        SyncState.NotSynced           => 3,
+        SyncState.WaitingOnDependency => 4,
+        SyncState.InProgress          => 5,
+        SyncState.Pending             => 6,
+        SyncState.DryRunOk            => 7,
+        SyncState.Synced              => 8,
+        _                             => 9
+    };
 
     private IAccountingProvider? TryProvider(string providerKey)
     {
@@ -547,6 +595,7 @@ internal sealed class QuickBooksGateway : IQuickBooksGateway
             case BillPaymentPayload bp: bp.ExternalId = externalId; break;
             case SalesDocumentPayload d: d.ExternalId = externalId; break;
             case VendorCreditPayload v: v.ExternalId = externalId; break;
+            case JournalEntryPayload j: j.ExternalId = externalId; break;
         }
     }
 }

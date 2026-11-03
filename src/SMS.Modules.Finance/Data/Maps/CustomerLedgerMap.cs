@@ -24,6 +24,9 @@ internal sealed class CustomerLedgerEntryMap : IEntityTypeConfiguration<Customer
 
         // §17.2 — a customer's statement, in date order.
         b.HasIndex(x => new { x.OrganizationId, x.PartnerId, x.EntryDate });
+        // A48 RPT-1 — open items / statements look a document's entries up by reference.
+        b.HasIndex(x => new { x.OrganizationId, x.ReferenceId }, "IX_customer_ledger_OrganizationId_ReferenceId")
+         .IncludeProperties(x => new { x.EntryType, x.ReferenceType, x.EntryDate });
 
         b.Property(x => x.EntryType).HasMaxLength(20).IsRequired();
         b.Property(x => x.ReferenceType).HasMaxLength(30).IsRequired();

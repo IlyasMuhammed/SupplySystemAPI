@@ -350,6 +350,11 @@ internal sealed class CounterSaleService : ICounterSaleService
                     lines.Add((line, l.Quantity, l.NetAmount, l.TaxAmount, l.LineTotal, l.SourceLineUuid));
                 }
 
+                // A48 REV-3 — every credit against the invoice (POS returns, AR credit memos) together never exceeds its total.
+                var returning = lines.Sum(x => x.Total);
+                if (returning > CreditableRemaining(original))
+                    throw new BadRequestException(OverCreditMessage(original, returning));
+
                 var onAccount = request.Refunds.Where(IsOnAccount).Sum(t => t.Amount);
                 // ON_ACCOUNT takes the credit off the sale's open balance; what the balance cannot absorb stays on the
                 // customer's account as credit (the ledger has it; the invoice cannot go below zero).
@@ -410,6 +415,22 @@ internal sealed class CounterSaleService : ICounterSaleService
                 if (attempt >= MaxAttempts) throw;
             }
         }
+    }
+
+    // ══ A48 REV-3 / QA-5: the one credit ceiling ═══════════════════════════════════════════════════════════════════
+
+    /// <summary>What may still be credited on an invoice: its total less every credit raised against it, never below 0.</summary>
+    internal static decimal CreditableRemaining(SalesInvoice invoice) => Math.Max(0m, invoice.GrandTotal - invoice.ReturnedAmount);
+
+    internal static string OverCreditMessage(SalesInvoice invoice, decimal crediting) =>
+        $"This return would credit more than the invoice total: returning {crediting:0.00} would take invoice {invoice.InvoiceNumber}'s credits " +
+        $"above its total of {invoice.GrandTotal:0.00} ({invoice.ReturnedAmount:0.00} already credited, {CreditableRemaining(invoice):0.00} remaining).";
+
+    public async Task<decimal?> GetCreditableRemainingAsync(Guid organizationId, Guid salesInvoiceUuid, CancellationToken ct = default)
+    {
+        var invoice = await _db.SalesInvoices.IgnoreQueryFilters().AsNoTracking()
+            .FirstOrDefaultAsync(i => i.OrganizationId == organizationId && i.UUID == salesInvoiceUuid && !i.IsDelete, ct);
+        return invoice is null ? null : CreditableRemaining(invoice);
     }
 
     // ══ Void ═══════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -629,7 +650,13 @@ internal sealed class CounterSaleService : ICounterSaleService
                      && l.SalesInvoice.OriginalInvoiceUuid == originalUuid && l.SalesInvoice.Status == SalesInvoiceStatuses.CreditNote
                      && !l.SalesInvoice.IsDelete)
             .GroupBy(l => l.OriginalLineUuid!.Value)
-            .Select(g => new { Line = g.Key, Qty = g.Sum(x => x.Quantity), Total = g.Sum(x => x.LineTotal) })
+            // A48 REV-3 — an AR credit memo naming the line credits money, not goods: its amount counts, its quantity does not.
+            .Select(g => new
+            {
+                Line  = g.Key,
+                Qty   = g.Sum(x => x.SalesInvoice.SourceType == ArAp.Receivables.ArDocumentSources.CreditMemo ? 0m : x.Quantity),
+                Total = g.Sum(x => x.LineTotal)
+            })
             .ToListAsync(ct);
         return rows.ToDictionary(r => r.Line, r => (r.Qty, r.Total));
     }

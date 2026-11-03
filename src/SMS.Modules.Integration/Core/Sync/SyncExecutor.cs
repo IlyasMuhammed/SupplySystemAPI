@@ -1049,6 +1049,7 @@ internal sealed class SyncExecutor : ISyncExecutor
         SyncKind.CreditMemo    => "credit memo",
         SyncKind.RefundReceipt => "refund receipt",
         SyncKind.VendorCredit  => "vendor credit",
+        SyncKind.JournalEntry  => "journal entry",
         _                      => kind.ToString()
     };
 }

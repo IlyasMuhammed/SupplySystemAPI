@@ -1,0 +1,183 @@
+<p-toast></p-toast>
+<sf-page [crumbs]="['HR', 'Employees', e?.employeeNumber ?? '']">
+  <div sfCmd class="sf-cmd" role="toolbar" aria-label="Commands">
+    <ng-container *ngIf="e">
+      <p-button *ngIf="e.canEdit" label="Edit" icon="pi pi-pencil" (onClick)="openEdit()" data-testid="edit"></p-button>
+      <p-button *ngIf="e.canEdit && e.allowedStatuses?.length" label="Change status" icon="pi pi-flag" [text]="true" (onClick)="openStatus()" data-testid="status-btn"></p-button>
+    </ng-container>
+    <span class="sf-end"><a class="p-button p-button-text" [routerLink]="back" data-testid="back"><i class="pi pi-arrow-left"></i>&nbsp;Back</a></span>
+  </div>
+
+  <div class="sf-body" *ngIf="loading || loadError">
+    <div class="sf-card sf-empty" *ngIf="loading"><i class="pi pi-spin pi-spinner"></i> Loading…</div>
+    <div class="gl-note er" *ngIf="loadError" role="alert" data-testid="load-error"><i class="pi pi-exclamation-triangle"></i><div>{{ loadError }}</div></div>
+  </div>
+
+  <ng-container *ngIf="e && !loading">
+    <header class="sf-hdr">
+      <div class="sf-t"><div>
+        <div class="sf-kicker">Employee · <span class="sf-mono">{{ e.employeeNumber }}</span></div>
+        <h1>{{ e.fullName }} <span class="sf-pill" [ngClass]="hrmTone(e.status)" data-testid="status">{{ hrmLabel(e.status) }}</span></h1>
+        <div class="sf-meta">
+          <ng-container *ngIf="e.currentEmployment as c">{{ c.designationName }} · {{ c.departmentName }} · {{ c.branchName }}<ng-container *ngIf="c.managerName"> · reports to {{ c.managerName }}</ng-container></ng-container>
+          <ng-container *ngIf="!e.currentEmployment">No current employment record</ng-container>
+        </div>
+      </div></div>
+      <div class="sf-facts">
+        <div class="sf-kpi"><span class="l">Joined</span><span class="v sm">{{ e.joinDate ? (e.joinDate | date:'dd MMM yyyy') : '—' }}</span></div>
+        <div class="sf-kpi" *ngIf="e.leaveDate"><span class="l">Left</span><span class="v sm">{{ e.leaveDate | date:'dd MMM yyyy' }}</span><span class="s">{{ hrmLabel(e.departureReason) }}</span></div>
+      </div>
+    </header>
+
+    <div class="sf-body">
+      <div class="hrm-tabs" role="tablist" aria-label="Employee sections">
+        <button *ngFor="let t of tabs" type="button" role="tab" [class.on]="tab === t.key" [attr.aria-selected]="tab === t.key" (click)="go(t.key)" [attr.data-testid]="'tab-' + t.key">{{ t.label }}</button>
+      </div>
+      <div class="gl-note er" *ngIf="tabError" role="alert" data-testid="tab-error"><i class="pi pi-exclamation-triangle"></i><div>{{ tabError }}</div></div>
+
+      <!-- Personal -->
+      <ng-container *ngIf="tab === 'personal'">
+        <section class="sf-card" data-testid="identity"><div class="sf-ch"><h2>Identity</h2>
+          <span class="sf-ch-actions" *ngIf="e.canRevealSensitive">
+            <p-button *ngIf="!identity" label="Reveal" icon="pi pi-eye" [text]="true" size="small" (onClick)="revealIdentity()" data-testid="reveal"></p-button>
+            <p-button *ngIf="identity" label="Hide" icon="pi pi-eye-slash" [text]="true" size="small" (onClick)="hideIdentity()" data-testid="hide"></p-button>
+          </span></div>
+          <div class="sf-kv">
+            <span>CNIC</span><span class="hrm-masked" data-testid="cnic">{{ identity ? (identity.cnic ?? '—') : (e.cnicMasked ?? '—') }}</span>
+            <span>NTN</span><span class="hrm-masked" data-testid="ntn">{{ identity ? (identity.ntn ?? '—') : (e.ntnMasked ?? '—') }}</span>
+          </div>
+          <p class="sf-mu sf-sm" *ngIf="identity" data-testid="reveal-note">This view was logged and hides itself in 30 seconds.</p>
+        </section>
+        <section class="sf-card"><div class="sf-ch"><h2>Personal</h2></div>
+          <div class="sf-kv">
+            <span>Father / husband</span><span>{{ e.fatherOrHusbandName || '—' }}</span>
+            <span>Born</span><span>{{ e.dateOfBirth ? (e.dateOfBirth | date:'dd MMM yyyy') : '—' }}</span>
+            <span>Gender</span><span>{{ hrmLabel(e.gender) || '—' }}</span>
+            <span>Marital status</span><span>{{ e.maritalStatus || '—' }}</span>
+            <span>Nationality</span><span>{{ e.nationality || '—' }}</span>
+            <span>Work email</span><span>{{ e.workEmail || '—' }}</span>
+            <span>Personal email</span><span>{{ e.personalEmail || '—' }}</span>
+            <span>Phone</span><span>{{ e.phone || '—' }}</span>
+            <span>Mobile</span><span>{{ e.mobile || '—' }}</span>
+            <span>Current address</span><span>{{ e.currentAddress?.line1 || '—' }} {{ e.currentAddress?.city || '' }}</span>
+            <span>Permanent address</span><span>{{ e.permanentAddress?.line1 || '—' }} {{ e.permanentAddress?.city || '' }}</span>
+            <ng-container *ngIf="e.notes"><span>Notes</span><span>{{ e.notes }}</span></ng-container>
+          </div>
+        </section>
+        <section class="sf-card p0" *ngIf="e.emergencyContacts?.length"><div class="sf-ch sf-pad"><h2>Emergency contacts</h2></div>
+          <table class="hrm-table hrm-stack"><thead><tr><th>Name</th><th>Relation</th><th>Phone</th></tr></thead>
+            <tbody><tr *ngFor="let c of e.emergencyContacts"><td data-label="Name">{{ c.name }}</td><td data-label="Relation">{{ c.relation || '—' }}</td><td data-label="Phone">{{ c.phone || '—' }}</td></tr></tbody></table>
+        </section>
+      </ng-container>
+
+      <!-- Employment -->
+      <section class="sf-card p0" *ngIf="tab === 'employment'" data-testid="employment">
+        <div class="sf-ch sf-pad"><h2>Employment history</h2>
+          <span class="sf-ch-actions" *ngIf="can('HRM_EMPLOYMENT_MANAGE')">
+            <p-button label="Transfer" icon="pi pi-arrow-right-arrow-left" [text]="true" size="small" (onClick)="openTransfer()" data-testid="transfer"></p-button>
+            <p-button label="Promotion" icon="pi pi-arrow-up" [text]="true" size="small" (onClick)="openPromotion()" data-testid="promotion"></p-button>
+            <p-button label="New record" icon="pi pi-plus" [text]="true" size="small" (onClick)="openRecord()" data-testid="new-record"></p-button>
+          </span></div>
+        <div class="gl-scroll"><table class="hrm-table hrm-stack">
+          <thead><tr><th>From</th><th>To</th><th>Type</th><th>Department</th><th>Designation</th><th>Branch</th><th>Grade</th><th>Manager</th><th>Cost center</th><th>Reason</th></tr></thead>
+          <tbody>
+            <tr *ngFor="let r of records">
+              <td data-label="From">{{ r.effectiveFrom | date:'dd MMM yyyy' }}</td><td data-label="To">{{ r.effectiveTo ? (r.effectiveTo | date:'dd MMM yyyy') : 'Current' }}</td><td data-label="Type">{{ hrmLabel(r.employmentType) }}</td>
+              <td data-label="Department">{{ r.departmentName }}</td><td data-label="Designation">{{ r.designationName }}</td><td data-label="Branch">{{ r.branchName }}</td><td data-label="Grade">{{ r.gradeName || '—' }}</td><td data-label="Manager">{{ r.managerName || '—' }}</td><td data-label="Cost center">{{ r.costCenterCode || '—' }}</td><td data-label="Reason">{{ hrmLabel(r.changeReason) }}</td>
+            </tr>
+            <tr *ngIf="!records.length"><td class="hrm-empty sf-empty" colspan="10">No employment records.</td></tr>
+          </tbody>
+        </table></div>
+      </section>
+
+      <!-- Bank (S3) -->
+      <section class="sf-card p0" *ngIf="tab === 'bank'" data-testid="bank">
+        <div class="sf-ch sf-pad"><h2>Bank accounts</h2><span class="sf-ch-actions" *ngIf="can('HRM_BANK_EDIT')"><p-button label="Add account" icon="pi pi-plus" [text]="true" size="small" (onClick)="openBank()" data-testid="add-bank"></p-button></span></div>
+        <div class="gl-scroll"><table class="hrm-table hrm-stack">
+          <thead><tr><th>Bank</th><th>Title</th><th>Account</th><th>IBAN</th><th>Paid by</th><th>State</th><th></th></tr></thead>
+          <tbody>
+            <tr *ngFor="let a of banks" [class.off]="!a.isActive" [attr.data-testid]="'bank-' + a.uuid">
+              <td data-label="Bank"><span>{{ a.bankName }}<span class="sub">{{ a.branchName }}</span></span></td><td data-label="Title">{{ a.accountTitle || '—' }}</td>
+              <td data-label="Account" class="hrm-masked" [attr.data-testid]="'acct-' + a.uuid">{{ bankReveal[a.uuid] ? (bankReveal[a.uuid].accountNumber ?? '—') : (a.accountNumberMasked ?? '—') }}</td>
+              <td data-label="IBAN" class="hrm-masked">{{ bankReveal[a.uuid] ? (bankReveal[a.uuid].iban ?? '—') : (a.ibanMasked ?? '—') }}</td>
+              <td data-label="Paid by">{{ a.paymentMethod }}</td>
+              <td data-label="State"><span class="sf-pill ok" *ngIf="a.isPrimary">Primary</span><span class="sf-pill" *ngIf="!a.isActive">Inactive</span></td>
+              <td class="hrm-acts"><div class="hrm-actions">
+                <ng-container *ngIf="can('HRM_BANK_VIEW')">
+                  <p-button *ngIf="!bankReveal[a.uuid]" label="Reveal" icon="pi pi-eye" [text]="true" size="small" (onClick)="revealBank(a)" [attr.data-testid]="'reveal-' + a.uuid"></p-button>
+                  <p-button *ngIf="bankReveal[a.uuid]" label="Hide" icon="pi pi-eye-slash" [text]="true" size="small" (onClick)="hideBank(a)"></p-button>
+                </ng-container>
+                <ng-container *ngIf="can('HRM_BANK_EDIT') && a.isActive">
+                  <p-button label="Edit" icon="pi pi-pencil" [text]="true" size="small" (onClick)="openBank(a)"></p-button>
+                  <p-button *ngIf="!a.isPrimary" label="Make primary" [text]="true" size="small" (onClick)="primary(a)"></p-button>
+                  <p-button label="Deactivate" icon="pi pi-ban" [text]="true" size="small" severity="danger" (onClick)="deactivateBank(a)"></p-button>
+                </ng-container>
+              </div></td>
+            </tr>
+            <tr *ngIf="!banks.length"><td class="hrm-empty sf-empty" colspan="7">No bank accounts.</td></tr>
+          </tbody>
+        </table></div>
+      </section>
+
+      <!-- Documents -->
+      <section class="sf-card p0" *ngIf="tab === 'documents'" data-testid="documents">
+        <div class="sf-ch sf-pad"><h2>Documents</h2><span class="sf-ch-actions" *ngIf="can('HRM_EMPLOYEE_EDIT')"><p-button label="Add document" icon="pi pi-plus" [text]="true" size="small" (onClick)="openDoc()" data-testid="add-doc"></p-button></span></div>
+        <div class="gl-scroll"><table class="hrm-table hrm-stack">
+          <thead><tr><th>Title</th><th>Type</th><th>Expires</th><th>Added</th><th></th></tr></thead>
+          <tbody>
+            <tr *ngFor="let d of docs"><td data-label="Title">{{ d.title }}</td><td data-label="Type">{{ d.documentType }}</td><td data-label="Expires">{{ d.expiryDate ? (d.expiryDate | date:'dd MMM yyyy') : '—' }}</td><td data-label="Added">{{ d.createdAt | date:'dd MMM yyyy' }}</td>
+              <td class="hrm-acts"><div class="hrm-actions"><p-button label="View" icon="pi pi-eye" [text]="true" size="small" (onClick)="viewDoc(d)"></p-button><p-button *ngIf="can('HRM_EMPLOYEE_EDIT')" label="Remove" icon="pi pi-trash" [text]="true" size="small" severity="danger" (onClick)="deleteDoc(d)"></p-button></div></td></tr>
+            <tr *ngIf="!docs.length"><td class="hrm-empty sf-empty" colspan="5">No documents.</td></tr>
+          </tbody>
+        </table></div>
+      </section>
+
+      <!-- Salary (S2) -->
+      <section class="sf-card p0" *ngIf="tab === 'salary'" data-testid="salary">
+        <div class="sf-ch sf-pad"><h2>Salary assignments</h2><span class="sf-ch-actions" *ngIf="can('HRM_SALARY_EDIT')"><p-button label="New assignment" icon="pi pi-plus" [text]="true" size="small" (onClick)="openSalary()" data-testid="new-salary"></p-button></span></div>
+        <div class="gl-scroll"><table class="hrm-table hrm-stack">
+          <thead><tr><th>Structure</th><th>From</th><th>To</th><th class="gl-num">Gross</th><th>Components</th><th>Status</th><th></th></tr></thead>
+          <tbody>
+            <tr *ngFor="let a of assignments" [attr.data-testid]="'asg-' + a.uuid">
+              <td data-label="Structure"><span>{{ a.structureName }}<span class="sub">{{ a.changeReason }}</span></span></td><td data-label="From">{{ a.effectiveFrom | date:'dd MMM yyyy' }}</td><td data-label="To">{{ a.effectiveTo ? (a.effectiveTo | date:'dd MMM yyyy') : '—' }}</td>
+              <td data-label="Gross" class="gl-num">{{ a.gross === null || a.gross === undefined ? 'Hidden' : money(a.gross) }}</td>
+              <td data-label="Components"><span *ngFor="let l of a.lines; let last = last">{{ l.componentCode }} {{ money(l.amount) }}{{ last ? '' : ', ' }}</span></td>
+              <td data-label="Status"><span class="sf-pill" [ngClass]="hrmTone(a.approvalStatus)">{{ hrmLabel(a.approvalStatus) }}</span></td>
+              <td class="hrm-acts"><div class="hrm-actions">
+                <p-button *ngIf="a.approvalStatus === 'Draft' && can('HRM_SALARY_EDIT')" label="Submit" icon="pi pi-send" [text]="true" size="small" (onClick)="submitSalary(a)" [attr.data-testid]="'submit-' + a.uuid"></p-button>
+                <ng-container *ngIf="a.approvalStatus === 'PendingApproval' && can('HRM_SALARY_APPROVE')">
+                  <p-button label="Approve" icon="pi pi-check" [text]="true" size="small" (onClick)="approveSalary(a)" [attr.data-testid]="'approve-' + a.uuid"></p-button>
+                  <p-button label="Reject" icon="pi pi-times" [text]="true" size="small" severity="danger" (onClick)="openReject(a)"></p-button>
+                </ng-container>
+              </div></td>
+            </tr>
+            <tr *ngIf="!assignments.length"><td class="hrm-empty sf-empty" colspan="7">No salary assigned.</td></tr>
+          </tbody>
+        </table></div>
+      </section>
+
+      <!-- Payroll history (285) -->
+      <section class="sf-card p0" *ngIf="tab === 'payroll'" data-testid="payroll-history">
+        <div class="sf-ch sf-pad"><h2>Payroll history</h2></div>
+        <div class="gl-scroll"><table class="hrm-table hrm-stack">
+          <thead><tr><th>Run</th><th>Period</th><th class="gl-num">Gross</th><th class="gl-num">Deductions</th><th class="gl-num">Net</th><th>Status</th><th></th></tr></thead>
+          <tbody>
+            <tr *ngFor="let h of history" [class.blocked]="h.isBlocked"><td data-label="Run" class="sf-mono"><a *ngIf="can('HRM_PAYROLL_VIEW')" [routerLink]="[runsRoute, h.runUuid]">{{ h.runNumber }}</a></td><td data-label="Period">{{ h.periodStart }} to {{ h.periodEnd }}</td><td data-label="Gross" class="gl-num">{{ money(h.gross) }}</td><td data-label="Deductions" class="gl-num">{{ money(h.totalDeductions) }}</td><td data-label="Net" class="gl-num">{{ money(h.net) }}</td><td data-label="Status"><span class="sf-pill" [ngClass]="hrmTone(h.status)">{{ hrmLabel(h.status) }}</span></td>
+              <td class="hrm-acts"><div class="hrm-actions"><p-button *ngIf="hasPayslip(h)" label="Payslip" icon="pi pi-file-pdf" [text]="true" size="small" (onClick)="viewPayslip(h)" [attr.data-testid]="'payslip-' + h.lineUuid"></p-button></div></td></tr>
+            <tr *ngIf="!history.length"><td class="hrm-empty sf-empty" colspan="7">No payroll yet.</td></tr>
+          </tbody>
+        </table></div>
+      </section>
+    </div>
+  </ng-container>
+</sf-page>
+
+<hrm-dialog [(visible)]="dlgOpen" [title]="dlgTitle" [subtitle]="e?.fullName ?? null" [icon]="dlg === 'status' ? 'pi-flag' : 'pi-pencil'" [tone]="dlg === 'rejectSalary' ? 'red' : 'blue'" [width]="dlg === 'edit' || dlg === 'record' ? '56rem' : '36rem'" [busy]="busy" [error]="dlgError" (save)="saveDlg()">
+  <ng-container *ngIf="dlg">
+    <p class="sf-mu sf-sm" *ngIf="dlg === 'edit'" style="margin-top:0">CNIC on file {{ e?.cnicMasked ?? 'none' }}, NTN on file {{ e?.ntnMasked ?? 'none' }}. Leave them empty to keep what is stored.</p>
+    <p-button *ngIf="dlg === 'salary'" label="Fill from structure" icon="pi pi-download" [text]="true" size="small" [disabled]="!dlgValues['structureUuid']" (onClick)="fillFromStructure()" data-testid="fill-structure"></p-button>
+    <hrm-form [fields]="dlgFields" [values]="dlgValues" [lookups]="lookups" idPrefix="emp"></hrm-form>
+  </ng-container>
+</hrm-dialog>
+
+<hrm-pdf-viewer [(visible)]="viewer.open" [path]="viewer.path" [attachmentUuid]="viewer.attachment" [fileName]="viewer.name"></hrm-pdf-viewer>

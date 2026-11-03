@@ -110,6 +110,8 @@ internal sealed class SupplierOpeningBalanceImportTarget : IImportTarget
             var outcomes = new List<ImportRowOutcome>(rows.Count);
             try
             {
+                // A48 D-AP-15 — the same numbering lock as InvoiceRepository (held to the commit when a transaction is open).
+                await DocumentNumbers.SerializeAsync(_db, InvoiceRepository.NumberingLock, organizationId);
                 var numbers = new InvoiceNumbers(await NumberBaseAsync(organizationId, now.Year, ct), now.Year);
                 var ledger  = new LedgerTails(_db, organizationId);
 

@@ -131,6 +131,19 @@ export class SaleQuotationResponsePanelComponent implements OnChanges {
     return row.response === 'ACCEPTED' && row.line.customerResponse === 'COUNTER' && (row.line.customerCounterPrice ?? 0) > 0;
   }
 
+  /** Lines nobody has answered for yet. */
+  get unansweredRows(): ResponseRow[] { return this.rows.filter(r => r.response === null); }
+
+  /**
+   * "The customer took everything": answers every still-open line ACCEPTED, leaving a line already answered (a counter, a
+   * rejection) as it is. Nothing is sent until Save Responses or Mark Quotation Accepted.
+   */
+  acceptOpenLines() {
+    if (!this.canRespond || this.isBusy) return;
+    for (const row of this.unansweredRows) row.response = 'ACCEPTED';
+    this.error = null;
+  }
+
   onResponseChange(row: ResponseRow) {
     this.error = null;
     if (row.response !== 'ACCEPTED') row.acceptCounterPrice = false;

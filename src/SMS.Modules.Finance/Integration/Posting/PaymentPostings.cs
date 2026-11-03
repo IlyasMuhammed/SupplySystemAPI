@@ -124,6 +124,14 @@ internal static class PaymentPostings
         var linked  = advance ? [] : applications.Where(a => !a.IsOpening).ToList();
         var opening = advance ? [] : applications.Where(a => a.IsOpening).ToList();
         var method  = Method(payment.PaymentMethod);
+        // A48 AP-1 — early-payment discount taken: the payable is settled by cash + discount (applications are the cash).
+        var discount = advance ? 0m : payment.Lines.Sum(l => l.DiscountAmount);
+        var note     = advance ? $"Advance payment {payment.PaymentNumber}" : QuickBooksSupport.Clean(payment.Notes);
+        if (discount != 0m)
+        {
+            var text = $"Early-payment discount {discount:0.00} taken (bills stay open by it in QuickBooks until a vendor credit is applied)";
+            note = note is null ? text : $"{note} · {text}";
+        }
 
         var payload = new BillPaymentPayload
         {
@@ -136,15 +144,16 @@ internal static class PaymentPostings
             Method           = method,
             Reference        = QuickBooksSupport.Clean(payment.ChequeNo),
             Applications     = linked.Select(a => new BillPaymentApplicationPayload { BillExternalId = a.DocumentUuid.ToString(), Amount = a.Amount }).ToList(),
-            PrivateNote      = Note(advance ? $"Advance payment {payment.PaymentNumber}" : QuickBooksSupport.Clean(payment.Notes), opening),
+            PrivateNote      = Note(note, opening),
             ExchangeRate             = rate,
             ExchangeRateCurrencyCode = rateCurrency
         };
 
         var difference = rate is { } r ? (payment.ExchangeDifference ?? 0m) / r : 0m;
         var lines = new GlLines(payment.SupplierId)
-            .Debit(PostingRoles.Payable, payment.TotalAmount + GlLines.Round(difference), $"Payment {payment.PaymentNumber}")
+            .Debit(PostingRoles.Payable, payment.TotalAmount + discount + GlLines.Round(difference), $"Payment {payment.PaymentNumber}")
             .Credit(PostingRoles.MoneyFor(method), payment.TotalAmount, $"{method} {payment.PaymentNumber}")
+            .Credit(PostingRoles.DiscountReceived, discount, "Early-payment discount taken")
             .Credit(PostingRoles.ExchangeGainLoss, difference, "Realized exchange difference");
 
         return new FinancialTransaction

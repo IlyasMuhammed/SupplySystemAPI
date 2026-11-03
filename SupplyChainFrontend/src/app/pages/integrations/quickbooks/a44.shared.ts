@@ -3,7 +3,7 @@
 
 import {
   CoverageIssueModel, CoverageKindModel, CoverageModel, DocumentOverrideModel, ProviderDefaultModel,
-  SYNC_CONTROL_DOCUMENT_TYPES, SyncControlDocumentType, SyncControlRowModel
+  SYNC_CONTROL_DOCUMENT_TYPES, SYNC_CONTROL_HRM_TYPES, SyncControlDocumentType, SyncControlRowModel
 } from '../../../models/quickbooks-integration.models';
 
 /** What the option builders need of a reference item (ReferenceItemModel and QboAccountModel both fit). */
@@ -22,7 +22,9 @@ import { Option, QboTabKey } from './quickbooks.shared';
 export const SYNC_CONTROL_LABEL: Record<SyncControlDocumentType, string> = {
   Customer: 'Customers', Vendor: 'Vendors', Item: 'Items', SalesInvoice: 'Sales invoices', CreditNote: 'Credit notes',
   Payment: 'Customer payments', POSSale: 'POS sales', POSReturn: 'POS returns', PurchaseBill: 'Bills',
-  BillPayment: 'Bill payments', VendorCredit: 'Vendor credits'
+  BillPayment: 'Bill payments', VendorCredit: 'Vendor credits',
+  PayrollRun: 'Payroll runs', PayrollPayment: 'Payroll payments', LoanDisbursement: 'Loan disbursements', Expense: 'Expense claims', ExpensePayment: 'Expense payments',
+  StatutoryRemittance: 'Statutory remittances', FinalSettlement: 'Final settlements', PayrollProvision: 'Payroll provisions'
 };
 
 export const SYNC_CONTROL_HINT: Record<SyncControlDocumentType, string> = {
@@ -36,7 +38,10 @@ export const SYNC_CONTROL_HINT: Record<SyncControlDocumentType, string> = {
   POSReturn: 'POS returns: a refund receipt for a cash refund, else a credit memo.',
   PurchaseBill: 'When a supplier invoice is approved, or changed while approved.',
   BillPayment: 'Supplier payments when posted, cancelled or bounced.',
-  VendorCredit: 'Supplier credit notes, and debit notes once issued.'
+  VendorCredit: 'Supplier credit notes, and debit notes once issued.',
+  PayrollRun: 'Summarized payroll journal per run. Turning it on is refused until accounts, cost centers and currency check out.',
+  PayrollPayment: 'The payment of a payroll run.', LoanDisbursement: 'Employee loans and advances when paid out.', Expense: 'Approved expense claims.', ExpensePayment: 'Payment of an expense claim.',
+  StatutoryRemittance: 'Tax, EOBI, PF and social security paid to the authority.', FinalSettlement: 'Final settlements when posted.', PayrollProvision: 'Payroll provisions.'
 };
 
 export type SyncControlStatus = 'On' | 'Held' | 'Off';
@@ -51,12 +56,15 @@ export const SYNC_CONTROL_STATUS_TONE: Record<SyncControlStatus, 'success' | 'wa
 
 /** Every document type, in the fixed order, whether or not the server sent a row (no row = enabled, BR-29). */
 export function completeSyncControl(rows: SyncControlRowModel[]): SyncControlRowModel[] {
-  return SYNC_CONTROL_DOCUMENT_TYPES.map(type => {
+  const base = SYNC_CONTROL_DOCUMENT_TYPES.filter(t => !(SYNC_CONTROL_HRM_TYPES as readonly string[]).includes(t)).map(type => {
     const found = rows.find(r => (r.documentType ?? '').toLowerCase() === type.toLowerCase());
     return found
       ? { ...found, documentType: type, heldCount: found.heldCount ?? 0 }
       : { documentType: type, isEnabled: true, holdWhenDisabled: false, heldCount: 0 };
   });
+  // A49 G-15 — an HRM type has a row only when the server sent one (it hides them while MODULE_HRM is off); never "no row = enabled".
+  const hrm = SYNC_CONTROL_HRM_TYPES.flatMap(type => rows.filter(r => (r.documentType ?? '').toLowerCase() === type.toLowerCase()).map(r => ({ ...r, documentType: type, heldCount: r.heldCount ?? 0 })));
+  return [...base, ...hrm];
 }
 
 /** Turning a held type on releases what it held: the banner and the confirmation say how many. */

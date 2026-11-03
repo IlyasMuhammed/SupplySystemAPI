@@ -1,4 +1,4 @@
-﻿// QuickBooks Online integration — the admin API's request/response shapes (/api/integrations/quickbooks/*).
+// QuickBooks Online integration — the admin API's request/response shapes (/api/integrations/quickbooks/*).
 //
 // Mirrors, field for field:
 //   src/SMS.Modules.Integration/Models/AdminModels.cs            (every DTO below)
@@ -540,9 +540,13 @@ export interface StatusLookupResult {
 
 // ── Sync control (D-14) ─────────────────────────────────────────────────────────────────────────
 
+/** A49 G-15 — HRM journal types; rows only while MODULE_HRM is on (the server decides), each off + hold on a new connection. */
+export type SyncControlHrmType = 'PayrollRun' | 'PayrollPayment' | 'LoanDisbursement' | 'Expense' | 'ExpensePayment' | 'StatutoryRemittance' | 'FinalSettlement' | 'PayrollProvision';
+export const SYNC_CONTROL_HRM_TYPES: readonly SyncControlHrmType[] = ['PayrollRun', 'PayrollPayment', 'LoanDisbursement', 'Expense', 'ExpensePayment', 'StatutoryRemittance', 'FinalSettlement', 'PayrollProvision'];
+
 export type SyncControlDocumentType =
   | 'Customer' | 'Vendor' | 'Item' | 'SalesInvoice' | 'CreditNote' | 'Payment' | 'POSSale' | 'POSReturn'
-  | 'PurchaseBill' | 'BillPayment' | 'VendorCredit';
+  | 'PurchaseBill' | 'BillPayment' | 'VendorCredit' | SyncControlHrmType;
 
 export const SYNC_CONTROL_DOCUMENT_TYPES: readonly SyncControlDocumentType[] = [
   'Customer', 'Vendor', 'Item', 'SalesInvoice', 'CreditNote', 'Payment', 'POSSale', 'POSReturn',

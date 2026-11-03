@@ -53,7 +53,7 @@
           <td><div class="ref">{{ l.productName }}<span *ngIf="l.variantName && l.variantName !== 'Default'"> – {{ l.variantName }}</span></div><div class="sub mono">{{ l.sku }}</div></td>
           <td class="num critical">{{ l.totalShortageQty | number:'1.0-4' }} {{ l.uom }}</td>
           <td class="num"><a class="affected-link" (click)="openDrawer(l)" data-testid="open-affected">{{ l.affectedPoCount }}</a></td>
-          <td>{{ l.earliestRequiredDate | date:'mediumDate' }}</td>
+          <td>{{ l.earliestRequiredDate | date:'dd MMM yyyy' }}</td>
           <td>{{ l.defaultSupplierName || 'Not set' }}</td>
           <td class="num">{{ l.currentStockOnHand | number:'1.0-4' }}</td>
           <td>
@@ -101,7 +101,7 @@
         <td>{{ o.status | titlecase }}</td>
         <td class="num">{{ o.plannedQuantity | number:'1.0-4' }}</td>
         <td class="num critical">{{ o.shortageQuantity | number:'1.0-4' }}</td>
-        <td>{{ (o.plannedStartDate || o.requiredDate) | date:'mediumDate' }}</td>
+        <td>{{ (o.plannedStartDate || o.requiredDate) | date:'dd MMM yyyy' }}</td>
       </tr>
     </ng-template>
     <ng-template pTemplate="emptymessage">

@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using SMS.Modules.Crm.Data;
 using SMS.Modules.Crm.Domain;
 using SMS.Modules.Crm.Models;
@@ -27,13 +28,17 @@ internal sealed class LeadConversionService : ILeadConversionService
     private readonly CrmDirectory _directory;
     private readonly ICrmEventPublisher _events;
 
-    public LeadConversionService(CrmDbContext db, LeadService leads, IDocumentNumberGenerator numbers, CrmDirectory directory, ICrmEventPublisher events)
+    private readonly ILogger<LeadConversionService>? _log;
+
+    public LeadConversionService(CrmDbContext db, LeadService leads, IDocumentNumberGenerator numbers, CrmDirectory directory, ICrmEventPublisher events,
+        ILogger<LeadConversionService>? log = null)
     {
         _db = db;
         _leads = leads;
         _numbers = numbers;
         _directory = directory;
         _events = events;
+        _log = log;
     }
 
     private ICrmAccountGateway Accounts => _directory.Accounts
@@ -50,6 +55,28 @@ internal sealed class LeadConversionService : ILeadConversionService
 
     public async Task<IReadOnlyList<CrmContactModel>> AccountContactsAsync(CrmCaller caller, Guid accountUuid, CancellationToken ct = default) =>
         (await Accounts.ListContactsAsync(caller.OrganizationId, accountUuid, ct)).Select(CrmDirectory.ToModel).ToList();
+
+    /// <summary>
+    /// A new customer's address book starts with the lead's address, so the sale order's picker lists it. Only for an account
+    /// the conversion has just made (a linked account's book is its own), only when the lead gives enough of an address to
+    /// deliver to (street, city, country), and never at the price of the conversion itself.
+    /// </summary>
+    private async Task SeedShippingAddressAsync(Guid org, Guid accountUuid, CrmLead lead, int userId, CancellationToken ct)
+    {
+        if (_directory.ShippingAddresses is not { } book) return;
+        if (string.IsNullOrWhiteSpace(lead.AddressLine1) || string.IsNullOrWhiteSpace(lead.City) || string.IsNullOrWhiteSpace(lead.Country)) return;
+
+        try
+        {
+            await book.AddForCustomerAsync(org, accountUuid, new CrmShippingAddress(
+                lead.AddressLine1.Trim(), lead.AddressLine2?.Trim(), lead.City.Trim(), lead.StateProvince?.Trim(), lead.PostalCode?.Trim(),
+                lead.Country.Trim(), lead.FullName, lead.MobilePhone ?? lead.Phone, lead.Email), userId, ct);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _log?.LogWarning(ex, "Lead {Lead}: its address could not be saved to the new customer's address book.", lead.LeadNumber);
+        }
+    }
 
     public async Task<LeadConversionResult> ConvertAsync(CrmCaller caller, Guid leadUuid, LeadConvertRequest options, CancellationToken ct = default)
     {
@@ -97,6 +124,7 @@ internal sealed class LeadConversionService : ILeadConversionService
                 lead.CompanyName, individual ? "INDIVIDUAL" : "COMPANY", lead.Phone, lead.MobilePhone, lead.Email, lead.Website,
                 lead.AddressLine1, lead.AddressLine2, lead.City, lead.StateProvince, lead.PostalCode, lead.Country), caller.UserId, ct);
             newAccount = true;
+            await SeedShippingAddressAsync(org, accountUuid, lead, caller.UserId, ct);
         }
 
         // 3. Contact person: link (must belong to that account — BR-23) or create under the account.

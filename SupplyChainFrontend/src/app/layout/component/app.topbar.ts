@@ -345,6 +345,11 @@ import { TenantService } from '../../pages/service/tenant.service';
             .sf-crumb-link:hover { color: var(--sms-primary-text); text-decoration: underline; }
         }
 
+        /* A phone has room for the current page only; pages carry their own Back. */
+        @media (max-width: 640px) {
+            .sf-crumbs > span, .sf-crumbs > a { display: none; }
+        }
+
         .brand-tag {
             font-size: 0.6rem;
             font-weight: 700;

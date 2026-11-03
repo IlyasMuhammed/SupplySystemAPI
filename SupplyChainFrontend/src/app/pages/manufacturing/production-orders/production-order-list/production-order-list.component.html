@@ -59,8 +59,8 @@
             <td><p-tag [value]="o.status" [severity]="severity(o.status)"></p-tag></td>
             <td>{{ o.materialReadiness | titlecase }}</td>
             <td class="num"><span [class.critical]="o.shortMaterialCount > 0">{{ o.shortMaterialCount }}</span> / {{ o.materialCount }}</td>
-            <td>{{ o.requiredDate | date:'mediumDate' }}</td>
-            <td>{{ o.updatedAt | date:'short' }}</td>
+            <td>{{ o.requiredDate | date:'dd MMM yyyy' }}</td>
+            <td>{{ o.updatedAt | date:'dd MMM yyyy, HH:mm' }}</td>
           </tr>
         </ng-template>
         <ng-template pTemplate="emptymessage">

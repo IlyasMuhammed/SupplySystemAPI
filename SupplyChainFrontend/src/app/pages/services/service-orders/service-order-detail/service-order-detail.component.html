@@ -93,8 +93,8 @@
         <span>Estimated hours</span><span>{{ o.estimatedHours != null ? (o.estimatedHours | number:'1.0-2') : '—' }}</span>
         <span>Invoicing</span><span>{{ o.invoicingPolicy ? flowLabel(o.invoicingPolicy) : '—' }}<span *ngIf="o.billingModel" class="sf-mu"> · {{ flowLabel(o.billingModel) }}</span></span>
         <span>Service BOM</span><span>{{ o.bomNumber ? (o.bomNumber + ' v' + o.bomVersion) : 'None' }}</span>
-        <span>Started</span><span>{{ o.actualStartDate ? (o.actualStartDate | date:'medium') : '—' }}</span>
-        <span>Finished</span><span>{{ o.actualEndDate ? (o.actualEndDate | date:'medium') : '—' }}</span>
+        <span>Started</span><span>{{ o.actualStartDate ? (o.actualStartDate | date:'dd MMM yyyy, HH:mm') : '—' }}</span>
+        <span>Finished</span><span>{{ o.actualEndDate ? (o.actualEndDate | date:'dd MMM yyyy, HH:mm') : '—' }}</span>
         <span>Notes</span><span>{{ o.notes || '—' }}</span>
       </div>
 
@@ -276,7 +276,7 @@
             </ng-template>
             <ng-template pTemplate="body" let-e>
               <tr data-testid="ledger-row">
-                <td>{{ e.transactionDate | date:'short' }}</td>
+                <td>{{ e.transactionDate | date:'dd MMM yyyy, HH:mm' }}</td>
                 <td><span class="sf-pill" [ngClass]="isReturn(e) ? 'ok' : 'er'" data-testid="ledger-movement">{{ isReturn(e) ? 'Returned' : 'Consumed' }}</span></td>
                 <td>{{ e.productName }}</td>
                 <td class="text-right"><span [ngClass]="isReturn(e) ? 'qty-back' : 'qty-out'" data-testid="ledger-qty">{{ e.quantity | number:'1.0-4' }}</span></td>

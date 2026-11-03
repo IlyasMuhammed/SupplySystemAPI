@@ -40,7 +40,7 @@ public class ProviderDefaultsTests : IAsyncLifetime
     {
         var model = await Defaults(d => d.GetDefaultsAsync());
 
-        model.Defaults.Should().HaveCount(5 + 4 * 6);
+        model.Defaults.Should().HaveCount(6 + 4 * 6);
         model.Defaults.Should().OnlyContain(d => d.SettingValue == null);
         model.Defaults.Single(d => d.SettingKey == "DepositToAccountRef.CARD").Should().Match<ProviderDefaultModel>(d =>
             d.BaseKey == "DepositToAccountRef" && d.Method == "CARD" && d.ReferenceKind == "Account" && d.AccountTypes.Contains("Bank"));

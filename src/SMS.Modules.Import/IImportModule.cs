@@ -29,6 +29,7 @@ public static class ImportModuleExtensions
         // IModuleGate (Tenancy) are optional constructor parameters.
         services.AddScoped<ImportTargetRegistry>();
         services.AddScoped<ImportOpeningGate>();
+        services.AddScoped(sp => new ImportRowProtector(sp.GetService<SMS.Shared.Common.IEncryptionService>()));
         services.AddScoped<IImportProfileService, ImportProfileService>();
         services.AddScoped<ImportSessionService>();
         services.AddScoped<IImportSessionService>(sp => sp.GetRequiredService<ImportSessionService>());

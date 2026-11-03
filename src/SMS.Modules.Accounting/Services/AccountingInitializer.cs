@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using SMS.Modules.Accounting.Data;
 using SMS.Modules.Accounting.Domain;
+using SMS.Shared.Common;
 
 namespace SMS.Modules.Accounting.Services;
 
@@ -19,9 +20,14 @@ public interface IAccountingInitializer
 internal sealed class AccountingInitializer : IAccountingInitializer
 {
     private readonly AccountingDbContext _db;
+    private readonly IModuleGate? _gate;
     private readonly HashSet<Guid> _ensured = [];
 
-    public AccountingInitializer(AccountingDbContext db) => _db = db;
+    public AccountingInitializer(AccountingDbContext db, IModuleGate? gate = null)
+    {
+        _db = db;
+        _gate = gate;
+    }
 
     public async Task EnsureAsync(Guid organizationId, CancellationToken ct = default)
     {
@@ -41,7 +47,11 @@ internal sealed class AccountingInitializer : IAccountingInitializer
 
                 var rows = await _db.AccountingDefaults.IgnoreQueryFilters()
                     .Where(d => d.OrganizationId == organizationId).ToListAsync(ct);
-                foreach (var def in DefaultKeys.Definitions)
+                // A49 G-4 — the HR roles appear (unassigned) only for an organization with HRM on; never required.
+                var definitions = _gate is not null && await _gate.IsEnabledAsync(organizationId, ModuleCodes.Hrm, ct)
+                    ? DefaultKeys.Definitions.Concat(DefaultKeys.HrDefinitions)
+                    : DefaultKeys.Definitions;
+                foreach (var def in definitions)
                 {
                     var row = rows.FirstOrDefault(r => r.DefaultKey == def.Key);
                     if (row is null)

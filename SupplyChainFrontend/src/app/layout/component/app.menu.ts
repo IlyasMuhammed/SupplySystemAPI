@@ -7,6 +7,11 @@ import { AuthService } from '../../pages/service/auth.service';
 import { TenantService } from '../../pages/service/tenant.service';
 import { ModuleService } from '../../services/module.service';
 import { AccountingService } from '../../services/accounting.service';
+import { hrmMenuGroup, HRM_ROUTE } from '../../pages/hrm/core/hrm.nav';
+import {
+    AP_READ, ARAP_SETTINGS_READ, AR_READ, CREDIT_MEMO_READ, CREDIT_READ, DEBIT_MEMO_READ, DUNNING_PROCEDURE_READ, DUNNING_RUN_READ, MATCH_READ, PAYMENT_RUN_READ, SCHEDULE_READ,
+    STATEMENT_READ, VENDOR_STATEMENT_READ
+} from '../../services/ar-ap.service';
 
 /** A42 — the General Ledger group's first entry (Dashboard / "Set up general ledger"). */
 export const GL_DASHBOARD_ID = 'gl-dashboard';
@@ -32,6 +37,8 @@ type NavItem = MenuItem & {
     permRequired?: string[];
     alsoRequired?: string[];
     featureCode?: string | string[];
+    /** At least one of these features (A49 G-8: AR needs a source of invoices, AP a source of bills). */
+    anyFeature?: string[];
     superAdminOnly?: boolean;
     items?: NavItem[];
 };
@@ -42,6 +49,13 @@ const GL_READ_PERMS = ['GL_VIEW', 'GL_ACCOUNT_MANAGE', 'GL_SETUP_MANAGE'];
 const GL_JOURNAL_MENU_PERMS = [...GL_READ_PERMS, 'GL_JOURNAL_CREATE', 'GL_JOURNAL_EDIT', 'GL_JOURNAL_DELETE', 'GL_JOURNAL_POST', 'GL_JOURNAL_REVERSE'];
 const GL_RECONCILE_PERMS = ['GL_RECONCILE_VIEW', 'GL_RECONCILE_EXECUTE'];
 const GL_PERIOD_CLOSE_PERMS = ['GL_PERIOD_CLOSE_VIEW', 'GL_PERIOD_CLOSE_EXECUTE', 'GL_PERIOD_CLOSE_ADMIN'];
+
+/**
+ * A49 G-8 (BR-G8-002) — an HR + Finance organization has no invoices or bills to manage: the AR side hides without a source of
+ * customer documents, the AP side without a source of vendor bills. P2-S keeps Customers and Suppliers, so it keeps both (A-14, A-17).
+ */
+const AR_SOURCES = ['MODULE_DEMAND', 'MODULE_CUSTOMERS', 'MODULE_POS'];
+const AP_SOURCES = ['MODULE_DEMAND', 'MODULE_SUPPLIERS'];
 
 /** The permissions the Reports group used to require of every report in it. */
 const REPORT_PERMS = ['REPORT_VIEW', 'REPORT_EXPORT', 'AUDIT_LOG_VIEW'];
@@ -558,6 +572,7 @@ export class AppMenu {
             items: [
                 {
                     label: 'Invoices',
+                    anyFeature: AP_SOURCES,
                     icon: 'pi pi-fw pi-file-invoice',
                     items: [
                         { label: 'New Invoice', icon: 'pi pi-fw pi-plus',
@@ -570,6 +585,7 @@ export class AppMenu {
                 },
                 {
                     label: 'Payments',
+                    anyFeature: AP_SOURCES,
                     icon: 'pi pi-fw pi-credit-card',
                     items: [
                         { label: 'Record Payment', icon: 'pi pi-fw pi-plus',
@@ -585,12 +601,21 @@ export class AppMenu {
                 // ── Receivables (Addendum 29): what customers are billed and what they pay ──
                 {
                     label: 'Sales Invoices',
+                    anyFeature: AR_SOURCES,
                     icon: 'pi pi-fw pi-file',
                     routerLink: ['/portal/pages/finance/sales-invoices'],
                     permRequired: ['SALES_INVOICE_VIEW', 'SALES_INVOICE_MANAGE']
                 },
                 {
+                    label: 'New Service Invoice',
+                    anyFeature: AR_SOURCES,
+                    icon: 'pi pi-fw pi-file-plus',
+                    routerLink: ['/portal/pages/finance/sales-invoices/service/new'],
+                    permRequired: ['SALES_INVOICE_MANAGE']
+                },
+                {
                     label: 'Customer Payments',
+                    anyFeature: AR_SOURCES,
                     icon: 'pi pi-fw pi-wallet',
                     items: [
                         { label: 'Record Payment', icon: 'pi pi-fw pi-plus',
@@ -601,6 +626,36 @@ export class AppMenu {
                           permRequired: ['CUSTOMER_PAYMENT_VIEW', 'CUSTOMER_PAYMENT_RECORD'] }
                     ]
                 },
+
+                // ── A48 D-18 — AR & AP sub-ledgers. Every entry carries its route's own D-14 gate (same lists as the routes).
+                {
+                    label: 'Receivables (AR)',
+                    anyFeature: AR_SOURCES,
+                    icon: 'pi pi-fw pi-arrow-down-left',
+                    items: [
+                        { label: 'AR Dashboard', icon: 'pi pi-fw pi-chart-bar', routerLink: ['/portal/pages/finance/ar'], permRequired: AR_READ },
+                        { label: 'Credit Control', icon: 'pi pi-fw pi-shield', routerLink: ['/portal/pages/finance/ar/credit'], permRequired: CREDIT_READ },
+                        { label: 'Customer Statements', icon: 'pi pi-fw pi-file', routerLink: ['/portal/pages/finance/ar/statements'], permRequired: STATEMENT_READ },
+                        { label: 'Credit Memos', icon: 'pi pi-fw pi-minus-circle', routerLink: ['/portal/pages/finance/ar/credit-memos'], permRequired: CREDIT_MEMO_READ },
+                        { label: 'Dunning Runs', icon: 'pi pi-fw pi-bell', routerLink: ['/portal/pages/finance/ar/dunning/runs'], permRequired: DUNNING_RUN_READ },
+                        { label: 'Dunning Procedures', icon: 'pi pi-fw pi-cog', routerLink: ['/portal/pages/finance/ar/dunning/procedures'], permRequired: DUNNING_PROCEDURE_READ }
+                    ]
+                },
+                {
+                    label: 'Payables (AP)',
+                    anyFeature: AP_SOURCES,
+                    icon: 'pi pi-fw pi-arrow-up-right',
+                    items: [
+                        { label: 'AP Dashboard', icon: 'pi pi-fw pi-chart-bar', routerLink: ['/portal/pages/finance/ap'], permRequired: AP_READ },
+                        { label: 'Invoice Matching', icon: 'pi pi-fw pi-check-square', routerLink: ['/portal/pages/finance/ap/matching'], permRequired: MATCH_READ },
+                        { label: 'Payment Schedules', icon: 'pi pi-fw pi-calendar', routerLink: ['/portal/pages/finance/ap/payment-schedules'], permRequired: SCHEDULE_READ },
+                        { label: 'Payment Runs', icon: 'pi pi-fw pi-send', routerLink: ['/portal/pages/finance/ap/payment-runs'], permRequired: PAYMENT_RUN_READ },
+                        { label: 'Vendor Statements', icon: 'pi pi-fw pi-file', routerLink: ['/portal/pages/finance/ap/vendor-statement'], permRequired: VENDOR_STATEMENT_READ },
+                        { label: 'Debit Memos', icon: 'pi pi-fw pi-minus-circle', routerLink: ['/portal/pages/finance/ap/debit-memos'], permRequired: DEBIT_MEMO_READ }
+                    ]
+                },
+                // Credit control mode, tolerance rules, early-payment terms (one page for both sides).
+                { label: 'AR & AP Settings', icon: 'pi pi-fw pi-sliders-h', anyFeature: [...AR_SOURCES, ...AP_SOURCES], routerLink: ['/portal/pages/finance/ap/settings'], permRequired: ARAP_SETTINGS_READ },
 
                 // ── General Ledger (Addendum 42 D-26) — same codes as the routes. The first entry reads "Set up general
                 // ledger" (→ the wizard) until setup is Complete; see withGlState().
@@ -644,6 +699,10 @@ export class AppMenu {
                 }
             ]
         },
+
+        // ── HR & Payroll (Addendum 49) ──────────────────────────────────────
+        // Built from one table with the routes (hrm.nav.ts): MODULE_HRM on the group, the sub-feature and permission on each entry.
+        hrmMenuGroup(),
 
         // ── Reports & Analytics ───────────────────────────────────────────
         // Every report and ledger, in the same order as the groups above. No group-level gate: each
@@ -932,6 +991,11 @@ export class AppMenu {
                                   routerLink: ['/portal/pages/integrations/quickbooks'],
                                   featureCode: 'MODULE_INTEGRATION',
                                   permRequired: ['INTEGRATION_VIEW'] },
+                                // A49 task 331 — the cost center → Class map, beside the QuickBooks page. Same route and codes as its HR Settings entry.
+                                { label: 'Cost Center Mapping', icon: 'pi pi-fw pi-arrow-right-arrow-left',
+                                  routerLink: [`${HRM_ROUTE}/settings/cost-center-mapping`],
+                                  featureCode: ['MODULE_INTEGRATION', 'MODULE_HRM'],
+                                  permRequired: ['INTEGRATION_VIEW', 'HRM_ACCOUNT_MAPPING_VIEW'] },
                                 // A44 D-34 — the QuickBooks page opened on its Logs tab.
                                 { label: 'QuickBooks Logs', icon: 'pi pi-fw pi-history',
                                   routerLink: ['/portal/pages/integrations/quickbooks'], queryParams: { tab: 'logs' },
@@ -1027,6 +1091,7 @@ export class AppMenu {
             } else if (!ctx.isSuperAdmin) {
                 const features = item.featureCode === undefined ? [] : ([] as string[]).concat(item.featureCode);
                 if (features.some(code => !this.tenantService.hasFeature(code))) continue;
+                if (item.anyFeature && !item.anyFeature.some(code => this.tenantService.hasFeature(code))) continue;
 
                 // Org Admin is a real permission holder like anyone else now (USER_MANAGE,
                 // PO_TEMPLATE_MANAGE by default) — no special-case bypass. Menu visibility must

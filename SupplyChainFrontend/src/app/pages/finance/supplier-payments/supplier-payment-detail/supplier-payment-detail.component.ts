@@ -105,6 +105,8 @@ export class SupplierPaymentDetailComponent implements OnInit {
       message: 'Approve this payment? It can then be posted to the supplier ledger.',
       header: 'Confirm Approval',
       icon: 'pi pi-check-circle',
+      acceptLabel: 'Approve',
+      rejectLabel: 'Cancel',
       rejectButtonStyleClass: 'p-button-text',
       accept: () => this.runAction(this.financeService.approveSupplierPayment(this.payment!.uuid), 'Payment approved.')
     });
@@ -115,6 +117,8 @@ export class SupplierPaymentDetailComponent implements OnInit {
       message: 'Cancel this payment? It cannot be resumed.',
       header: 'Confirm Cancel',
       icon: 'pi pi-times-circle',
+      acceptLabel: 'Cancel payment',
+      rejectLabel: 'Keep payment',
       acceptButtonStyleClass: 'p-button-danger',
       rejectButtonStyleClass: 'p-button-text',
       accept: () => this.runAction(this.financeService.cancelSupplierPayment(this.payment!.uuid), 'Payment cancelled.')
@@ -126,6 +130,8 @@ export class SupplierPaymentDetailComponent implements OnInit {
       message: 'Post this payment? This writes a ledger entry and updates invoice paid amounts — it cannot be undone except via Bounce (cheque only).',
       header: 'Confirm Post',
       icon: 'pi pi-exclamation-triangle',
+      acceptLabel: 'Post',
+      rejectLabel: 'Cancel',
       rejectButtonStyleClass: 'p-button-text',
       accept: () => this.runAction(this.financeService.postSupplierPayment(this.payment!.uuid), 'Payment posted.')
     });
@@ -136,6 +142,8 @@ export class SupplierPaymentDetailComponent implements OnInit {
       message: 'Mark this cheque as bounced? This reverses the ledger entry and the invoice paid amounts.',
       header: 'Confirm Bounce',
       icon: 'pi pi-exclamation-triangle',
+      acceptLabel: 'Mark bounced',
+      rejectLabel: 'Cancel',
       rejectButtonStyleClass: 'p-button-text',
       accept: () => this.runAction(this.financeService.bounceSupplierPayment(this.payment!.uuid), 'Payment marked as bounced.')
     });

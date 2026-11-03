@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using SMS.Modules.Finance.ArAp;
 using SMS.Modules.Finance.Domain;
 
 namespace SMS.Modules.Finance.Data.Maps;
@@ -8,7 +9,12 @@ internal sealed class InvoiceMap : IEntityTypeConfiguration<Invoice>
 {
     public void Configure(EntityTypeBuilder<Invoice> b)
     {
-        b.ToTable("invoices");
+        b.ToTable("invoices", t =>
+        {
+            // A48 (D-7) — the per-line match result on the header (null until the A48 match ran).
+            t.HasCheckConstraint("CK_invoices_MatchType", "[MatchType] IS NULL OR " + ArApColumn.In("MatchType", ArApEnums.MatchType.All));
+            t.HasCheckConstraint("CK_invoices_LineMatchResult", "[LineMatchResult] IS NULL OR " + ArApColumn.In("LineMatchResult", ArApEnums.LineMatchResult.All));
+        });
         b.HasKey(x => x.Id);
         b.Property(x => x.Id).ValueGeneratedOnAdd();
         b.Property(x => x.UUID).IsRequired();
@@ -47,6 +53,22 @@ internal sealed class InvoiceMap : IEntityTypeConfiguration<Invoice>
         b.Property(x => x.MatchedGrnValue).HasColumnType("decimal(18,2)");
         b.Property(x => x.VarianceAmount).HasColumnType("decimal(18,2)");
         b.Property(x => x.MatchStatus).HasMaxLength(20).HasDefaultValue("Pending");
+        // A48 (D-7, D-CORE-5/6) — match header columns; the vendor-invoice-number lookup is indexed, not unique (old duplicates).
+        b.Property(x => x.MatchType).HasMaxLength(10);
+        b.Property(x => x.LineMatchResult).HasMaxLength(20);
+        b.Property(x => x.MatchVariancePercent).HasColumnType(ArApColumn.Percent);
+        b.Property(x => x.AutoApproved).HasDefaultValue(false);
+        b.Property(x => x.MatchedByName).HasMaxLength(200);
+        b.Property(x => x.MatchOverrideReason).HasMaxLength(500);
+        b.Property(x => x.MatchOverriddenByName).HasMaxLength(200);
+        b.HasOne(x => x.ToleranceRule).WithMany().HasForeignKey(x => x.ToleranceRuleId).OnDelete(DeleteBehavior.Restrict);
+        b.HasIndex(x => new { x.OrganizationId, x.SupplierId, x.SupplierInvoiceNo }, "IX_invoices_VendorInvoiceNo");
+        // A48 RPT-2 — AP aging / open items: approved bills of an organization by vendor, covering the aging columns. ExchangeRate and
+        // ReversedAt are deliberately NOT included (key lookup instead): A35 ALTERs ExchangeRate and SAP's Down drops both, and an index
+        // depending on a column blocks those statements. A future migration that alters/drops a key or included column of this index must
+        // drop the index first and recreate it after (see the A48 migration).
+        b.HasIndex(x => new { x.OrganizationId, x.MatchStatus, x.SupplierId }, "IX_invoices_ApAging")
+         .IncludeProperties(x => new { x.TotalAmount, x.PaidAmount, x.DueDate, x.InvoiceDate, x.ApprovedAt, x.Currency, x.IsDelete });
         b.Property(x => x.PaymentStatus).HasMaxLength(20).HasDefaultValue("Unpaid");
         b.Property(x => x.PaidAmount).HasColumnType("decimal(18,2)").HasDefaultValue(0m);
         b.Property(x => x.PaymentMethod).HasMaxLength(50);
@@ -110,6 +132,9 @@ internal sealed class DebitNoteMap : IEntityTypeConfiguration<DebitNote>
         b.Property(x => x.AppliedToInvoiceNumber).HasMaxLength(20);
         b.Property(x => x.CarriedForwardAmount).HasColumnType("decimal(18,2)");
         b.Property(x => x.Status).HasMaxLength(20).HasDefaultValue("ISSUED");
+        // A48 (D-6) — SRO (from a supplier return) or MEMO (a standalone AP debit memo).
+        b.Property(x => x.Origin).HasMaxLength(10).IsRequired().HasDefaultValue(ArApEnums.DebitNoteOrigin.Sro);
+        b.ToTable("debit_notes", t => t.HasCheckConstraint("CK_debit_notes_Origin", ArApColumn.In("Origin", ArApEnums.DebitNoteOrigin.All)));
         b.Property(x => x.DisputeNotes).HasMaxLength(500);
         b.Property(x => x.Notes).HasMaxLength(300);
         b.Property(x => x.IsActive).HasDefaultValue(true);
@@ -312,6 +337,8 @@ internal sealed class SupplierPaymentLineMap : IEntityTypeConfiguration<Supplier
         b.Property(x => x.AllocatedAmount).HasColumnType("decimal(18,2)");
         b.Property(x => x.OutstandingBeforeAllocation).HasColumnType("decimal(18,2)");
         b.Property(x => x.ExchangeDifference).HasColumnType("decimal(18,4)");
+        // A48 (AP-1) — early-payment discount on the line; 0 on every older line.
+        b.Property(x => x.DiscountAmount).HasColumnType("decimal(18,2)").HasDefaultValue(0m);
         b.Property(x => x.Notes).HasMaxLength(300);
         b.Property(x => x.OrganizationId).IsRequired();
         b.HasIndex(x => x.OrganizationId);

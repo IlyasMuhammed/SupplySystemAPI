@@ -913,7 +913,7 @@ export class SaleOrderFormComponent implements OnInit {
   }
 
   formatAddress(a: AddressModel): string {
-    const cityLine = [a.cityName, a.postalCode].filter(Boolean).join(' ');
+    const cityLine = [[a.cityName, a.state].filter(Boolean).join(', '), a.postalCode].filter(Boolean).join(' ');
     return [a.line1, a.line2, cityLine, a.countryName].filter(Boolean).join(', ');
   }
 

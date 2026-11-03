@@ -13,13 +13,19 @@ internal sealed class CrmDirectory
     private readonly IOrgUserDirectory? _users;
     private readonly ICrmAccountGateway? _accounts;
 
-    public CrmDirectory(IOrgUserDirectory? users = null, ICrmAccountGateway? accounts = null)
+    private readonly ICrmShippingAddressGateway? _addresses;
+
+    public CrmDirectory(IOrgUserDirectory? users = null, ICrmAccountGateway? accounts = null, ICrmShippingAddressGateway? addresses = null)
     {
         _users = users;
         _accounts = accounts;
+        _addresses = addresses;
     }
 
     public ICrmAccountGateway? Accounts => _accounts;
+
+    /// <summary>The customer's shipping address book; null when Logistics is not part of the host.</summary>
+    public ICrmShippingAddressGateway? ShippingAddresses => _addresses;
 
     public async Task<Dictionary<int, OrgUserInfo>> UsersAsync(Guid org, IEnumerable<int?> ids, CancellationToken ct = default)
     {

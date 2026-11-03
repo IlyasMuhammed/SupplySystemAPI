@@ -57,6 +57,7 @@
     <ProjectReference Include="..\SMS.Modules.Import\SMS.Modules.Import.csproj" />
     <ProjectReference Include="..\SMS.Modules.Crm\SMS.Modules.Crm.csproj" />
     <ProjectReference Include="..\SMS.Modules.Accounting\SMS.Modules.Accounting.csproj" />
+    <ProjectReference Include="..\SMS.Modules.Hrm\SMS.Modules.Hrm.csproj" />
   </ItemGroup>
 
 </Project>

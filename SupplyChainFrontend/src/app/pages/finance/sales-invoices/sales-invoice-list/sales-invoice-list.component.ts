@@ -20,6 +20,7 @@ import { SalesInvoiceService, SalesInvoiceListItemModel, SalesInvoiceFilter } fr
 import { LogisticsService } from '../../../../services/logistics.service';
 import { AuthService } from '../../../service/auth.service';
 import { formatCode } from '../../../../shared/format-code';
+import { creditWarningOf } from '../../ar-ap/ar-ap.shared';
 import { toDateOnly } from '../../../../shared/date-only';
 import { INVOICE_STATUS_OPTIONS, INVOICE_STATUS_SEVERITY, Severity } from '../../receivables/receivables.shared';
 import { SalesInvoicePdfDialogComponent } from '../sales-invoice-pdf-dialog/sales-invoice-pdf-dialog.component';
@@ -201,6 +202,9 @@ export class SalesInvoiceListComponent implements OnDestroy {
           summary: created?.alreadyExisted ? 'Already invoiced' : 'Invoice created',
           detail: res.message || (created ? `Draft invoice ${created.invoiceNumber} raised.` : 'Draft invoice raised.')
         });
+        // A48 §2 — credit warning (never blocks an invoice).
+        const warning = creditWarningOf(res);
+        if (warning) this.messageService.add({ severity: 'warn', summary: 'Credit warning', detail: warning, life: 10000 });
         if (created?.invoiceUuid) this.router.navigate(['/portal/pages/finance/sales-invoices', created.invoiceUuid]);
         else this.load();
       },

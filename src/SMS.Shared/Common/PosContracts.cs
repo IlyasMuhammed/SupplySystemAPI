@@ -64,6 +64,14 @@ public interface ICounterSaleService
     Task<CounterSaleResult> PostSaleAsync(CounterSaleRequest request, CancellationToken ct = default);
     Task<CounterReturnResult> PostReturnAsync(CounterReturnRequest request, CancellationToken ct = default);
     Task<CounterReturnResult> VoidSaleAsync(Guid organizationId, Guid salesInvoiceUuid, Guid sourceUuid, string reason, int userId, CancellationToken ct = default);
+
+    /// <summary>
+    /// A48 AR (REV-3 / QA-5) — how much more may still be credited on the sale's invoice: its total less every credit already
+    /// raised against it (POS returns, AR credit memos, credit notes — <c>ReturnedAmount</c>), never below 0. Null when the
+    /// invoice is unknown (not posted yet). The one rule Finance's own posting guard applies too, read up front by the till.
+    /// </summary>
+    Task<decimal?> GetCreditableRemainingAsync(Guid organizationId, Guid salesInvoiceUuid, CancellationToken ct = default) =>
+        Task.FromResult<decimal?>(null);
 }
 
 // ─── Inventory (INV implements) ─────────────────────────────────────────────────────────────────────────────────────

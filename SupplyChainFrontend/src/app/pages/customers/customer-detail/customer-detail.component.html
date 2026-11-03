@@ -95,6 +95,12 @@
         </p>
       </section>
 
+      <!-- A48 C1 — receivables profile: hold, temporary limit, risk tier, dunning (MODULE_FINANCE + an AR/AP read code) -->
+      <section *ngIf="showArProfile" id="sec-ar-profile" class="sf-section sf-card" data-testid="section-ar-profile">
+        <div class="sf-ch"><h2>Receivables profile</h2></div>
+        <app-partner-financial-profile [partnerUuid]="c.uuid" role="Customer"></app-partner-financial-profile>
+      </section>
+
       <section id="sec-orders" class="sf-section sf-card p0" data-testid="section-orders">
         <div class="sf-ch"><h2>Sale orders</h2><span class="sf-mu sf-sm" *ngIf="ordersTotal > orders.length">latest {{ orders.length }} of {{ ordersTotal }}</span></div>
         <div *ngIf="!canViewOrders" class="sf-empty" data-testid="orders-no-access">Viewing sale orders needs the sale order view permission.</div>

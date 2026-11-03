@@ -23,6 +23,12 @@
   }
 }
 
+/* Tooltips are absolutely positioned, so near the right edge of the screen they
+   shrink to the space left and stack one word per line. Size them to their text. */
+.p-tooltip {
+  width: max-content !important;
+}
+
 .p-dropdown-panel {
   border-radius: 10px !important;
   box-shadow: var(--sms-shadow-lg) !important;

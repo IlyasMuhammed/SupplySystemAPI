@@ -1,0 +1,124 @@
+<p-toast></p-toast>
+<p-confirmDialog key="hrm-rec" [style]="{ width: '30rem', maxWidth: '96vw' }"></p-confirmDialog>
+<sf-page [crumbs]="cfg.crumbs">
+  <div sfCmd class="sf-cmd" role="toolbar" aria-label="Commands">
+    <p-button *ngIf="canCreate" [label]="'New ' + cfg.form!.noun.toLowerCase()" icon="pi pi-plus" (onClick)="openNew()" data-testid="new"></p-button>
+    <ng-container *ngFor="let c of commands">
+      <input #fileInput type="file" hidden [attr.accept]="c.accept" (change)="uploadFile(c, $event)" [attr.data-testid]="'file-' + c.id" />
+      <p-button [label]="c.label" [icon]="c.icon" [text]="!c.primary" [severity]="c.danger ? 'danger' : undefined" (onClick)="runCommand(c, fileInput)" [attr.data-testid]="'cmd-' + c.id"></p-button>
+    </ng-container>
+    <span class="sf-end"><p-button label="Refresh" icon="pi pi-refresh" [text]="true" (onClick)="load()" data-testid="refresh"></p-button></span>
+  </div>
+
+  <div class="sf-body">
+    <div class="sf-lr-head">
+      <div>
+        <h1>{{ cfg.title }} <span class="sf-count" data-testid="count">{{ total }}</span></h1>
+        <div class="sf-sub" *ngIf="cfg.sub">{{ cfg.sub }}</div>
+      </div>
+      <div class="sf-filters" *ngIf="cfg.chips">
+        <button type="button" class="sf-chip" [class.on]="!chip" (click)="setChip(null)" data-testid="chip-all">All</button>
+        <button *ngFor="let o of cfg.chips.options" type="button" class="sf-chip" [class.on]="chip === o.value" (click)="setChip(o.value)" [attr.data-testid]="'chip-' + o.value">{{ o.label }}</button>
+      </div>
+    </div>
+
+    <div class="gl-note wn" *ngIf="cfg.notice" data-testid="notice" role="note"><i class="pi pi-exclamation-triangle"></i><div>{{ cfg.notice }}</div></div>
+
+    <div class="sf-grid sf-tiles" *ngIf="tiles.length" data-testid="tiles">
+      <div class="sf-tile" *ngFor="let t of tiles"><span class="l">{{ t.l }}</span><span class="v">{{ t.v }}</span><span class="s" *ngIf="t.s">{{ t.s }}</span></div>
+    </div>
+
+    <div class="sf-filters" *ngIf="filters.length || cfg.active">
+      <ng-container *ngFor="let f of filters">
+        <input *ngIf="f.type === 'search'" pInputText class="sf-search" [placeholder]="f.label" [attr.aria-label]="f.label" [(ngModel)]="q[f.key]" (ngModelChange)="onFilter(f)" [attr.data-testid]="'filter-' + f.key" />
+        <p-select *ngIf="f.type === 'select' || f.type === 'lookup'" [options]="optionsOf(f)" optionLabel="label" optionValue="value" [(ngModel)]="q[f.key]" (ngModelChange)="onFilter(f)"
+                  [placeholder]="f.label" [ariaLabel]="f.label" [showClear]="!f.required" [filter]="f.type === 'lookup'" appendTo="body" [attr.data-testid]="'filter-' + f.key"></p-select>
+        <label *ngIf="f.type === 'date' || f.type === 'number'" class="sf-fld"><span class="sf-sm">{{ f.label }}</span>
+          <input pInputText [type]="f.type" [(ngModel)]="q[f.key]" (change)="onFilter(f)" [attr.data-testid]="'filter-' + f.key" /></label>
+      </ng-container>
+      <button *ngIf="cfg.active" type="button" class="sf-chip" [class.on]="includeInactive" (click)="includeInactive = !includeInactive; load()" data-testid="inactive">Show inactive</button>
+    </div>
+
+    <div class="gl-note er" *ngIf="loadError" data-testid="load-error" role="alert"><i class="pi pi-exclamation-triangle"></i><div>{{ loadError }}</div></div>
+
+    <div class="sf-card p0">
+      <div class="sf-empty" *ngIf="loading" data-testid="loading"><i class="pi pi-spin pi-spinner"></i> Loading…</div>
+      <div class="gl-scroll" *ngIf="!loading">
+        <table class="hrm-table hrm-stack" data-testid="records">
+          <thead><tr>
+            <th *ngFor="let c of columns" [class.gl-num]="isNum(c)">{{ c.label }}</th>
+            <th *ngIf="hasRowActions()"><span class="sf-mu">Actions</span></th>
+          </tr></thead>
+          <tbody>
+            <tr *ngFor="let r of rows" [class.off]="isOff(r)" [attr.data-testid]="'row-' + (r.uuid ?? '')">
+              <td *ngFor="let c of columns" [attr.data-label]="c.label" [class.gl-num]="isNum(c)">
+                <span>
+                  <ng-container [ngSwitch]="c.kind">
+                    <span *ngSwitchCase="'pill'" class="sf-pill" [ngClass]="hrmTone($any(cell(c, r)))">{{ text(c, r) }}</span>
+                    <span *ngSwitchCase="'date'">{{ cell(c, r) ? ($any(cell(c, r)) | date:'dd MMM yyyy') : '—' }}</span>
+                    <span *ngSwitchCase="'datetime'">{{ cell(c, r) ? ($any(cell(c, r)) | date:'dd MMM yyyy, HH:mm') : '—' }}</span>
+                    <ng-container *ngSwitchDefault>
+                      <a *ngIf="c.link; else plain" [routerLink]="c.link(r)" [class.sf-mono]="c.kind === 'mono'">{{ text(c, r) }}</a>
+                      <ng-template #plain><span [class.sf-mono]="c.kind === 'mono'" [class.sf-mu]="text(c, r) === 'Hidden'">{{ text(c, r) }}</span></ng-template>
+                    </ng-container>
+                  </ng-container>
+                  <span class="sub" *ngIf="c.sub && c.sub(r)">{{ c.sub(r) }}</span>
+                </span>
+              </td>
+              <td *ngIf="hasRowActions()" class="hrm-acts">
+                <div class="hrm-actions">
+                  <p-button *ngFor="let a of actionsFor(r)" [label]="a.label" [icon]="a.icon" [text]="true" size="small" [severity]="a.danger ? 'danger' : undefined"
+                            [disabled]="busyRow === r.uuid" (onClick)="runRow(a, r)" [attr.data-testid]="a.id + '-' + r.uuid"></p-button>
+                  <p-button *ngIf="canEdit(r)" label="Edit" icon="pi pi-pencil" [text]="true" size="small" (onClick)="openEdit(r)" [attr.data-testid]="'edit-' + r.uuid"></p-button>
+                  <p-button *ngIf="canActive()" [label]="r.isActive ? 'Deactivate' : 'Activate'" [icon]="r.isActive ? 'pi pi-ban' : 'pi pi-check'" [text]="true" size="small" [severity]="r.isActive ? 'danger' : undefined" (onClick)="toggleActive(r)" [attr.data-testid]="'active-' + r.uuid"></p-button>
+                  <p-button *ngIf="canRemove(r)" label="Delete" icon="pi pi-trash" [text]="true" size="small" severity="danger" (onClick)="removeRow(r)" [attr.data-testid]="'remove-' + r.uuid"></p-button>
+                </div>
+              </td>
+            </tr>
+            <tr *ngIf="!rows.length && !loadError"><td class="hrm-empty sf-empty" [attr.colspan]="columns.length + 1" data-testid="empty">{{ cfg.empty ?? 'Nothing here yet.' }}</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="hrm-pager" *ngIf="totalPages > 1" data-testid="pager">
+        <p-button icon="pi pi-chevron-left" [text]="true" size="small" ariaLabel="Previous page" [disabled]="page <= 1" (onClick)="go(-1)" data-testid="prev"></p-button>
+        <span>Page {{ page }} of {{ totalPages }}</span>
+        <p-button icon="pi pi-chevron-right" [text]="true" size="small" ariaLabel="Next page" [disabled]="page >= totalPages" (onClick)="go(1)" data-testid="next"></p-button>
+      </div>
+    </div>
+  </div>
+</sf-page>
+
+<hrm-dialog *ngIf="cfg.form" [(visible)]="formOpen" [title]="(formRow ? 'Edit ' : 'New ') + cfg.form.noun.toLowerCase()" [subtitle]="formRow?.code ?? formRow?.name ?? null" [icon]="formRow ? 'pi-pencil' : (cfg.form.icon ?? 'pi-plus')"
+            [width]="cfg.form.wide ? '52rem' : '34rem'" [busy]="formBusy" [error]="formError" (save)="saveForm()">
+  <hrm-form *ngIf="formOpen" [fields]="cfg.form.fields" [values]="formValues" [editing]="!!formRow" [lookups]="lookups" idPrefix="rec"></hrm-form>
+</hrm-dialog>
+
+<hrm-dialog [(visible)]="promptOpen" [title]="prompt?.label ?? ''" [subtitle]="promptRow?.name ?? promptRow?.employeeName ?? null" [icon]="prompt?.icon?.replace('pi ', '') ?? 'pi-check'" [tone]="prompt?.danger ? 'red' : 'blue'"
+            [saveLabel]="prompt?.label ?? 'Save'" [danger]="!!prompt?.danger" [busy]="promptBusy" [error]="promptError" (save)="submitPrompt()">
+  <hrm-form *ngIf="promptOpen && prompt" [fields]="prompt.fields ?? []" [values]="promptValues" [lookups]="lookups" idPrefix="act"></hrm-form>
+</hrm-dialog>
+
+<hrm-dialog *ngIf="cfg.view" [(visible)]="viewOpen" [title]="viewRow ? cfg.view.title(viewRow) : ''" icon="pi-file" [saveLabel]="null" [width]="cfg.view.wide ? '52rem' : '38rem'">
+  <div *ngIf="viewRow && viewOpen" class="hrm-stack-gap" data-testid="view">
+    <div class="sf-kv"><ng-container *ngFor="let kv of cfg.view.kv(viewRow)"><span>{{ kv[0] }}</span><span>{{ kvText(kv[1]) }}</span></ng-container></div>
+    <ng-container *ngIf="cfg.view.table as t">
+      <h3 style="margin:0;font-size:0.95rem">{{ t.title }}</h3>
+      <div class="gl-scroll">
+        <table class="hrm-table hrm-stack">
+          <thead><tr><th *ngFor="let c of t.columns" [class.gl-num]="isNum(c)">{{ c.label }}</th><th *ngIf="t.action"></th></tr></thead>
+          <tbody>
+            <tr *ngFor="let line of t.rows(viewRow)"><td *ngFor="let c of t.columns" [attr.data-label]="c.label" [class.gl-num]="isNum(c)"><span>
+              <span *ngIf="c.kind === 'pill'; else txt" class="sf-pill" [ngClass]="hrmTone($any(cell(c, line)))">{{ text(c, line) }}</span>
+              <ng-template #txt>{{ c.kind === 'date' ? (($any(cell(c, line)) | date:'dd MMM yyyy') ?? '—') : text(c, line) }}</ng-template>
+            </span></td>
+              <td *ngIf="t.action" class="hrm-acts"><p-button *ngIf="can(t.action.perm) && (!t.action.when || t.action.when(line))" [label]="t.action.label" [icon]="t.action.icon" [text]="true" size="small" severity="danger" (onClick)="viewOpen = false; runRow(t.action, line)" [attr.data-testid]="t.action.id + '-' + line.uuid"></p-button></td></tr>
+            <tr *ngIf="!t.rows(viewRow).length"><td class="hrm-empty sf-mu" [attr.colspan]="t.columns.length">None.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </ng-container>
+  </div>
+</hrm-dialog>
+
+<hrm-pdf-viewer [(visible)]="previewOpen" [path]="previewPath" [fileName]="previewName"></hrm-pdf-viewer>
+

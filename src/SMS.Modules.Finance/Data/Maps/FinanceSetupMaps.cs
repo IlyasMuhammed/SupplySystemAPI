@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using SMS.Modules.Finance.Domain;
+using SMS.Shared.Common;
 
 namespace SMS.Modules.Finance.Data.Maps;
 
@@ -31,12 +32,15 @@ internal sealed class FinanceOrgSettingsMap : IEntityTypeConfiguration<FinanceOr
 {
     public void Configure(EntityTypeBuilder<FinanceOrgSettings> b)
     {
-        b.ToTable("org_settings");
+        b.ToTable("org_settings", t =>
+            t.HasCheckConstraint("CK_org_settings_CreditControlMode", ArApColumn.In("CreditControlMode", CreditControlModes.All)));
         b.HasKey(x => x.Id);
         b.Property(x => x.Id).ValueGeneratedOnAdd();
         b.Property(x => x.OrganizationId).IsRequired();
         b.HasIndex(x => x.OrganizationId).IsUnique();
         b.Property(x => x.OpeningBalanceDate).HasColumnType("date");
+        // A48 (D-5) — Off by default: existing organizations are not suddenly blocked.
+        b.Property(x => x.CreditControlMode).HasMaxLength(10).IsRequired().HasDefaultValue(CreditControlModes.Off);
     }
 }
 

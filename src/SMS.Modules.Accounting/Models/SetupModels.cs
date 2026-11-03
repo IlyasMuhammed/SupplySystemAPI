@@ -20,6 +20,8 @@ public sealed class SetupStatusModel
     /// <summary>1..6 — the first wizard step not done (6 when everything is done).</summary>
     public int       NextStep                { get; set; }
     public List<SetupStepModel> Steps        { get; set; } = [];
+    /// <summary>A49 §10.7: HR keys with no account while HRM is on (empty otherwise). Never moves <see cref="Status"/> (analysis A-4): payroll Finalize blocks instead.</summary>
+    public List<string> HrRolesMissing       { get; set; } = [];
 }
 
 public sealed class SetupStepModel

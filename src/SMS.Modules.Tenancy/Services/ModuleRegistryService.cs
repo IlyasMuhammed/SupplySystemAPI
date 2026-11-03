@@ -30,11 +30,14 @@ internal sealed class ModuleRegistryService : IModuleRegistryService
     private readonly IUserQueryService? _users;
     private readonly IReadOnlyList<IModuleImpactProvider> _impactProviders;
     private readonly TimeProvider _clock;
+    private readonly IReadOnlyList<IModuleEnablementGuard> _guards;
 
     public ModuleRegistryService(
         TenancyDbContext db, ITenantSnapshotProvider snapshots, IUserQueryService? users = null,
-        IEnumerable<IModuleImpactProvider>? impactProviders = null, TimeProvider? clock = null)
+        IEnumerable<IModuleImpactProvider>? impactProviders = null, TimeProvider? clock = null,
+        IEnumerable<IModuleEnablementGuard>? guards = null)
     {
+        _guards = guards?.ToList() ?? [];
         _db = db;
         _snapshots = snapshots;
         _users = users;
@@ -151,6 +154,10 @@ internal sealed class ModuleRegistryService : IModuleRegistryService
             .Where(d => d.Dependent.Equals(module.Code, StringComparison.OrdinalIgnoreCase) && writer.Find(d.RequiredBy)?.IsOn != true)
             .Select(d => writer.Find(d.RequiredBy)?.Name ?? d.RequiredBy).ToList();
         if (missing.Count > 0) throw new BadRequestException($"Enable {string.Join(", ", missing)} first.");
+
+        // A49 FD-9: e.g. HRM needs its payroll cost center (422).
+        foreach (var guard in _guards.Where(g => g.ModuleCode.Equals(module.Code, StringComparison.OrdinalIgnoreCase)))
+            await guard.CheckAsync(orgId, ct);
 
         writer.SwitchOn(module.Code, userId, FeatureHistoryActions.Enabled);
         if (IsBomDriver(module.Code)) writer.ApplyBomRule(module.Name);

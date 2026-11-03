@@ -36,10 +36,12 @@ internal sealed class ImportSessionService : IImportSessionService
     private readonly ITenantContext _tenant;
     private readonly ImportOpeningGate _opening;
     private readonly IUserQueryService? _users;
+    private readonly ImportRowProtector _protector;
 
     public ImportSessionService(ImportDbContext db, ImportTargetRegistry registry, ITenantContext tenant, ImportOpeningGate opening,
-        IUserQueryService? users = null)
+        IUserQueryService? users = null, ImportRowProtector? protector = null)
     {
+        _protector = protector ?? new ImportRowProtector();
         _db = db; _registry = registry; _tenant = tenant; _opening = opening; _users = users;
     }
 
@@ -82,7 +84,7 @@ internal sealed class ImportSessionService : IImportSessionService
 
         _db.Rows.AddRange(parsed.Rows.Select(r => new ImportRow
         {
-            SessionId = session.Id, OrganizationId = Org, RowNumber = r.RowNumber, RawJson = JsonSerializer.Serialize(r.Values, Json),
+            SessionId = session.Id, OrganizationId = Org, RowNumber = r.RowNumber, RawJson = _protector.Protect(def, JsonSerializer.Serialize(r.Values, Json)),
             Status = ImportRowStatus.Pending
         }));
         await _db.SaveChangesAsync(ct);
@@ -226,6 +228,7 @@ internal sealed class ImportSessionService : IImportSessionService
     {
         var session = await LoadAsync(uuid, caller, false, ct);
         var entry = Entry(session);
+        ImportOpeningGate.EnsureProfileCodes(entry?.Definition, caller);
         var take = Math.Clamp(rows <= 0 ? 20 : rows, 1, 200);
         var mapped = session.Mappings.Where(m => m.TargetFieldName is not null).OrderBy(m => m.SourceColumnIndex).ToList();
         var data = await _db.Rows.IgnoreQueryFilters().AsNoTracking().Where(r => r.SessionId == session.Id)
@@ -235,10 +238,10 @@ internal sealed class ImportSessionService : IImportSessionService
             Columns = mapped.Select(m => new ImportPreviewColumn(m.TargetFieldName!, entry?.Field(m.TargetFieldName!)?.DisplayName ?? m.TargetFieldName!)).ToList(),
             Rows = data.Select(r =>
             {
-                var raw = MappedRaw(r, mapped);
-                var parsed = r.ValuesJson is null ? null : JsonSerializer.Deserialize<Dictionary<string, string?>>(r.ValuesJson, Json);
-                var values = mapped.ToDictionary(m => m.TargetFieldName!, m =>
-                    parsed is not null && parsed.TryGetValue(m.TargetFieldName!, out var v) ? v : raw.GetValueOrDefault(m.TargetFieldName!));
+                var raw = MappedRaw(r, mapped, _protector);
+                var parsed = r.ValuesJson is null ? null : JsonSerializer.Deserialize<Dictionary<string, string?>>(_protector.Open(r.ValuesJson), Json);
+                var values = mapped.ToDictionary(m => m.TargetFieldName!, m => ImportRowProtector.MaskValue(entry?.Definition, m.TargetFieldName,
+                    parsed is not null && parsed.TryGetValue(m.TargetFieldName!, out var v) ? v : raw.GetValueOrDefault(m.TargetFieldName!)));
                 var errors = Errors(r);
                 return new ImportPreviewRow
                 {
@@ -249,9 +252,9 @@ internal sealed class ImportSessionService : IImportSessionService
         };
     }
 
-    internal static Dictionary<string, string?> MappedRaw(ImportRow row, IReadOnlyList<ImportColumnMapping> mapped)
+    internal static Dictionary<string, string?> MappedRaw(ImportRow row, IReadOnlyList<ImportColumnMapping> mapped, ImportRowProtector? protector = null)
     {
-        var raw = JsonSerializer.Deserialize<string?[]>(row.RawJson, Json) ?? [];
+        var raw = JsonSerializer.Deserialize<string?[]>(protector is null ? row.RawJson : protector.Open(row.RawJson), Json) ?? [];
         var result = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
         foreach (var m in mapped.Where(m => m.TargetFieldName is not null))
             result[m.TargetFieldName!] = m.SourceColumnIndex < raw.Length ? raw[m.SourceColumnIndex] : null;
@@ -425,7 +428,7 @@ internal sealed class ImportSessionService : IImportSessionService
             .OrderBy(r => r.RowNumber).ToListAsync(ct);
 
         // 1. Generic checks.
-        var results = rows.ToDictionary(r => r.RowNumber, r => ImportGenericValidator.Validate(entry.Fields, MappedRaw(r, mapped)));
+        var results = rows.ToDictionary(r => r.RowNumber, r => ImportGenericValidator.Validate(entry.Fields, MappedRaw(r, mapped, _protector)));
 
         // 2. In-file duplicates (match fields, external id).
         var duplicates = ImportGenericValidator.FindInFileDuplicates(
@@ -491,8 +494,8 @@ internal sealed class ImportSessionService : IImportSessionService
                 res.Errors.Add(new ImportFieldError(def.MatchFields.FirstOrDefault() ?? ImportLimits.ExternalIdField, ImportErrorCodes.DuplicateInDb,
                     $"CREATE_NEW cannot create a duplicate of an existing {(matchLabel.Length > 0 ? matchLabel : "record")}", null));
 
-            r.ValuesJson = JsonSerializer.Serialize(res.Values, Json);
-            r.ErrorsJson = res.Errors.Count == 0 ? null : JsonSerializer.Serialize(res.Errors, Json);
+            r.ValuesJson = _protector.Protect(def, JsonSerializer.Serialize(res.Values, Json));
+            r.ErrorsJson = res.Errors.Count == 0 ? null : JsonSerializer.Serialize(ImportRowProtector.Sanitize(def, res.Errors), Json);
             r.ExternalId = res.Values.GetValueOrDefault(ImportLimits.ExternalIdField)?.Trim();
             r.ExistingEntityUuid = match;
             r.EntityUuid = null;
@@ -537,6 +540,8 @@ internal sealed class ImportSessionService : IImportSessionService
     public async Task<PaginatedResponse<ImportErrorRowModel>> ErrorsAsync(Guid uuid, int page, int pageSize, ImportCaller caller, CancellationToken ct = default)
     {
         var session = await LoadAsync(uuid, caller, false, ct);
+        var def = Entry(session)?.Definition;
+        ImportOpeningGate.EnsureProfileCodes(def, caller);
         var p = Math.Max(1, page);
         var size = Math.Clamp(pageSize <= 0 ? 50 : pageSize, 1, 200);
         var q = _db.Rows.IgnoreQueryFilters().AsNoTracking()
@@ -548,7 +553,9 @@ internal sealed class ImportSessionService : IImportSessionService
         {
             Data = rows.Select(r => new ImportErrorRowModel
             {
-                RowNumber = r.RowNumber, Status = r.Status, Values = MappedRaw(r, mapped), Errors = Errors(r)
+                RowNumber = r.RowNumber, Status = r.Status,
+                Values = MappedRaw(r, mapped, _protector).ToDictionary(kv => kv.Key, kv => ImportRowProtector.MaskValue(def, kv.Key, kv.Value), StringComparer.OrdinalIgnoreCase),
+                Errors = Errors(r)
             }).ToList(),
             TotalRecords = total, Page = p, PageSize = size, TotalPages = (int)Math.Ceiling(total / (double)size)
         };
@@ -569,8 +576,18 @@ internal sealed class ImportOpeningGate
         _gate = gate; _date = date;
     }
 
+    /// <summary>A49 D-POST-5: an import, or a read of its rows, must not give more than the owning module would. IMPORT_MANAGE alone is not enough.</summary>
+    public static void EnsureProfileCodes(ImportProfileDefinition? def, ImportCaller caller)
+    {
+        var lacking = def?.RequiredPermissions?.Where(p => !caller.Has(p)).ToList();
+        if (lacking is { Count: > 0 })
+            throw new ForbiddenException($"Importing {def!.Name} also needs: {string.Join(", ", lacking)}.");
+    }
+
     public async Task EnsureAllowedAsync(Guid org, ImportProfileDefinition def, ImportCaller caller, CancellationToken ct)
     {
+        EnsureProfileCodes(def, caller);
+
         if (!def.IsOpeningBalance) return;
         if (!caller.Has(PermissionCodes.IMPORT_OPENING_BALANCE)) throw new ForbiddenException(ImportMessages.OpeningPermission);
         if (!await _gate.IsOnAsync(org, ModuleCodes.OpeningBalanceImport, ct)) throw new ForbiddenException(ImportMessages.OpeningFeature);

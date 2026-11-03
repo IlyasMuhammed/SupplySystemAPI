@@ -1,4 +1,4 @@
-﻿using SMS.Modules.Finance.Services;
+using SMS.Modules.Finance.Services;
 
 namespace SMS.Modules.Finance.Models;
 
@@ -88,6 +88,8 @@ public class SalesInvoiceLineModel
     /// <summary>Null on a POS / credit-note line (A38).</summary>
     public Guid?   SoLineUuid      { get; set; }
     public Guid    VariantUuid     { get; set; }
+    /// <summary>A49 E-13: a service line's own income account; null = DEFAULT_REVENUE.</summary>
+    public string? IncomeAccountCode { get; set; }
     /// <summary>A38 — absolute discount and tax of a POS / credit-note line (null on sale-order lines).</summary>
     public decimal? DiscountAmount { get; set; }
     public decimal? TaxAmount      { get; set; }

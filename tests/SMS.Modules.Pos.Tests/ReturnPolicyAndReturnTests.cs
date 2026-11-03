@@ -91,6 +91,62 @@ public class ReturnPolicyAndReturnTests
             .Should().ThrowAsync<BadRequestException>();
     }
 
+    // ── A48 QA-5 / D-AR-14: the invoice's credit ceiling, read from Finance up front ──
+
+    private static async Task<Guid> InvoiceOfAsync(PosHarness h, Guid saleUuid)
+    {
+        var order = await h.Db.Orders.SingleAsync(o => o.Uuid == saleUuid);
+        if (order.SalesInvoiceUuid is null) { order.SalesInvoiceUuid = Guid.NewGuid(); await h.Db.SaveChangesAsync(); }
+        return order.SalesInvoiceUuid!.Value;
+    }
+
+    [Fact]
+    public async Task QA5_an_online_return_above_what_the_invoice_can_still_be_credited_is_refused_before_any_refund()
+    {
+        var h = new PosHarness();
+        var (_, terminal, shift, item) = await h.SetupAsync();
+        var sale = await h.SellAsync(terminal, shift, item, 3);          // 35.10
+        h.Finance.CreditableRemaining[await InvoiceOfAsync(h, sale.Uuid)] = 5.10m;   // an AR credit memo of 30.00 already on it
+        var ordersBefore = await h.Db.Orders.CountAsync();
+
+        await FluentActions.Awaiting(async () => await h.Orders.ReturnAsync(sale.Uuid, Return(sale.Lines[0].Uuid, 1, await h.ReasonAsync("DEFECTIVE")), Returner))
+            .Should().ThrowAsync<BadRequestException>()
+            .WithMessage("This return would credit more than the invoice total: returning 11.70 would take the sale's invoice credits above its total (only 5.10 remaining*");
+        (await h.Db.Orders.CountAsync()).Should().Be(ordersBefore, "nothing is recorded and no refund is paid");
+    }
+
+    [Fact]
+    public async Task QA5_within_the_remaining_credit_the_return_goes_through()
+    {
+        var h = new PosHarness();
+        var (_, terminal, shift, item) = await h.SetupAsync();
+        var sale = await h.SellAsync(terminal, shift, item, 3);
+        h.Finance.CreditableRemaining[await InvoiceOfAsync(h, sale.Uuid)] = 11.70m;
+
+        var ret = await h.Orders.ReturnAsync(sale.Uuid, Return(sale.Lines[0].Uuid, 1, await h.ReasonAsync("DEFECTIVE")), Returner);
+        ret.GrandTotal.Should().Be(11.70m);
+    }
+
+    [Fact]
+    public async Task QA5_an_offline_return_over_the_ceiling_is_accepted_flagged_and_warned()
+    {
+        var h = new PosHarness();
+        var (_, terminal, shift, item) = await h.SetupAsync();
+        var sale = await h.SellAsync(terminal, shift, item, 3);
+        h.Finance.CreditableRemaining[await InvoiceOfAsync(h, sale.Uuid)] = 5.10m;
+
+        var res = await h.Orders.SyncReturnAsync(new PosReturnSyncRequest
+        {
+            OriginalOrderUuid = sale.Uuid, IsOffline = true, LocalId = Guid.NewGuid().ToString("N"), Kind = "RETURN", TerminalUuid = terminal.Uuid,
+            ReasonUuid = await h.ReasonAsync("DEFECTIVE"), RefundMethod = PosPaymentMethod.Cash,
+            Lines = [new PosReturnLineRequest { OriginalLineUuid = sale.Lines[0].Uuid, Quantity = 1 }]
+        }, Returner);
+
+        res.Success.Should().BeTrue("the refund already happened at the till");
+        res.Flags.Should().Contain(PosOrderFlag.PolicyOverriddenOffline);
+        res.Warnings.Should().Contain(w => w.StartsWith("This return would credit more than the invoice total"));
+    }
+
     // ── §3 return rules ──
 
     [Fact]

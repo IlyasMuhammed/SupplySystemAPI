@@ -12,7 +12,7 @@
       <div class="sf-meta">How sale orders are filled, when purchase orders are raised for shortfalls, and who is told.</div>
     </div>
     <div class="sf-mu sf-sm" *ngIf="config" data-testid="last-changed">
-      <ng-container *ngIf="config.updatedAt; else neverChanged">Last changed {{ config.updatedAt | date:'medium' }}</ng-container>
+      <ng-container *ngIf="config.updatedAt; else neverChanged">Last changed {{ config.updatedAt | date:'dd MMM yyyy, HH:mm' }}</ng-container>
       <ng-template #neverChanged>Still on the default settings</ng-template>
     </div>
   </header>
@@ -250,7 +250,7 @@
             </ng-template>
             <ng-template pTemplate="body" let-row>
               <tr data-testid="audit-row">
-                <td>{{ row.changedAt | date:'medium' }}</td>
+                <td>{{ row.changedAt | date:'dd MMM yyyy, HH:mm' }}</td>
                 <td class="setting-name">{{ auditSetting(row) }}</td>
                 <td class="muted">{{ auditFrom(row) }}</td>
                 <td>{{ auditTo(row) }}</td>

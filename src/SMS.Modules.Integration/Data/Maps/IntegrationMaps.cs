@@ -253,6 +253,23 @@ internal sealed class SyncControlConfigMap : IEntityTypeConfiguration<SyncContro
     }
 }
 
+internal sealed class CostCenterQboMappingMap : IEntityTypeConfiguration<CostCenterQboMapping>
+{
+    public void Configure(EntityTypeBuilder<CostCenterQboMapping> b)
+    {
+        b.ToTable("CostCenterQboMappings");
+        b.HasKey(x => x.Id);
+        b.HasIndex(x => x.Uuid).IsUnique();
+        b.HasIndex(x => new { x.ConnectionId, x.CostCenterCode }).IsUnique();
+        b.Property(x => x.CostCenterCode).HasMaxLength(20).IsRequired();
+        b.Property(x => x.CostCenterName).HasMaxLength(100).IsRequired();
+        b.Property(x => x.QboClassRef).HasMaxLength(50);
+        b.Property(x => x.QboClassName).HasMaxLength(100);
+        b.Property(x => x.QboDepartmentRef).HasMaxLength(50);
+        b.Property(x => x.QboDepartmentName).HasMaxLength(100);
+    }
+}
+
 internal sealed class ProviderDefaultMap : IEntityTypeConfiguration<ProviderDefault>
 {
     public void Configure(EntityTypeBuilder<ProviderDefault> b)

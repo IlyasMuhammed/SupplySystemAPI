@@ -448,6 +448,142 @@ public static class PermissionCodes
     /// <summary>Final (irreversible) period close and the year-end close.</summary>
     public const string GL_PERIOD_CLOSE_ADMIN   = AccountingCodes.GlPeriodCloseAdmin;
 
+    // ── AR & AP sub-ledgers (Addendum 48, D-14; docs/ar-ap-subledgers/API-CONTRACT.md §0.2) ──
+    /// <summary>AR inquiry, aging, DSO, statements (view), credit exposure and history, dunning lists, customer profiles (read).</summary>
+    public const string AR_VIEW              = "AR_VIEW";
+    /// <summary>Emailing customer statements and batch statements.</summary>
+    public const string AR_STATEMENT_SEND    = "AR_STATEMENT_SEND";
+    /// <summary>Creating customer credit memos and applying them to open invoices.</summary>
+    public const string AR_CREDIT_MEMO       = "AR_CREDIT_MEMO";
+    /// <summary>Running a credit check on demand.</summary>
+    public const string CREDIT_CHECK         = "CREDIT_CHECK";
+    /// <summary>Credit holds and releases, temporary limits and risk tiers.</summary>
+    public const string CREDIT_MANAGE        = "CREDIT_MANAGE";
+    /// <summary>Confirming a sale order the credit check blocks, with a reason.</summary>
+    public const string CREDIT_OVERRIDE      = "CREDIT_OVERRIDE";
+    /// <summary>Previewing, executing and cancelling dunning runs.</summary>
+    public const string DUNNING_EXECUTE      = "DUNNING_EXECUTE";
+    /// <summary>Resetting a customer's dunning level by hand.</summary>
+    public const string DUNNING_ADMIN        = "DUNNING_ADMIN";
+    /// <summary>AP inquiry, aging, DPO, vendor statements, payment schedules, matches and payment runs (read), vendor profiles (read).</summary>
+    public const string AP_VIEW              = "AP_VIEW";
+    /// <summary>Blocking/unblocking payments, changing a schedule's priority/method/terms, vendor reconciliation.</summary>
+    public const string AP_EXECUTE           = "AP_EXECUTE";
+    /// <summary>Creating AP debit memos and applying them to supplier invoices.</summary>
+    public const string AP_DEBIT_MEMO        = "AP_DEBIT_MEMO";
+    /// <summary>Running the per-line 3-way match of a supplier invoice.</summary>
+    public const string MATCH_EXECUTE        = "MATCH_EXECUTE";
+    /// <summary>Accepting a match variance with a reason.</summary>
+    public const string MATCH_OVERRIDE       = "MATCH_OVERRIDE";
+    /// <summary>Approving a matched or overridden supplier invoice for payment.</summary>
+    public const string MATCH_APPROVE        = "MATCH_APPROVE";
+    public const string PAYMENT_RUN_PROPOSE  = "PAYMENT_RUN_PROPOSE";
+    /// <summary>Removing/restoring payment-run items, changing an item's method, sending a run to review.</summary>
+    public const string PAYMENT_RUN_EDIT     = "PAYMENT_RUN_EDIT";
+    public const string PAYMENT_RUN_APPROVE  = "PAYMENT_RUN_APPROVE";
+    /// <summary>Executing a payment run (supplier payments are created and posted) and exporting its payment file.</summary>
+    public const string PAYMENT_RUN_EXECUTE  = "PAYMENT_RUN_EXECUTE";
+    /// <summary>Cancelling a payment run.</summary>
+    public const string PAYMENT_RUN_ADMIN    = "PAYMENT_RUN_ADMIN";
+    /// <summary>A48 configuration: dunning procedures, tolerance rules, early-payment terms, partner profiles, credit control mode.</summary>
+    public const string FINANCE_AR_AP_ADMIN  = "FINANCE_AR_AP_ADMIN";
+
+    /// <summary>Every A48 code (D-14).</summary>
+    public static readonly IReadOnlyList<string> ArApCodes =
+    [
+        AR_VIEW, AR_STATEMENT_SEND, AR_CREDIT_MEMO, CREDIT_CHECK, CREDIT_MANAGE, CREDIT_OVERRIDE, DUNNING_EXECUTE, DUNNING_ADMIN,
+        AP_VIEW, AP_EXECUTE, AP_DEBIT_MEMO, MATCH_EXECUTE, MATCH_OVERRIDE, MATCH_APPROVE,
+        PAYMENT_RUN_PROPOSE, PAYMENT_RUN_EDIT, PAYMENT_RUN_APPROVE, PAYMENT_RUN_EXECUTE, PAYMENT_RUN_ADMIN,
+        FINANCE_AR_AP_ADMIN,
+    ];
+
+    // ── A49 — HRM (docs/hrm/API-CONTRACT.md §0.2; module MODULE_HRM via the HRM_ prefix) ──────
+    public const string HRM_SETTINGS_MANAGE        = "HRM_SETTINGS_MANAGE";
+    public const string HRM_ACCOUNT_MAPPING_VIEW   = "HRM_ACCOUNT_MAPPING_VIEW";
+    public const string HRM_ACCOUNT_MAPPING_EDIT   = "HRM_ACCOUNT_MAPPING_EDIT";
+    public const string HRM_ORG_VIEW               = "HRM_ORG_VIEW";
+    public const string HRM_ORG_MANAGE             = "HRM_ORG_MANAGE";
+    public const string HRM_EMPLOYEE_VIEW          = "HRM_EMPLOYEE_VIEW";
+    public const string HRM_EMPLOYEE_EDIT          = "HRM_EMPLOYEE_EDIT";
+    /// <summary>S3 — unmasked CNIC / NTN; every read is logged.</summary>
+    public const string HRM_EMPLOYEE_SENSITIVE_VIEW = "HRM_EMPLOYEE_SENSITIVE_VIEW";
+    public const string HRM_EMPLOYMENT_MANAGE      = "HRM_EMPLOYMENT_MANAGE";
+    /// <summary>S3 — unmasked bank account number / IBAN; every read is logged.</summary>
+    public const string HRM_BANK_VIEW              = "HRM_BANK_VIEW";
+    public const string HRM_BANK_EDIT              = "HRM_BANK_EDIT";
+    public const string HRM_SCOPE_ALL              = "HRM_SCOPE_ALL";
+    public const string HRM_SCOPE_BRANCH           = "HRM_SCOPE_BRANCH";
+    public const string HRM_SCOPE_DEPARTMENT       = "HRM_SCOPE_DEPARTMENT";
+    public const string HRM_SELF_SERVICE           = "HRM_SELF_SERVICE";
+    public const string HRM_SHIFT_MANAGE           = "HRM_SHIFT_MANAGE";
+    public const string HRM_ATTENDANCE_VIEW        = "HRM_ATTENDANCE_VIEW";
+    public const string HRM_ATTENDANCE_MANAGE      = "HRM_ATTENDANCE_MANAGE";
+    public const string HRM_OVERTIME_APPROVE       = "HRM_OVERTIME_APPROVE";
+    public const string HRM_LEAVE_VIEW             = "HRM_LEAVE_VIEW";
+    public const string HRM_LEAVE_APPROVE          = "HRM_LEAVE_APPROVE";
+    public const string HRM_LEAVE_MANAGE           = "HRM_LEAVE_MANAGE";
+    /// <summary>S2 — salary amounts: assignments, grade bands, offered salaries.</summary>
+    public const string HRM_SALARY_VIEW            = "HRM_SALARY_VIEW";
+    public const string HRM_SALARY_EDIT            = "HRM_SALARY_EDIT";
+    public const string HRM_SALARY_APPROVE         = "HRM_SALARY_APPROVE";
+    public const string HRM_PAYROLL_CONFIG         = "HRM_PAYROLL_CONFIG";
+    /// <summary>G-21 — marking a tax table or statutory rate reviewed (needs a qualified reviewer).</summary>
+    public const string HRM_STATUTORY_VERIFY       = "HRM_STATUTORY_VERIFY";
+    public const string HRM_PAYROLL_VIEW           = "HRM_PAYROLL_VIEW";
+    public const string HRM_PAYROLL_RUN            = "HRM_PAYROLL_RUN";
+    public const string HRM_PAYROLL_APPROVE        = "HRM_PAYROLL_APPROVE";
+    public const string HRM_PAYROLL_FINALIZE       = "HRM_PAYROLL_FINALIZE";
+    public const string HRM_PAYROLL_PAY            = "HRM_PAYROLL_PAY";
+    public const string HRM_PAYROLL_REVERSE        = "HRM_PAYROLL_REVERSE";
+    public const string HRM_RECRUITMENT_VIEW       = "HRM_RECRUITMENT_VIEW";
+    public const string HRM_RECRUITMENT_MANAGE     = "HRM_RECRUITMENT_MANAGE";
+    public const string HRM_PERFORMANCE_VIEW       = "HRM_PERFORMANCE_VIEW";
+    public const string HRM_PERFORMANCE_MANAGE     = "HRM_PERFORMANCE_MANAGE";
+    public const string HRM_TRAINING_VIEW          = "HRM_TRAINING_VIEW";
+    public const string HRM_TRAINING_MANAGE        = "HRM_TRAINING_MANAGE";
+    public const string HRM_LOAN_VIEW              = "HRM_LOAN_VIEW";
+    public const string HRM_LOAN_MANAGE            = "HRM_LOAN_MANAGE";
+    public const string HRM_LOAN_APPROVE           = "HRM_LOAN_APPROVE";
+    public const string HRM_SETTLEMENT_VIEW        = "HRM_SETTLEMENT_VIEW";
+    public const string HRM_SETTLEMENT_MANAGE      = "HRM_SETTLEMENT_MANAGE";
+    public const string HRM_INCREMENT_MANAGE       = "HRM_INCREMENT_MANAGE";
+    public const string HRM_INCREMENT_APPROVE      = "HRM_INCREMENT_APPROVE";
+    public const string HRM_LETTER_ISSUE           = "HRM_LETTER_ISSUE";
+    public const string HRM_TAX_CERT_VIEW          = "HRM_TAX_CERT_VIEW";
+    public const string HRM_EXPENSE_VIEW           = "HRM_EXPENSE_VIEW";
+    public const string HRM_EXPENSE_APPROVE        = "HRM_EXPENSE_APPROVE";
+    public const string HRM_EXPENSE_PAY            = "HRM_EXPENSE_PAY";
+    public const string HRM_REMITTANCE_VIEW        = "HRM_REMITTANCE_VIEW";
+    public const string HRM_REMITTANCE_MANAGE      = "HRM_REMITTANCE_MANAGE";
+    public const string HRM_REPORTS_VIEW           = "HRM_REPORTS_VIEW";
+
+    /// <summary>Every A49 code.</summary>
+    public static readonly IReadOnlyList<string> HrmCodes =
+    [
+        HRM_SETTINGS_MANAGE, HRM_ACCOUNT_MAPPING_VIEW, HRM_ACCOUNT_MAPPING_EDIT, HRM_ORG_VIEW, HRM_ORG_MANAGE,
+        HRM_EMPLOYEE_VIEW, HRM_EMPLOYEE_EDIT, HRM_EMPLOYEE_SENSITIVE_VIEW, HRM_EMPLOYMENT_MANAGE, HRM_BANK_VIEW, HRM_BANK_EDIT,
+        HRM_SCOPE_ALL, HRM_SCOPE_BRANCH, HRM_SCOPE_DEPARTMENT, HRM_SELF_SERVICE,
+        HRM_SHIFT_MANAGE, HRM_ATTENDANCE_VIEW, HRM_ATTENDANCE_MANAGE, HRM_OVERTIME_APPROVE, HRM_LEAVE_VIEW, HRM_LEAVE_APPROVE, HRM_LEAVE_MANAGE,
+        HRM_SALARY_VIEW, HRM_SALARY_EDIT, HRM_SALARY_APPROVE, HRM_PAYROLL_CONFIG, HRM_STATUTORY_VERIFY,
+        HRM_PAYROLL_VIEW, HRM_PAYROLL_RUN, HRM_PAYROLL_APPROVE, HRM_PAYROLL_FINALIZE, HRM_PAYROLL_PAY, HRM_PAYROLL_REVERSE,
+        HRM_RECRUITMENT_VIEW, HRM_RECRUITMENT_MANAGE, HRM_PERFORMANCE_VIEW, HRM_PERFORMANCE_MANAGE, HRM_TRAINING_VIEW, HRM_TRAINING_MANAGE,
+        HRM_LOAN_VIEW, HRM_LOAN_MANAGE, HRM_LOAN_APPROVE, HRM_SETTLEMENT_VIEW, HRM_SETTLEMENT_MANAGE, HRM_INCREMENT_MANAGE, HRM_INCREMENT_APPROVE,
+        HRM_LETTER_ISSUE, HRM_TAX_CERT_VIEW, HRM_EXPENSE_VIEW, HRM_EXPENSE_APPROVE, HRM_EXPENSE_PAY, HRM_REMITTANCE_VIEW, HRM_REMITTANCE_MANAGE,
+        HRM_REPORTS_VIEW,
+    ];
+
+    /// <summary>
+    /// A49 §3.3 — the codes that reveal personal money and identity data. The platform-wide System Admin role does NOT get them
+    /// (super admin / platform support have no automatic HR data access); an Organization Admin, who owns the tenant, does.
+    /// </summary>
+    public static readonly IReadOnlyList<string> HrmSensitiveCodes =
+    [
+        HRM_EMPLOYEE_SENSITIVE_VIEW, HRM_BANK_VIEW, HRM_BANK_EDIT, HRM_SALARY_VIEW, HRM_SALARY_EDIT, HRM_SALARY_APPROVE,
+        HRM_PAYROLL_VIEW, HRM_PAYROLL_RUN, HRM_PAYROLL_APPROVE, HRM_PAYROLL_FINALIZE, HRM_PAYROLL_PAY, HRM_PAYROLL_REVERSE,
+        HRM_LOAN_VIEW, HRM_LOAN_MANAGE, HRM_LOAN_APPROVE, HRM_SETTLEMENT_VIEW, HRM_SETTLEMENT_MANAGE, HRM_INCREMENT_MANAGE, HRM_INCREMENT_APPROVE,
+        HRM_TAX_CERT_VIEW, HRM_SCOPE_ALL,
+    ];
+
     // ── All codes (used by System Admin seed) ─────────────────────────────────
     public static readonly IReadOnlyList<string> All =
     [
@@ -485,6 +621,7 @@ public static class PermissionCodes
         INTEGRATION_VIEW, INTEGRATION_MANAGE, INTEGRATION_SYNC,
         FINANCE_SETUP_MANAGE,
         CURRENCY_VIEW, CURRENCY_MANAGE, CURRENCY_RATE_VIEW, CURRENCY_RATE_MANAGE,
+        .. HrmCodes,
         ORG_CURRENCY_SETTINGS_MANAGE, EXCHANGE_REVALUATION_RUN,
         SERVICE_ORDER_VIEW, SERVICE_ORDER_CREATE, SERVICE_ORDER_EDIT, SERVICE_ORDER_COMPLETE, SERVICE_ORDER_CANCEL,
         CUSTOMER_VIEW, CUSTOMER_CREATE, CUSTOMER_EDIT, CUSTOMER_DEACTIVATE,
@@ -505,5 +642,9 @@ public static class PermissionCodes
         GL_JOURNAL_CREATE, GL_JOURNAL_EDIT, GL_JOURNAL_DELETE, GL_JOURNAL_POST, GL_JOURNAL_REVERSE,
         GL_RECONCILE_VIEW, GL_RECONCILE_EXECUTE, GL_REPORTS_VIEW,
         GL_PERIOD_CLOSE_VIEW, GL_PERIOD_CLOSE_EXECUTE, GL_PERIOD_CLOSE_ADMIN,
+        AR_VIEW, AR_STATEMENT_SEND, AR_CREDIT_MEMO, CREDIT_CHECK, CREDIT_MANAGE, CREDIT_OVERRIDE, DUNNING_EXECUTE, DUNNING_ADMIN,
+        AP_VIEW, AP_EXECUTE, AP_DEBIT_MEMO, MATCH_EXECUTE, MATCH_OVERRIDE, MATCH_APPROVE,
+        PAYMENT_RUN_PROPOSE, PAYMENT_RUN_EDIT, PAYMENT_RUN_APPROVE, PAYMENT_RUN_EXECUTE, PAYMENT_RUN_ADMIN,
+        FINANCE_AR_AP_ADMIN,
     ];
 }

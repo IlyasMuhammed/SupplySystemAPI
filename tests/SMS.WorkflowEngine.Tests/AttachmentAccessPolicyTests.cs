@@ -1,4 +1,4 @@
-using System.Security.Claims;
+﻿using System.Security.Claims;
 using FluentAssertions;
 using SMS.Shared.Authorization;
 using SMS.Shared.Common;
@@ -26,6 +26,7 @@ public class AttachmentAccessPolicyTests
         "RFQ_RESPONSE",                // quotation-detail (read-only); RfqPortalController files a vendor's uploads
         "PO",                          // po-create, po-detail
         "PO_TEMPLATE_LOGO",            // po-document-template
+        "HRM_EMPLOYEE", "HRM_LEAVE_REQUEST", "HRM_EXPENSE_CLAIM", "HRM_CANDIDATE", "HRM_ENROLLMENT", // A49
         "GRN",                         // grn-create, grn-detail
         "DELIVERY",                    // delivery-detail; GatePassArchive files gate passes
         "INVOICE",                     // invoice-create, invoice-detail
@@ -231,6 +232,12 @@ public class AttachmentAccessPolicyTests
         ["SALE_QUOTATION"]   = ["SALE_QUOTATION_VIEW", "SALE_QUOTATION_CREATE", "SALE_QUOTATION_EDIT", "SALE_QUOTATION_SEND"], // quotation detail
         ["CUSTOMER_PO"]      = ["SALE_ORDER_VIEW", "SALE_ORDER_CREATE", "SALE_ORDER_EDIT", "SALE_ORDER_CONFIRM"],           // sales/orders/:uuid guard
         ["SALE_ORDER"]       = ["SALE_ORDER_VIEW", "SALE_ORDER_CREATE", "SALE_ORDER_EDIT", "SALE_ORDER_CONFIRM"],           // sales/orders/:uuid guard
+        // A49
+        ["HRM_EMPLOYEE"]      = ["HRM_EMPLOYEE_EDIT", "HRM_EMPLOYEE_SENSITIVE_VIEW"],
+        ["HRM_LEAVE_REQUEST"] = ["HRM_LEAVE_VIEW", "HRM_LEAVE_APPROVE", "HRM_LEAVE_MANAGE", "HRM_SELF_SERVICE"],
+        ["HRM_EXPENSE_CLAIM"] = ["HRM_EXPENSE_VIEW", "HRM_EXPENSE_APPROVE", "HRM_EXPENSE_PAY", "HRM_SELF_SERVICE"],
+        ["HRM_CANDIDATE"]     = ["HRM_RECRUITMENT_VIEW", "HRM_RECRUITMENT_MANAGE"],
+        ["HRM_ENROLLMENT"]    = ["HRM_TRAINING_VIEW", "HRM_TRAINING_MANAGE", "HRM_SELF_SERVICE"],
     };
 
     /// <summary>
@@ -256,6 +263,12 @@ public class AttachmentAccessPolicyTests
         ["SALE_QUOTATION"]   = ["SALE_QUOTATION_CREATE", "SALE_QUOTATION_EDIT"],
         ["CUSTOMER_PO"]      = ["SALE_ORDER_CREATE", "SALE_ORDER_EDIT"], // SaleOrdersController: create, edit, customer-po
         ["SALE_ORDER"]       = ["SALE_ORDER_CREATE", "SALE_ORDER_EDIT"],
+        // A49
+        ["HRM_EMPLOYEE"]      = ["HRM_EMPLOYEE_EDIT"],
+        ["HRM_LEAVE_REQUEST"] = ["HRM_SELF_SERVICE", "HRM_LEAVE_MANAGE"],
+        ["HRM_EXPENSE_CLAIM"] = ["HRM_SELF_SERVICE"],
+        ["HRM_CANDIDATE"]     = ["HRM_RECRUITMENT_MANAGE"],
+        ["HRM_ENROLLMENT"]    = ["HRM_TRAINING_MANAGE"],
     };
 
     [Fact]

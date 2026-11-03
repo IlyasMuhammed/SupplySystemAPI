@@ -80,12 +80,26 @@ public partial class SaleOrdersController : ControllerBase
 
     [HttpPost("{uuid:guid}/confirm")]
     [RequirePermission(PermissionCodes.SALE_ORDER_CONFIRM)]
-    public async Task<IActionResult> Confirm(Guid uuid)
+    public async Task<IActionResult> Confirm(Guid uuid, [FromBody] ConfirmSaleOrderRequest? req = null)
     {
         // A33 — 400 with every route blocker when the gate refuses; the result lists the deliveries created (D-1).
-        var confirmed = await _service.ConfirmWithResultAsync(uuid, User.GetUserId());
+        // A48 (AR, D-5) — 409 when the credit check blocks, unless CREDIT_OVERRIDE + a reason (creditOverrideReason).
+        var credit = new SaleOrderCreditContext(
+            req?.CreditOverrideReason, User.HasPermission(PermissionCodes.CREDIT_OVERRIDE),
+            User.FindFirst("email")?.Value ?? User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value);
+        SaleOrderConfirmResultModel? confirmed;
+        try
+        {
+            confirmed = await _service.ConfirmWithResultAsync(uuid, User.GetUserId(), credit);
+        }
+        catch (CreditCheckBlockedException ex)
+        {
+            // FE-3 — the 409 carries the check (effective limit, exposure split, this order, projected, available, hold) as result.creditCheck.
+            return Conflict(ApiResponse.Fail(ex.Message, new SaleOrderCreditBlockedModel { CreditCheck = ex.Result, ExceptionMessage = ex.Message }));
+        }
         return confirmed is not null
-            ? Ok(ApiResponse<SaleOrderConfirmResultModel>.Ok(confirmed, "Sale order confirmed."))
+            ? Ok(ApiResponse<SaleOrderConfirmResultModel>.Ok(confirmed,
+                confirmed.CreditWarning is null ? "Sale order confirmed." : $"Sale order confirmed. {confirmed.CreditWarning}"))
             : NotFound(ApiResponse.Fail(StaticResponseMessage.recordNotFound));
     }
 

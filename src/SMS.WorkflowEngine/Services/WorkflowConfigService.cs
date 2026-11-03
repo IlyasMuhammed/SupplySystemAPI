@@ -125,6 +125,11 @@ internal sealed class WorkflowConfigService : IWorkflowConfigService
         using var conn = new Microsoft.Data.SqlClient.SqlConnection(connString);
         await conn.OpenAsync();
 
+        // This is raw SQL, so the EF tenant query filters do not apply: scope users and roles to the caller's
+        // organization here (a platform super admin sees all; a missing tenant context sees nothing tenant-owned).
+        var isSuperAdmin = _tenant?.IsSuperAdmin ?? false;
+        var orgId        = _tenant?.OrganizationId ?? Guid.Empty;
+
         // Active users
         using (var cmd = conn.CreateCommand())
         {
@@ -134,7 +139,10 @@ internal sealed class WorkflowConfigService : IWorkflowConfigService
                        Email
                 FROM   auth.UserAccounts
                 WHERE  IsActive = 1 AND IsDelete = 0
+                  AND  (@isSuperAdmin = 1 OR OrganizationId = @orgId)
                 ORDER  BY FirstName, LastName";
+            cmd.Parameters.AddWithValue("@isSuperAdmin", isSuperAdmin);
+            cmd.Parameters.AddWithValue("@orgId", orgId);
             using var rdr = await cmd.ExecuteReaderAsync();
             while (await rdr.ReadAsync())
                 users.Add(new UserOptionDto
@@ -148,7 +156,15 @@ internal sealed class WorkflowConfigService : IWorkflowConfigService
         // Active roles only
         using (var cmd = conn.CreateCommand())
         {
-            cmd.CommandText = "SELECT RoleID, Name FROM auth.Roles WHERE IsActive = 1 ORDER BY Name";
+            // The shared global catalog plus this organization's own custom roles (same rule as the Role query filter).
+            cmd.CommandText = @"
+                SELECT RoleID, Name
+                FROM   auth.Roles
+                WHERE  IsActive = 1
+                  AND  (@isSuperAdmin = 1 OR IsGlobal = 1 OR OrganizationId = @orgId)
+                ORDER  BY Name";
+            cmd.Parameters.AddWithValue("@isSuperAdmin", isSuperAdmin);
+            cmd.Parameters.AddWithValue("@orgId", orgId);
             using var rdr = await cmd.ExecuteReaderAsync();
             while (await rdr.ReadAsync())
                 roles.Add(new RoleOptionDto

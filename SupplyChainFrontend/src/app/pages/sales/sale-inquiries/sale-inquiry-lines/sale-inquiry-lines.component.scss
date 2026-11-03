@@ -30,6 +30,9 @@ tr.detail-row td { background: var(--sms-surface-2); padding-top: .4rem; padding
 .field { display: flex; flex-direction: column; gap: .35rem; min-width: 0; }
 .field label { font-size: .8125rem; font-weight: 600; }
 .field textarea, .field input { width: 100%; }
+// PrimeNG's inner inputs keep their natural ~20-character width and spill over the next column of .row3.
+.field ::ng-deep .p-inputnumber, .field ::ng-deep .p-datepicker { display: flex; width: 100%; min-width: 0; }
+.field ::ng-deep .p-inputnumber-input, .field ::ng-deep .p-datepicker-input { width: 1%; min-width: 0; }
 .field.check { flex-direction: row; align-items: center; gap: .5rem; }
 .field.check label { font-weight: 400; }
 .row3 { display: grid; grid-template-columns: 1fr 6rem 1fr; gap: .75rem; }

@@ -173,12 +173,15 @@ internal sealed class PurchaseRig
         return grn;
     }
 
+    private int _requests;
+
     /// <summary>An invoice for the whole PO (one line per PO line, its full quantity), or a header-only one.</summary>
     public CreateInvoiceRequest Request(
         PurchaseOrder? po = null, IReadOnlyList<PurchaseOrderLine>? lines = null, decimal subtotal = 0m, decimal tax = 0m,
         Guid? taxCode = null, string currency = "PKR", Guid? grn = null) => new()
     {
-        SupplierId = po?.SupplierId ?? Supplier, SupplierInvoiceNo = "KSW/881", PoUuid = po?.UUID, GrnUuid = grn,
+        // A48 BR-MT-007: one live invoice per supplier number — the rig's first invoice keeps KSW/881, later ones get their own.
+        SupplierId = po?.SupplierId ?? Supplier, SupplierInvoiceNo = ++_requests == 1 ? "KSW/881" : $"KSW/881-{_requests}", PoUuid = po?.UUID, GrnUuid = grn,
         InvoiceDate = new DateTime(2026, 9, 15), ReceivedDate = new DateTime(2026, 9, 16), DueDate = new DateTime(2026, 10, 15),
         Currency = currency, Subtotal = subtotal, TaxAmount = tax, TaxCodeUuid = taxCode,
         Lines = lines is null ? null : [.. lines.Select(l => new InvoiceLineRequest

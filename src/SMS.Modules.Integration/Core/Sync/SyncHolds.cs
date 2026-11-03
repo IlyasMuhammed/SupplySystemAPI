@@ -23,12 +23,22 @@ internal static class SyncHolds
     /// <summary>LastErrorCode of a held record of a non-POS type.</summary>
     public const string HeldCode = "HELD";
 
-    public static bool IsHeldCode(string? code) => code is HeldCode or PosSales.HeldCode;
+    /// <summary>
+    /// A49: one kind (JournalEntry) carries eight types, and turning one type on must not release the others'. So their marker
+    /// names the type: "HELD:PayrollRun". The kind + marker rule above still says which type holds a record, without reading payloads.
+    /// </summary>
+    public const string HrmHeldPrefix = "HELD:";
+
+    public static bool IsHeldCode(string? code) =>
+        code is HeldCode or PosSales.HeldCode || (code is not null && code.StartsWith(HrmHeldPrefix, StringComparison.Ordinal));
 
     public static bool IsPosType(string documentType) =>
         documentType is SyncControlDocumentTypes.PosSale or SyncControlDocumentTypes.PosReturn;
 
-    public static string HeldCodeFor(string documentType) => IsPosType(documentType) ? PosSales.HeldCode : HeldCode;
+    public static string HeldCodeFor(string documentType) =>
+        IsPosType(documentType) ? PosSales.HeldCode
+        : SyncControlDocumentTypes.IsHrm(documentType) ? HrmHeldPrefix + documentType
+        : HeldCode;
 
     public static string HeldMessageFor(string documentType) => documentType switch
     {
@@ -51,6 +61,7 @@ internal static class SyncHolds
         SyncControlDocumentTypes.PurchaseBill => [SyncKind.Bill],
         SyncControlDocumentTypes.BillPayment  => [SyncKind.BillPayment],
         SyncControlDocumentTypes.VendorCredit => [SyncKind.VendorCredit],
+        _ when SyncControlDocumentTypes.IsHrm(documentType) => [SyncKind.JournalEntry],
         _                                     => []
     };
 
@@ -146,6 +157,7 @@ internal static class SyncHolds
         SyncControlDocumentTypes.PurchaseBill => "supplier invoices",
         SyncControlDocumentTypes.BillPayment  => "supplier payments",
         SyncControlDocumentTypes.VendorCredit => "supplier credit / debit notes",
+        _ when SyncControlDocumentTypes.IsHrm(documentType) => SyncControlDefaults.Labels[documentType].ToLowerInvariant(),
         _                                     => documentType
     };
 }

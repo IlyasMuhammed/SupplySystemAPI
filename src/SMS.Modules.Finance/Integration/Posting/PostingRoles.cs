@@ -17,6 +17,8 @@ internal static class PostingRoles
     public const string Inventory        = "DEFAULT_INVENTORY";
     public const string Purchase         = "DEFAULT_PURCHASE";
     public const string DiscountGiven    = "DEFAULT_DISCOUNT_GIVEN";
+    /// <summary>A48 (BR-PR-005, BR-EP-003) — early-payment discount taken on a supplier payment.</summary>
+    public const string DiscountReceived = "DEFAULT_DISCOUNT_RECEIVED";
     public const string ExchangeGainLoss = "DEFAULT_EXCHANGE_GAIN_LOSS";
     public const string Rounding         = "DEFAULT_ROUNDING";
 

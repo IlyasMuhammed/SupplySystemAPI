@@ -132,6 +132,8 @@ export interface SalesInvoiceCreatedModel {
   grandTotal: number;
   currencyCode: string;
   alreadyExisted: boolean;
+  /** A48 §2 — credit control (Warn / Block mode): created, but the customer is over the limit or on hold. Warning only. */
+  creditWarning?: string | null;
 }
 
 /** POST /api/sales-invoices/{id}/issue. `partnerBalance` is what the customer owes once the invoice is booked. */

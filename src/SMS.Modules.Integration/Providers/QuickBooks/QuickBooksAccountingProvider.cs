@@ -147,6 +147,7 @@ internal sealed partial class QuickBooksAccountingProvider : IAccountingProvider
                 SyncKind.CreditMemo   => client.Query<Qbo.CreditMemo>(query),
                 SyncKind.RefundReceipt => client.Query<Qbo.RefundReceipt>(query),
                 SyncKind.VendorCredit => client.Query<Qbo.VendorCredit>(query),
+                SyncKind.JournalEntry => client.Query<Qbo.JournalEntry>(query),
                 _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "Unknown sync kind.")
             };
 
@@ -203,6 +204,7 @@ internal sealed partial class QuickBooksAccountingProvider : IAccountingProvider
             case SyncKind.CreditMemo:
             case SyncKind.RefundReceipt:
             case SyncKind.VendorCredit:
+            case SyncKind.JournalEntry:
                 return QboMap.Has(lookup.DocNumber)
                     ? _queries.FindTransactionByDocNumber(kind, lookup.DocNumber!)
                     : throw new ArgumentException($"A {kind} is found by document number; the lookup has none.", nameof(lookup));
@@ -449,6 +451,7 @@ internal sealed partial class QuickBooksAccountingProvider : IAccountingProvider
             SyncKind.CreditMemo   => "/app/creditmemo?txnId=",
             SyncKind.RefundReceipt => "/app/refundreceipt?txnId=",
             SyncKind.VendorCredit => "/app/vendorcredit?txnId=",
+            SyncKind.JournalEntry => "/app/journal?txnId=",
             _                     => null   // Items have no detail page.
         };
         if (path is null) return null;

@@ -35,6 +35,9 @@ namespace SMS.Modules.Finance.Repositories;
 internal sealed class SupplierPaymentRepository : ISupplierPaymentRepository
 {
     internal const string PurchaseReturnSettlement = "PURCHASE_RETURN_SETTLEMENT";
+    /// <summary>A48 AP-1 — the supplier-ledger entries of an early-payment discount taken, and of its withdrawal on a bounce.</summary>
+    internal const string DiscountLedgerType         = "PAYMENT_DISCOUNT";
+    internal const string DiscountReversedLedgerType = "PAYMENT_DISCOUNT_REVERSED";
 
     private readonly FinanceDbContext       _fin;
     private readonly ISupplierLedgerService _ledger;
@@ -54,8 +57,10 @@ internal sealed class SupplierPaymentRepository : ISupplierPaymentRepository
         FinanceDbContext fin, ISupplierLedgerService ledger, INotificationService notif,
         IAttachmentService? attachments = null,
         ICurrencyService? currency = null, ExchangeDifferenceWriter? differences = null,
-        IPartnerCurrencyDefaults? partnerDefaults = null, SMS.Modules.Lookups.Services.ILookupsService? lookups = null)
+        IPartnerCurrencyDefaults? partnerDefaults = null, SMS.Modules.Lookups.Services.ILookupsService? lookups = null,
+        SMS.Shared.Finance.Posting.IPostingRoleReadiness? roles = null)
     {
+        _roles           = roles;
         _fin             = fin;
         _ledger          = ledger;
         _notif           = notif;
@@ -64,6 +69,29 @@ internal sealed class SupplierPaymentRepository : ISupplierPaymentRepository
         _differences     = differences ?? (currency is null ? null : new ExchangeDifferenceWriter(fin));
         _partnerDefaults = partnerDefaults;
         _lookups         = lookups;
+    }
+
+    private readonly SMS.Shared.Finance.Posting.IPostingRoleReadiness? _roles;
+
+    /// <summary>
+    /// A48 REV-5 (D-AP-20) — why the line's discount is not allowed, or null: the invoice's payment schedule must carry an
+    /// early-payment term (percent + discount date), the payment date must be on or before that date, and the discount at
+    /// most round(allocated × percent / 100, 2) — exactly what a payment run computes.
+    /// </summary>
+    private async Task<string?> DiscountProblemAsync(Invoice invoice, CreateSupplierPaymentLineRequest line, DateOnly paymentDate)
+    {
+        var organizationId = _fin.TenantContext.OrganizationId;
+        var term = await _fin.Set<PaymentSchedule>().AsNoTracking()
+            .Where(s => s.OrganizationId == organizationId && s.InvoiceId == invoice.Id)
+            .Select(s => new { s.DiscountPercent, s.DiscountDate }).FirstOrDefaultAsync();
+        if (term is not { DiscountPercent: > 0m, DiscountDate: not null })
+            return $"Invoice {invoice.InvoiceNumber} has no early-payment term, so no discount can be taken on it.";
+        if (paymentDate > term.DiscountDate.Value)
+            return $"The early-payment discount on invoice {invoice.InvoiceNumber} was available until {term.DiscountDate.Value:yyyy-MM-dd}.";
+        var cap = Math.Round(line.AllocatedAmount * term.DiscountPercent.Value / 100m, 2, MidpointRounding.AwayFromZero);
+        return line.DiscountAmount > cap
+            ? $"The discount on invoice {invoice.InvoiceNumber} can be at most {cap:N2} ({term.DiscountPercent.Value:0.##}% of {line.AllocatedAmount:N2})."
+            : null;
     }
 
     /// <summary>This organization's own payments — the only ones a change may touch.</summary>
@@ -100,10 +128,24 @@ internal sealed class SupplierPaymentRepository : ISupplierPaymentRepository
 
         if (req.Lines.Count > 0)
         {
-            var linesSum = req.Lines.Sum(l => l.AllocatedAmount);
+            // A48 AP-1: a line's discount is taken off its cash, never more than the line, never negative.
+            if (req.Lines.Any(l => l.DiscountAmount < 0m || l.DiscountAmount > l.AllocatedAmount))
+                throw new BadRequestException("A line's DiscountAmount must be between 0 and its AllocatedAmount.");
+            if (req.PaymentType != "STANDARD" && !string.IsNullOrWhiteSpace(req.PaymentType) && req.Lines.Any(l => l.DiscountAmount != 0m))
+                throw new BadRequestException("Only a STANDARD payment can take an early-payment discount.");
+
+            var linesSum = req.Lines.Sum(l => l.AllocatedAmount - l.DiscountAmount);
             if (linesSum != req.TotalAmount)
-                throw new BadRequestException(
-                    $"Sum of payment line allocations ({linesSum:N2}) must equal TotalAmount ({req.TotalAmount:N2}).");
+                throw new BadRequestException(req.Lines.Any(l => l.DiscountAmount != 0m)
+                    ? $"Sum of payment line allocations less their discounts ({linesSum:N2}) must equal TotalAmount ({req.TotalAmount:N2})."
+                    : $"Sum of payment line allocations ({linesSum:N2}) must equal TotalAmount ({req.TotalAmount:N2}).");
+
+            // A48 REV-5 / D-AP-12: the GL account a discount posts to must exist where an active target needs it.
+            if (req.Lines.Any(l => l.DiscountAmount != 0m) && _roles is not null
+                && (await _roles.MissingRolesAsync([Integration.Posting.PostingRoles.DiscountReceived])).Count > 0)
+                throw new ConflictException(
+                    "This payment takes an early-payment discount, but the general ledger has no account for DEFAULT_DISCOUNT_RECEIVED (Discount Received). "
+                  + "Assign it in Accounting → Defaults, or pay without the discount.");
         }
 
         return await InvoiceRowLocks.InTransactionAsync(_fin, async () =>
@@ -176,12 +218,18 @@ internal sealed class SupplierPaymentRepository : ISupplierPaymentRepository
 
                 reservedInThisRequest[invoice.UUID] = reservedSoFar + lineReq.AllocatedAmount;
 
+                // A48 REV-5 (D-AP-20): a discount only as the invoice's early-payment term allows it — paid on or before the
+                // discount date, at most the term's percent of what this line settles.
+                if (lineReq.DiscountAmount > 0m && await DiscountProblemAsync(invoice, lineReq, DateOnly.FromDateTime(req.PaymentDate)) is { } discountWhy)
+                    throw new BadRequestException(discountWhy);
+
                 payment.Lines.Add(new SupplierPaymentLine
                 {
                     UUID                        = Guid.NewGuid(),
                     InvoiceUuid                 = invoice.UUID,
                     InvoiceNumber               = invoice.InvoiceNumber,
                     AllocatedAmount             = lineReq.AllocatedAmount,
+                    DiscountAmount              = lineReq.DiscountAmount,
                     OutstandingBeforeAllocation = outstanding,
                     Notes                       = lineReq.Notes?.Trim()
                 });
@@ -299,7 +347,8 @@ internal sealed class SupplierPaymentRepository : ISupplierPaymentRepository
                 AllocatedAmount             = l.AllocatedAmount,
                 OutstandingBeforeAllocation = l.OutstandingBeforeAllocation,
                 Notes                       = l.Notes,
-                ExchangeDifference          = l.ExchangeDifference
+                ExchangeDifference          = l.ExchangeDifference,
+                DiscountAmount              = l.DiscountAmount
             }).ToList()
         };
     }
@@ -432,6 +481,16 @@ internal sealed class SupplierPaymentRepository : ISupplierPaymentRepository
                 narration: $"Payment {payment.PaymentNumber} posted.", createdBy: postedBy,
                 supplierName: payment.SupplierName);
 
+            // A48 AP-1 — the early-payment discount taken settles the rest of the invoices: a ledger credit of its own,
+            // in the same transaction (the GL side is DEFAULT_DISCOUNT_RECEIVED on the BillPayment posting).
+            var discount = payment.Lines.Sum(l => l.DiscountAmount);
+            if (discount != 0m)
+                await _ledger.PostEntryAsync(
+                    payment.SupplierId, DiscountLedgerType, "SupplierPayment", payment.UUID, payment.PaymentNumber,
+                    debitAmount: 0m, creditAmount: discount,
+                    narration: $"Early-payment discount taken on payment {payment.PaymentNumber}.", createdBy: postedBy,
+                    supplierName: payment.SupplierName);
+
             return invoices.Values.Where(i => i.PaymentStatus == InvoicePaymentStatus.Overpaid).ToList();
         });
 
@@ -499,6 +558,14 @@ internal sealed class SupplierPaymentRepository : ISupplierPaymentRepository
                 payment.SupplierId, "PAYMENT_BOUNCED", "SupplierPayment", payment.UUID, payment.PaymentNumber,
                 debitAmount: payment.TotalAmount, creditAmount: 0m,
                 narration: "Cheque bounced", createdBy: bouncedBy, supplierName: payment.SupplierName);
+
+            // A48 AP-1 — no money, no discount: it is owed again in full.
+            var discount = payment.Lines.Sum(l => l.DiscountAmount);
+            if (discount != 0m)
+                await _ledger.PostEntryAsync(
+                    payment.SupplierId, DiscountReversedLedgerType, "SupplierPayment", payment.UUID, payment.PaymentNumber,
+                    debitAmount: discount, creditAmount: 0m,
+                    narration: "Cheque bounced — early-payment discount withdrawn", createdBy: bouncedBy, supplierName: payment.SupplierName);
 
             return true;
         });

@@ -17,7 +17,9 @@ public enum SyncKind
     SalesReceipt,
     CreditMemo,
     RefundReceipt,
-    VendorCredit
+    VendorCredit,
+    /// <summary>A49 G-1: payroll and other HRM documents, as a summarized journal entry.</summary>
+    JournalEntry
 }
 
 /// <summary>Where one record stands, as the gateway sees it.</summary>

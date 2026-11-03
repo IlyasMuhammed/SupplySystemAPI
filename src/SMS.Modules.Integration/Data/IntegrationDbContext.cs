@@ -33,6 +33,7 @@ internal sealed class IntegrationDbContext : DbContext, ITenantScopedDbContext
     internal DbSet<ProviderDefault>       ProviderDefaults   => Set<ProviderDefault>();
     internal DbSet<DocumentOverride>      DocumentOverrides  => Set<DocumentOverride>();
     internal DbSet<RemoteEntityRecord>    RemoteEntities     => Set<RemoteEntityRecord>();
+    internal DbSet<CostCenterQboMapping>  CostCenterQboMappings => Set<CostCenterQboMapping>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

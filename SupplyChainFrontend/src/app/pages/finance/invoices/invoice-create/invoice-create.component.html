@@ -59,6 +59,26 @@
       </div>
     </section>
 
+    <!-- ── An invoice already exists on this PO (approving a GRN raises one by itself) ─── -->
+    <section class="sf-card" *ngIf="existingInvoices.length" data-testid="invoice-existing">
+      <div class="sf-ch"><h2>This purchase order already has an invoice</h2></div>
+      <div class="sf-fields">
+        <div class="sf-fld">
+          <small class="sf-mu sf-sm">
+            Approving a goods receipt creates the supplier invoice for you. Open it and enter the supplier's number, dates and tax there;
+            saving this form as well would bill the same goods twice.
+          </small>
+          <ul>
+            <li *ngFor="let i of existingInvoices">
+              <a [routerLink]="['/portal/pages/finance/invoices', i.uuid]">{{ i.invoiceNumber }}</a>
+              — {{ i.totalAmount | number:'1.2-2' }} {{ i.currency }}, {{ i.matchStatus }}, {{ i.paymentStatus }}
+              <span *ngIf="i.grnNumber">(GRN {{ i.grnNumber }})</span>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
     <!-- ── Dates ─────────────────────────────────────────────────────────── -->
     <section class="sf-card">
       <div class="sf-ch"><h2>Dates</h2></div>

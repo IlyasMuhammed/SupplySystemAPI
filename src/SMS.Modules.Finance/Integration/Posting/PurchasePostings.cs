@@ -75,8 +75,12 @@ internal static class PurchasePostings
     public static FinancialTransaction VendorCredit(DebitNote note, NoteCurrency currency) =>
         VendorCredit(note.UUID, note.DebitNoteNumber, note.DebitNoteNumber,
             note.SupplierId, note.SupplierName, (note.IssuedAt ?? note.CreatedDate).Date, note.DebitAmount, currency, VendorCreditSources.DebitNote,
-            $"Debit note {note.DebitNoteNumber} for return {note.SroNumber}: {note.DebitReason}",
-            $"{note.DebitNoteNumber} · SRO {note.SroNumber} · {note.DebitReason}" + (note.InvoiceNumber is { } inv ? $" · invoice {inv}" : ""),
+            // A48 (D-6): a standalone debit memo has no supplier return behind it.
+            string.IsNullOrEmpty(note.SroNumber)
+                ? $"Debit memo {note.DebitNoteNumber}: {note.DebitReason}"
+                : $"Debit note {note.DebitNoteNumber} for return {note.SroNumber}: {note.DebitReason}",
+            (string.IsNullOrEmpty(note.SroNumber) ? $"{note.DebitNoteNumber} · {note.DebitReason}" : $"{note.DebitNoteNumber} · SRO {note.SroNumber} · {note.DebitReason}")
+                + (note.InvoiceNumber is { } inv ? $" · invoice {inv}" : ""),
             note.InvoiceUuid);
 
     /// <summary>

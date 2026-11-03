@@ -77,6 +77,21 @@ public interface ICrmAccountGateway
     Task<int> CreateContactAsync(Guid organizationId, Guid accountUuid, CrmNewContact contact, CancellationToken ct = default);
 }
 
+/// <summary>A delivery address for a customer's address book: what a lead says about where it is.</summary>
+public sealed record CrmShippingAddress(
+    string Line1, string? Line2, string City, string? State, string? PostalCode, string Country,
+    string? ContactName, string? ContactPhone, string? ContactEmail);
+
+/// <summary>
+/// The customer's shipping address book (Logistics implements). Lead conversion seeds it with the lead's address, so the
+/// sale order's address picker already lists it instead of the customer having to be typed in a second time.
+/// </summary>
+public interface ICrmShippingAddressGateway
+{
+    /// <summary>Saves <paramref name="address"/> for the customer (the caller's organization, ambient tenant).</summary>
+    Task AddForCustomerAsync(Guid organizationId, Guid accountUuid, CrmShippingAddress address, int userId, CancellationToken ct = default);
+}
+
 // ─── Sales documents (Demand implements) ────────────────────────────────────────────────────────────────────────────
 
 public static class CrmSalesDocumentKind

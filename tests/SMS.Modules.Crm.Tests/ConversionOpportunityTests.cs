@@ -54,6 +54,61 @@ public sealed class ConversionOpportunityTests
         h.Accounts.Created.Should().ContainSingle(a => a.Name == "Sarah Malik" && a.CustomerType == "INDIVIDUAL");
     }
 
+    private static LeadUpsert WithAddress(string? city = "Austin", string? country = "United States")
+    {
+        var lead = CrmHarness.NewLead();
+        lead.AddressLine1 = "410 Cedar Grove Lane"; lead.City = city; lead.StateProvince = "Texas"; lead.PostalCode = "78704"; lead.Country = country;
+        return lead;
+    }
+
+    [Fact]
+    public async Task A_new_customer_gets_the_leads_address_as_its_first_shipping_address()
+    {
+        using var h = new CrmHarness();
+        var lead = await h.QualifiedLeadAsync(lead: WithAddress());
+        var result = await h.Conversion.ConvertAsync(h.Rep(), lead.Uuid, new LeadConvertRequest());
+
+        var saved = h.ShippingAddresses.Saved.Should().ContainSingle().Subject;
+        saved.Account.Should().Be(result.AccountUuid);
+        saved.Org.Should().Be(h.Org);
+        saved.Address.Should().Match<CrmShippingAddress>(a => a.Line1 == "410 Cedar Grove Lane" && a.City == "Austin"
+            && a.State == "Texas" && a.PostalCode == "78704" && a.Country == "United States" && a.ContactName == "Ahmed Khan");
+    }
+
+    [Theory]
+    [InlineData(null, "United States")]
+    [InlineData("Austin", null)]
+    public async Task A_lead_without_a_city_or_country_is_not_made_into_an_address_nobody_could_deliver_to(string? city, string? country)
+    {
+        using var h = new CrmHarness();
+        var lead = await h.QualifiedLeadAsync(lead: WithAddress(city, country));
+        await h.Conversion.ConvertAsync(h.Rep(), lead.Uuid, new LeadConvertRequest());
+        h.ShippingAddresses.Saved.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Linking_an_existing_account_leaves_its_address_book_alone()
+    {
+        using var h = new CrmHarness();
+        var existing = h.Accounts.AddAccount(h.Org, "PakElectro Ltd");
+        var lead = await h.QualifiedLeadAsync(lead: WithAddress());
+        await h.Conversion.ConvertAsync(h.Rep(), lead.Uuid, new LeadConvertRequest { ExistingAccountUuid = existing });
+        h.ShippingAddresses.Saved.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task A_failure_saving_the_address_does_not_fail_the_conversion()
+    {
+        using var h = new CrmHarness();
+        h.ShippingAddresses.Fail = true;
+        var lead = await h.QualifiedLeadAsync(lead: WithAddress());
+
+        var result = await h.Conversion.ConvertAsync(h.Rep(), lead.Uuid, new LeadConvertRequest());
+
+        result.IsNewAccount.Should().BeTrue();
+        (await h.Leads.GetByIdAsync(h.Rep(), lead.Uuid)).Status.Should().Be("CONVERTED");
+    }
+
     [Fact]
     public async Task TS07_linking_an_existing_account_and_contact_creates_no_partner_and_makes_a_vendor_a_customer()
     {

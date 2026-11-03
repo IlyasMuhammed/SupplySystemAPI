@@ -111,7 +111,8 @@ internal sealed class SupplierPaymentPostings : IQuickBooksSource
                 {
                     var applications = payment.Lines
                         .GroupBy(l => l.InvoiceUuid)
-                        .Select(g => new PostingApplication(g.Key, g.First().InvoiceNumber, g.Sum(l => l.AllocatedAmount), opening.Contains(g.Key)))
+                        // A48 AP-1: what the money applies to a bill is the cash — the line less its early-payment discount.
+                        .Select(g => new PostingApplication(g.Key, g.First().InvoiceNumber, g.Sum(l => l.AllocatedAmount - l.DiscountAmount), opening.Contains(g.Key)))
                         .ToList();
                     var tx = PaymentPostings.SupplierPayment(payment, applications, BaseCode(payment));
                     if (publish) await PostingSupport.SendAsync(_posting, _gateway, tx, _log, ct);

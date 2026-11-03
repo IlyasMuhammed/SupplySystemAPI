@@ -5,8 +5,11 @@ using SMS.Modules.Integration.Core.Connections;
 using SMS.Modules.Integration.Core.Sync;
 using SMS.Modules.Integration.Data;
 using SMS.Modules.Integration.Domain;
+using SMS.Modules.Integration.Gateway.JournalEntries;
 using SMS.Modules.Integration.Models;
+using SMS.Shared.Common;
 using SMS.Shared.Exceptions;
+using SMS.Shared.Integration.QuickBooks;
 
 namespace SMS.Modules.Integration.Core.Settings;
 
@@ -46,7 +49,16 @@ internal static class SyncControlDefaults
         [SyncControlDocumentTypes.PosReturn]    = "POS returns",
         [SyncControlDocumentTypes.PurchaseBill] = "Purchase bills",
         [SyncControlDocumentTypes.BillPayment]  = "Bill payments",
-        [SyncControlDocumentTypes.VendorCredit] = "Vendor credits"
+        [SyncControlDocumentTypes.VendorCredit] = "Vendor credits",
+        // A49 G-15
+        ["PayrollRun"]          = "Payroll journal",
+        ["PayrollPayment"]      = "Payroll payments",
+        ["LoanDisbursement"]    = "Employee loan disbursements",
+        ["Expense"]             = "Expense claims",
+        ["ExpensePayment"]      = "Expense claim payments",
+        ["StatutoryRemittance"] = "Statutory remittances",
+        ["FinalSettlement"]     = "Final settlements",
+        ["PayrollProvision"]    = "Payroll provisions"
     };
 
     /// <summary>
@@ -58,6 +70,8 @@ internal static class SyncControlDefaults
         SyncControlDocumentTypes.PosSale or SyncControlDocumentTypes.PosReturn => new(false, true),
         SyncControlDocumentTypes.PurchaseBill or SyncControlDocumentTypes.BillPayment
             or SyncControlDocumentTypes.VendorCredit => new(false, false),
+        // A49 G-15 / BR-G15-001.
+        _ when SyncControlDocumentTypes.IsHrm(documentType) => new(false, true),
         _ => SyncControlDecision.Enabled
     };
 
@@ -83,7 +97,7 @@ internal static class SyncControlDefaults
     /// <summary>Row, else the old switch, else enabled (BR-29).</summary>
     public static SyncControlDecision Effective(SyncControlConfig? row, IntegrationSettings? settings, string documentType) =>
         row is not null ? new SyncControlDecision(row.IsEnabled, row.HoldWhenDisabled)
-                        : Legacy(settings, documentType) ?? SyncControlDecision.Enabled;
+                        : Legacy(settings, documentType) ?? LegacySyncControlReader.Unset(documentType);
 
     /// <summary>Writes a type's state onto its old switch (no-op for the types that never had one).</summary>
     public static void Mirror(IntegrationSettings s, string documentType, bool isEnabled)
@@ -220,16 +234,18 @@ internal sealed class SyncControlService : IQuickBooksSyncControlService, ISyncC
         var connection = await _accessor.GetCurrentAsync(ct);
         var model      = new SyncControlModel();
 
+        var hideHrm = !await HrmOnAsync(connection?.OrganizationId, ct);
         if (connection is null)
         {
-            model.Rows = SyncControlDocumentTypes.All.Select(t => ToModel(t, null, SyncControlDefaults.NewConnection(t), 0)).ToList();
+            model.Rows = SyncControlDocumentTypes.All.Where(t => !hideHrm || !SyncControlDocumentTypes.IsHrm(t))
+                .Select(t => ToModel(t, null, SyncControlDefaults.NewConnection(t), 0)).ToList();
             return model;
         }
 
         var rows     = await RowsAsync(connection.Id, tracking: false, ct);
         var settings = await _db.Settings.AsNoTracking().FirstOrDefaultAsync(s => s.ConnectionId == connection.Id, ct);
 
-        foreach (var type in SyncControlDocumentTypes.All)
+        foreach (var type in SyncControlDocumentTypes.All.Where(t => !hideHrm || !SyncControlDocumentTypes.IsHrm(t)))
         {
             var row = rows.GetValueOrDefault(type);
             model.Rows.Add(ToModel(type, row, SyncControlDefaults.Effective(row, settings, type), await CountHeldAsync(connection.Id, type, ct)));
@@ -250,6 +266,10 @@ internal sealed class SyncControlService : IQuickBooksSyncControlService, ISyncC
         var rows       = await RowsAsync(connection.Id, tracking: true, ct);
         var row        = rows.GetValueOrDefault(type);
         var before     = SyncControlDefaults.Effective(row, settings, type);
+
+        // A49 G-15 / BR-G15-002: an HRM type goes on only once it can actually post.
+        if (request.IsEnabled && !before.IsEnabled && SyncControlDocumentTypes.IsHrm(type))
+            await RequireHrmReadyAsync(type, ct);
 
         // D-63: enabling sends what was held — say how much first, unless the admin already confirmed.
         var held = !before.IsEnabled && request.IsEnabled ? await CountHeldAsync(connection.Id, type, ct) : 0;
@@ -326,6 +346,48 @@ internal sealed class SyncControlService : IQuickBooksSyncControlService, ISyncC
         {
             DocumentType = type, Released = released, StillHeld = await CountHeldAsync(connection.Id, type, ct)
         };
+    }
+
+    // ── A49 ─────────────────────────────────────────────────────────────────────────────────
+
+    /// <summary>§10.5: HRM rows are not shown while MODULE_HRM is off. No gate registered (hosts, tests): shown.</summary>
+    private async Task<bool> HrmOnAsync(Guid? organizationId, CancellationToken ct)
+    {
+        if (_services.GetService<IModuleGate>() is not { } gate) return true;
+        var org = organizationId ?? _services.GetService<ITenantContext>()?.OrganizationId;
+        return org is { } id && id != Guid.Empty && await gate.IsEnabledAsync(id, ModuleCodes.Hrm, ct);
+    }
+
+    private async Task RequireHrmReadyAsync(string type, CancellationToken ct)
+    {
+        if (_services.GetService<IQuickBooksPostingReadiness>() is not { } readiness) return;
+
+        var org = _services.GetService<ITenantContext>()?.OrganizationId ?? Guid.Empty;
+        var costCenters = _services.GetService<IHrmCostCenterSource>() is { } source && org != Guid.Empty
+            ? await source.ListAsync(org, ct) : [];
+        var currency = _services.GetService<Reference.IBaseCurrencyResolver>() is { } currencies && org != Guid.Empty
+            ? (await currencies.ResolveAsync(org, ct)).Code : null;
+
+        var result = await readiness.CheckAsync(new QuickBooksPostingNeeds(
+            type, HrmSyncRoles.For(type).Select(r => new QuickBooksAccountNeed(r, null)).ToList(),
+            costCenters.Where(c => c.IsActive).Select(c => c.Code).ToList(), currency), ct);
+        if (result.IsReady) return;
+
+        var parts = new List<string>();
+        if (result.MissingAccounts.Count > 0) parts.Add("account mappings for " + string.Join(", ", result.MissingAccounts.Select(a => a.AccountCode ?? a.Role)));
+        if (result.MissingCostCenters.Count > 0) parts.Add("a Class for cost center " + string.Join(", ", result.MissingCostCenters.Select(c => c.Code)));
+        if (result.CurrencyMismatch is { } m) parts.Add($"matching currencies (SMS {m.OrgCurrency}, QuickBooks {m.QboCurrency})");
+        parts.AddRange(result.Problems);
+        throw new IntegrationConflictException(
+            $"HRM_SYNC_NOT_READY: {SyncControlDefaults.Labels[type]} cannot be turned on yet; it needs {string.Join("; ", parts)}.",
+            new
+            {
+                DocumentType = type,
+                MissingQboAccounts = result.MissingAccounts,
+                MissingCostCenters = result.MissingCostCenters,
+                result.CurrencyMismatch,
+                result.Problems
+            });
     }
 
     // ── Hold / release (through the gateway side) ───────────────────────────────────────────

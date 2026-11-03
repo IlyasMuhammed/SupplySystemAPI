@@ -187,6 +187,9 @@ public static class FinanceModuleExtensions
         services.AddScoped<Integration.Posting.SupplierNotePostings>();
         services.AddScoped<IQuickBooksSource>(sp => sp.GetRequiredService<Integration.Posting.SupplierNotePostings>());
 
+        // A48 — AR & AP sub-ledgers (CORE + the AR / RPT / AP partials, ArAp/ArApRegistration*.cs).
+        ArAp.ArApRegistration.AddArApSubledgers(services);
+
         return services;
     }
 }

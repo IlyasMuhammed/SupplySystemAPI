@@ -122,6 +122,86 @@ public sealed class AttachmentEndpointAccessTests : IDisposable
     private static string Message(IActionResult result) =>
         ((result as ObjectResult)?.Value as ApiResponse)?.Message ?? string.Empty;
 
+    // ── A49: private uploads ─────────────────────────────────────────────────
+
+    [Theory]
+    [InlineData("HRM_EMPLOYEE")]
+    [InlineData("HRM_LEAVE_REQUEST")]
+    [InlineData("HRM_EXPENSE_CLAIM")]
+    [InlineData("HRM_CANDIDATE")]
+    [InlineData("HRM_ENROLLMENT")]
+    public async Task A_private_upload_is_refused_on_the_generic_read_routes_and_can_be_erased(string code)
+    {
+        var uuid = await Service(OrgA).StorePrivateUploadAsync(new CreateAttachmentRequest
+        {
+            InterfaceCode = code, DocumentId = Document, FileName = "scan.pdf", ContentType = "application/pdf"
+        }, Pdf, uploadedBy: 7);
+        (await Service(OrgA).FindAsync(uuid))!.FileUrl.Should().Be($"/api/hrm/attachments/{uuid}/content");
+
+        Status(await Controller(OrgA, Everything).GetContent(uuid)).Should().Be(403);
+        Status(await Controller(OrgA, Everything).GetByDocument(code, Document)).Should().Be(403);
+        Status(await Controller(OrgA, Everything).Delete(uuid)).Should().Be(409, "only api/hrm/attachments removes these");
+        Status(await Controller(OrgB, Everything).GetContent(uuid)).Should().Be(404);
+
+        await Service(OrgA).RemovePrivateUploadAsync(uuid);
+        (await Service(OrgA).FindAsync(uuid)).Should().BeNull();
+        (await Service(OrgA).GetContentAsync(uuid)).Should().BeNull("the bytes are gone");
+    }
+
+    [Fact]
+    public async Task Erasing_is_only_for_private_uploads_and_only_in_the_own_organization()
+    {
+        var filed = await Filed(OrgA, "PO", null);
+        var erase = () => Service(OrgA).RemovePrivateUploadAsync(filed);
+        await erase.Should().ThrowAsync<ConflictException>();
+
+        var mine = await Service(OrgA).StorePrivateUploadAsync(new CreateAttachmentRequest
+        {
+            InterfaceCode = "HRM_EMPLOYEE", DocumentId = Document, FileName = "scan.pdf"
+        }, Pdf, uploadedBy: 7);
+        var elsewhere = () => Service(OrgB).RemovePrivateUploadAsync(mine);
+        await elsewhere.Should().ThrowAsync<NotFoundException>();
+        (await Service(OrgA).FindAsync(mine)).Should().NotBeNull();
+    }
+
+    // ── A49: filed-only kinds ────────────────────────────────────────────────
+
+    [Theory]
+    [InlineData("HRM_PAYSLIP")]
+    [InlineData("HRM_LETTER")]
+    [InlineData("HRM_TAX_CERTIFICATE")]
+    public async Task A_filed_only_kind_is_stored_and_read_in_process_and_api_attachments_refuses_it_on_every_route(string code)
+    {
+        var uuid = await Filed(OrgA, code, "HRM_PAYROLL_VIEW");
+
+        var read = await Service(OrgA).GetContentAsync(uuid);
+        read!.Content.Should().Equal(Pdf);
+        read.InterfaceCode.Should().Be(code);
+        (await Service(OrgB).GetContentAsync(uuid)).Should().BeNull("another organization's file is absent");
+
+        // A holder of every permission still cannot reach it through the generic endpoint.
+        var api = Controller(OrgA, Everything);
+        Status(await api.GetContent(uuid)).Should().Be(StatusCodes.Status403Forbidden);
+        Status(await api.GetByDocument(code, Document)).Should().Be(StatusCodes.Status400BadRequest);
+        Status(await api.Upload(AFile(), code, Document, notes: null)).Should().Be(StatusCodes.Status400BadRequest);
+        FilesWritten().Should().BeEmpty();
+        Status(await api.Delete(uuid)).Should().Be(StatusCodes.Status409Conflict, "a filed document is never removable");
+        AttachmentAccessPolicy.Rules.Should().NotContain(r => r.InterfaceCode == code);
+
+        var metadata = () => Service(OrgA).CreateAsync(new CreateAttachmentRequest
+        {
+            InterfaceCode = code, DocumentId = Document, FileName = "x.pdf", FileUrl = "/x.pdf"
+        }, uploadedBy: 7);
+        await metadata.Should().ThrowAsync<BadRequestException>("only the system files these");
+    }
+
+    [Fact]
+    public async Task An_unknown_kind_still_cannot_be_filed()
+    {
+        var file = () => Filed(OrgA, "HRM_SOMETHING_ELSE", null);
+        await file.Should().ThrowAsync<BadRequestException>();
+    }
+
     // ── Uploading ────────────────────────────────────────────────────────────
 
     [Fact]

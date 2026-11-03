@@ -75,8 +75,11 @@
     .layout-wrapper {
         .layout-main-container {
             margin-left: 0;
-            padding-left: 1rem;
-            padding-right: 1rem;
+            // One number for the frame's padding and the negative margin of .sf-page, which reads this token. Two numbers
+            // (1rem here, 1.25rem there) pushed every sf-page 0.25rem past the right edge of a phone.
+            --sms-pad: 1rem;
+            padding-left: var(--sms-pad);
+            padding-right: var(--sms-pad);
         }
 
         .layout-sidebar {

@@ -83,6 +83,20 @@ internal sealed class OrgFeatureWriter
     }
 
     /// <summary>
+    /// A49 D-POST-1: licensed, switch left off, because a module guard refuses the switch for now. The org admin switches it on through
+    /// the guarded route once the guard's condition is met. A licence already there changes nothing.
+    /// </summary>
+    public void GrantLicenceOnly(string code, int? by, string? notes = null)
+    {
+        var row = Row(code);
+        if (row.IsLicensed) return;
+        row.IsLicensed = true;
+        row.IsSystemManaged = false;
+        Touch(row, by);
+        Log(code, FeatureHistoryActions.Licensed, by, null, notes);
+    }
+
+    /// <summary>
     /// MOD-08 — BOM management follows Manufacturing / Service Orders: switched on by the system (licence included) when
     /// either is on, switched off when both are off — unless an administrator set it by hand. A system switch-off keeps
     /// the driving module's grace period.

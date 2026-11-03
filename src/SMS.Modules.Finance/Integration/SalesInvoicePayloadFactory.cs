@@ -28,7 +28,8 @@ internal static class SalesInvoicePayloadFactory
             Lines = lines.Select(l => new SalesInvoiceLinePayload
             {
                 LineNo          = l.LineNo,
-                ItemExternalId  = l.VariantUuid.ToString(),
+                // A49 E-13: a service line has no variant; the gateway sends the connection's default service item.
+                ItemExternalId  = invoice.SourceType == SalesInvoiceSources.ServiceManual ? ServiceInvoiceLines.ItemExternalId : l.VariantUuid.ToString(),
                 Description     = QuickBooksSupport.Clean(l.Description),
                 Quantity        = l.Quantity,
                 UnitPrice       = l.UnitPrice,
@@ -103,6 +104,7 @@ internal static class SalesInvoicePayloadFactory
     {
         // A38 (FIN) — a POS counter sale has no sale order: the POS order number stands in.
         if (invoice.SourceType == SalesInvoiceSources.Pos) return $"POS {invoice.SourceNumber}";
+        if (invoice.SourceType == SalesInvoiceSources.ServiceManual) return "Service invoice";
 
         var note = $"SO {invoice.SaleOrderNumber}";
         return string.IsNullOrWhiteSpace(invoice.DeliveryNumber) ? note : $"{note} · DLV {invoice.DeliveryNumber.Trim()}";

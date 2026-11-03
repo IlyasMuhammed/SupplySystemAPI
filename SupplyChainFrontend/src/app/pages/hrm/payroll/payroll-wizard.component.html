@@ -1,0 +1,188 @@
+<p-toast></p-toast>
+<p-confirmDialog key="hrm-pay" [style]="{ width: '30rem', maxWidth: '96vw' }"></p-confirmDialog>
+<sf-page [crumbs]="['HR', 'Payroll', 'Runs', run?.runNumber ?? 'New run']">
+  <div sfCmd class="sf-cmd" role="toolbar" aria-label="Commands">
+    <ng-container *ngIf="run">
+      <p-button *ngIf="canReopen" label="Reopen" icon="pi pi-undo" [text]="true" [disabled]="busy" (onClick)="reopen()" data-testid="reopen"></p-button>
+      <p-button *ngIf="canReverse" label="Reverse" icon="pi pi-replay" [text]="true" severity="danger" [disabled]="busy" (onClick)="openReverse()" data-testid="reverse"></p-button>
+      <p-button *ngIf="canCancel" label="Cancel run" icon="pi pi-ban" [text]="true" severity="danger" [disabled]="busy" (onClick)="cancelRun()" data-testid="cancel-run"></p-button>
+      <p-button *ngIf="can('HRM_PAYROLL_VIEW') && reached >= 5" label="Journal" icon="pi pi-book" [text]="true" (onClick)="openJournal()" data-testid="journal"></p-button>
+      <p-button *ngIf="can('HRM_PAYROLL_VIEW') && reached >= 6" label="Reconciliation" icon="pi pi-check-square" [text]="true" (onClick)="openRecon()" data-testid="recon"></p-button>
+    </ng-container>
+    <span class="sf-end"><a class="p-button p-button-text" [routerLink]="listRoute" data-testid="back"><i class="pi pi-arrow-left"></i>&nbsp;Runs</a></span>
+  </div>
+
+  <div class="sf-body" *ngIf="loading || loadError">
+    <div class="sf-card sf-empty" *ngIf="loading"><i class="pi pi-spin pi-spinner"></i> Loading…</div>
+    <div class="gl-note er" *ngIf="loadError" role="alert" data-testid="load-error"><i class="pi pi-exclamation-triangle"></i><div>{{ loadError }}</div></div>
+  </div>
+
+  <header class="sf-hdr" *ngIf="run && !loading">
+    <div class="sf-t"><div>
+      <div class="sf-kicker">Payroll run<ng-container *ngIf="run.payrollGroup"> · group {{ run.payrollGroup }}</ng-container></div>
+      <h1><span class="sf-mono">{{ run.runNumber }}</span> <span class="sf-pill" [ngClass]="hrmTone(run.status)" data-testid="status">{{ hrmLabel(run.status) }}</span></h1>
+      <div class="sf-meta">{{ run.periodStart | date:'dd MMM yyyy' }} to {{ run.periodEnd | date:'dd MMM yyyy' }} · pay date {{ run.payDate | date:'dd MMM yyyy' }} · {{ hrmLabel(run.costCenterMode) }} cost center</div>
+    </div></div>
+    <div class="sf-facts">
+      <div class="sf-kpi"><span class="l">Employees</span><span class="v sm" data-testid="k-employees">{{ run.totalEmployees }}</span><span class="s er" *ngIf="run.blockedEmployees">{{ run.blockedEmployees }} blocked</span></div>
+      <div class="sf-kpi"><span class="l">Gross</span><span class="v sm" data-testid="k-gross">{{ money(run.totalGross) }}</span></div>
+      <div class="sf-kpi"><span class="l">Deductions</span><span class="v sm" data-testid="k-deductions">{{ money(run.totalDeductions) }}</span></div>
+      <div class="sf-kpi"><span class="l">Net</span><span class="v sm" data-testid="k-net">{{ money(run.totalNet) }}</span><span class="s">{{ run.currencyCode }}</span></div>
+    </div>
+  </header>
+
+  <div class="sf-body" *ngIf="!loading && !loadError">
+    <nav class="hrm-steps" aria-label="Payroll steps" data-testid="steps">
+      <button *ngFor="let s of steps; let i = index" type="button" [class.on]="step === i + 1" [class.done]="step !== i + 1 && i + 1 < reached"
+              [disabled]="!run || i === 0 || i + 1 > reached" [attr.aria-current]="step === i + 1 ? 'step' : null" (click)="goStep(i + 1)" [attr.data-testid]="'step-' + (i + 1)">
+        <i class="pi" [ngClass]="i + 1 < reached ? 'pi-check' : 'pi-circle'"></i>{{ i + 1 }}. {{ s }}
+      </button>
+    </nav>
+
+    <div class="gl-note wn" *ngIf="terminal" data-testid="terminal"><i class="pi pi-info-circle"></i><div>This run is {{ hrmLabel(run.status).toLowerCase() }}.<ng-container *ngIf="run.reversalReason"> {{ run.reversalReason }}</ng-container>
+      <a *ngIf="correctionUuid" [routerLink]="[listRoute, correctionUuid]"> Open the new draft</a></div></div>
+    <div class="gl-note wn" *ngIf="run && (run.untrackedAttendanceEmployees || warningTexts.length)" role="note" data-testid="run-warnings"><i class="pi pi-exclamation-triangle"></i><div>
+      <div *ngIf="run.untrackedAttendanceEmployees" data-testid="untracked">{{ run.untrackedAttendanceEmployees }} {{ run.untrackedAttendanceEmployees === 1 ? 'employee is' : 'employees are' }} paid in full with no attendance on file. Check them before approving.</div>
+      <div *ngFor="let t of warningTexts">{{ t }}</div></div></div>
+    <div class="gl-note er" *ngIf="actionError" role="alert" data-testid="action-error"><i class="pi pi-exclamation-triangle"></i><div>{{ actionError }}<ul *ngIf="actionBlocked.length"><li *ngFor="let b of actionBlocked">{{ b }}</li></ul></div></div>
+
+    <!-- Step 1 -->
+    <section class="sf-card" *ngIf="step === 1 && !run" data-testid="s1">
+      <div class="sf-ch"><h2>Select the period</h2></div>
+      <hrm-form [fields]="newFields" [values]="newValues" idPrefix="run"></hrm-form>
+      <div style="margin-top:0.85rem"><p-button label="Create run" icon="pi pi-arrow-right" iconPos="right" [loading]="busy" [disabled]="busy" (onClick)="create()" data-testid="create"></p-button></div>
+    </section>
+
+    <!-- Step 2 -->
+    <section class="sf-card" *ngIf="step === 2 && run" data-testid="s2">
+      <div class="sf-ch"><h2>Calculate</h2></div>
+      <p class="sf-mu" style="margin-top:0">Works out every employed person's pay for the period. It can be run again until the run moves to review; the lines are rewritten each time.</p>
+      <div *ngIf="progress" data-testid="progress" aria-live="polite">
+        <div class="hrm-progress" role="progressbar" [attr.aria-valuenow]="progressPct" aria-valuemin="0" aria-valuemax="100"><div [style.width.%]="progressPct"></div></div>
+        <p class="sf-mu sf-sm">{{ progress.processed }} of {{ progress.total || '…' }} employees</p>
+      </div>
+      <div class="sf-grid sf-tiles" *ngIf="run.calculatedAt" data-testid="summary">
+        <div class="sf-tile"><span class="l">Employees</span><span class="v">{{ run.totalEmployees }}</span></div>
+        <div class="sf-tile"><span class="l">Gross</span><span class="v">{{ money(run.totalGross) }}</span></div>
+        <div class="sf-tile"><span class="l">Deductions</span><span class="v">{{ money(run.totalDeductions) }}</span></div>
+        <div class="sf-tile"><span class="l">Net</span><span class="v">{{ money(run.totalNet) }}</span></div>
+      </div>
+      <p-button *ngIf="canCalculate" [label]="run.calculatedAt ? 'Calculate again' : 'Calculate'" icon="pi pi-calculator" [loading]="busy" [disabled]="busy" (onClick)="calculate()" data-testid="calculate"></p-button>
+    </section>
+
+    <!-- Step 3 + 4: employee by employee -->
+    <section class="sf-card p0" *ngIf="(step === 3 || step === 4 || step === 6) && run" data-testid="s3">
+      <div class="sf-ch sf-pad"><h2>{{ step === 6 ? 'Employees' : 'Employee by employee' }} <span class="sf-count" data-testid="line-total">{{ lineTotal }}</span></h2>
+        <span class="sf-ch-actions" *ngIf="step === 3 && canCalculate"><p-button label="Calculate again" icon="pi pi-calculator" [text]="true" size="small" [disabled]="busy" (onClick)="calculate()"></p-button></span></div>
+      <div class="sf-pad sf-filters">
+        <input pInputText class="sf-search" placeholder="Search name or number" aria-label="Search lines" [(ngModel)]="lineSearch" (ngModelChange)="onLineSearch()" data-testid="line-search" />
+        <button type="button" class="sf-chip" [class.on]="blockedOnly" (click)="setBlockedOnly(!blockedOnly)" data-testid="blocked-only">Blocked only</button>
+      </div>
+      <div class="gl-note er" *ngIf="lineError" role="alert"><i class="pi pi-exclamation-triangle"></i><div>{{ lineError }}</div></div>
+      <div class="gl-scroll"><table class="hrm-table hrm-stack" data-testid="lines">
+        <thead><tr><th>Employee</th><th>Department</th><th class="gl-num">Paid days</th><th class="gl-num">Gross</th><th class="gl-num">Deductions</th><th class="gl-num">Net</th><th>Pay by</th><th></th></tr></thead>
+        <tbody>
+          <tr *ngFor="let l of lines" [class.blocked]="l.isBlocked" [class.untracked]="l.attendanceUntracked && !l.isBlocked" [attr.data-testid]="'line-' + l.uuid">
+            <td data-label="Employee"><span>{{ l.employeeName }}<span class="sub sf-mono">{{ l.employeeNumber }}</span><span class="sub" *ngIf="l.isBlocked" [attr.data-testid]="'block-' + l.uuid" style="color:var(--sms-danger)"><i class="pi pi-ban"></i> {{ l.blockReason }}</span><span class="sub" *ngIf="l.attendanceUntracked" [attr.data-testid]="'untracked-' + l.uuid" style="color:var(--sms-warn)"><i class="pi pi-exclamation-triangle"></i> No attendance on file: paid in full</span></span></td>
+            <td data-label="Department">{{ l.departmentName || '—' }}</td><td data-label="Paid days" class="gl-num">{{ l.paidDays }} / {{ l.workingDays }}</td><td data-label="Gross" class="gl-num">{{ money(l.gross) }}</td><td data-label="Deductions" class="gl-num">{{ money(l.totalDeductions) }}</td><td data-label="Net" class="gl-num"><b>{{ money(l.net) }}</b></td><td data-label="Pay by">{{ l.paymentMethod }}</td>
+            <td class="hrm-acts"><div class="hrm-actions">
+              <p-button label="Details" icon="pi pi-list" [text]="true" size="small" (onClick)="openLine(l)" [attr.data-testid]="'details-' + l.uuid"></p-button>
+              <p-button *ngIf="reached >= 6 && !l.isBlocked" label="Payslip" icon="pi pi-file-pdf" [text]="true" size="small" (onClick)="viewPayslip(l)" [attr.data-testid]="'payslip-' + l.uuid"></p-button>
+            </div></td>
+          </tr>
+          <tr *ngIf="!lines.length"><td class="hrm-empty sf-empty" colspan="8">No lines.</td></tr>
+        </tbody>
+      </table></div>
+      <div class="hrm-pager" *ngIf="linePages > 1"><p-button icon="pi pi-chevron-left" [text]="true" size="small" ariaLabel="Previous page" [disabled]="linePage <= 1" (onClick)="goPage(-1)"></p-button><span>Page {{ linePage }} of {{ linePages }}</span><p-button icon="pi pi-chevron-right" [text]="true" size="small" ariaLabel="Next page" [disabled]="linePage >= linePages" (onClick)="goPage(1)"></p-button></div>
+      <div class="sf-pad" *ngIf="step === 3 && canReview" style="padding-top:0.75rem"><p-button label="Send for approval" icon="pi pi-arrow-right" iconPos="right" [loading]="busy" [disabled]="busy" (onClick)="review()" data-testid="review"></p-button></div>
+    </section>
+
+    <!-- Step 4 -->
+    <section class="sf-card" *ngIf="step === 4 && run" data-testid="s4">
+      <div class="sf-ch"><h2>Approve and lock</h2></div>
+      <div class="gl-note wn" *ngIf="blockReasonCount" data-testid="has-blocked"><i class="pi pi-exclamation-triangle"></i><div>{{ blockReasonCount }} employees are blocked and will not be paid. See "Blocked only" above.</div></div>
+      <label class="hrm-reveal" *ngIf="blockReasonCount" style="margin:0.6rem 0"><p-checkbox [binary]="true" [(ngModel)]="excludeBlocked" inputId="ex-blocked" data-testid="exclude"></p-checkbox> Leave out blocked employees</label>
+      <div><p-button *ngIf="canApprove" label="Approve" icon="pi pi-check" [disabled]="busy || (blockReasonCount > 0 && !excludeBlocked)" (onClick)="approve()" data-testid="approve"></p-button></div>
+      <p class="sf-mu" *ngIf="!canApprove">Waiting for someone who can approve payroll.</p>
+    </section>
+
+    <!-- Step 5 -->
+    <ng-container *ngIf="step === 5 && run">
+      <hrm-readiness [runUuid]="run.uuid" (checked)="onReadiness($event)"></hrm-readiness>
+      <section class="sf-card" data-testid="s5">
+        <div class="sf-ch"><h2>Finalize and post</h2></div>
+        <p class="sf-mu" style="margin-top:0">One summarized journal per run, by cost center. No names or per-employee amounts leave payroll.</p>
+        <div class="hrm-actions" style="justify-content:flex-start">
+          <p-button *ngIf="canFinalize" label="Finalize" icon="pi pi-lock" [loading]="busy" [disabled]="busy || (!!readiness && !readiness.isReady && !readiness.noTarget)" (onClick)="finalize()" data-testid="finalize"></p-button>
+          <p-button label="Export CSV" icon="pi pi-download" [text]="true" (onClick)="exportJournal('csv')" data-testid="export-csv"></p-button>
+          <p-button label="Export Excel" icon="pi pi-file-excel" [text]="true" (onClick)="exportJournal('xlsx')" data-testid="export-xlsx"></p-button>
+        </div>
+        <p class="sf-mu sf-sm" *ngIf="!canFinalize">Waiting for someone who can finalize payroll.</p>
+      </section>
+    </ng-container>
+
+    <!-- Step 6 -->
+    <section class="sf-card" *ngIf="step === 6 && run" data-testid="s6">
+      <div class="sf-ch"><h2>Pay</h2></div>
+      <div class="gl-note ok" *ngIf="run.status === 'Paid'" data-testid="paid"><i class="pi pi-check"></i><div>Paid<ng-container *ngIf="run.paidAt"> on {{ run.paidAt | date:'dd MMM yyyy' }}</ng-container><ng-container *ngIf="run.paymentReference">, reference {{ run.paymentReference }}</ng-container>.</div></div>
+      <div class="gl-note" *ngIf="noTargetPosting" data-testid="no-posting"><i class="pi pi-info-circle"></i><div>No posting required: this organization has no active accounting target. The journal can be exported for your books.</div></div>
+      <div class="gl-note er" *ngIf="postingNeedsRetry" data-testid="posting-problem"><i class="pi pi-exclamation-triangle"></i><div>Posting did not finish.<ng-container *ngIf="run.postingNote"> {{ run.postingNote }}</ng-container></div></div>
+
+      <div class="gl-scroll" *ngIf="run.postings?.length"><table class="hrm-table hrm-stack" data-testid="postings">
+        <thead><tr><th>Kind</th><th>Target</th><th>State</th><th>Note</th></tr></thead>
+        <tbody><tr *ngFor="let p of run.postings"><td data-label="Kind">{{ hrmLabel(p.kind) }}</td><td data-label="Target">{{ p.target || p.targetSystem || '—' }}</td><td data-label="State"><span class="sf-pill" [ngClass]="hrmTone(p.status)">{{ hrmLabel(p.status) }}</span></td><td data-label="Note">{{ p.note || p.message || p.errorMessage || '—' }}</td></tr></tbody>
+      </table></div>
+
+      <div class="hrm-actions" style="justify-content:flex-start;margin-top:0.75rem">
+        <p-button *ngIf="canBankFile" label="Bank file" icon="pi pi-download" [text]="!canPay" (onClick)="bankFile()" data-testid="bank-file"></p-button>
+        <p-button *ngIf="canPay" label="Mark as paid" icon="pi pi-wallet" [disabled]="busy" (onClick)="openPay()" data-testid="pay"></p-button>
+        <p-button *ngIf="canRetry" label="Retry posting" icon="pi pi-refresh" [text]="true" [loading]="busy" [disabled]="busy" (onClick)="retry()" data-testid="retry"></p-button>
+        <p-button *ngIf="canPayslips" label="Generate payslips" icon="pi pi-file-pdf" [text]="true" [disabled]="busy" (onClick)="payslips()" data-testid="payslips"></p-button>
+        <p-button label="Export CSV" icon="pi pi-download" [text]="true" (onClick)="exportJournal('csv')"></p-button>
+        <p-button label="Export Excel" icon="pi pi-file-excel" [text]="true" (onClick)="exportJournal('xlsx')"></p-button>
+      </div>
+      <p class="sf-mu sf-sm" *ngIf="canBankFile" style="margin-bottom:0">The bank file holds account numbers: each download is logged per employee.</p>
+    </section>
+  </div>
+</sf-page>
+
+<hrm-dialog [(visible)]="lineOpen" [title]="lineRow?.employeeName ?? ''" [subtitle]="lineRow?.employeeNumber ?? null" icon="pi-list" [saveLabel]="null" width="40rem">
+  <div *ngIf="lineRow" class="hrm-stack-gap" data-testid="line-detail">
+    <div class="gl-note er" *ngIf="lineRow.isBlocked"><i class="pi pi-ban"></i><div>{{ lineRow.blockReason }}</div></div>
+    <div class="gl-note wn" *ngIf="lineRow.attendanceUntracked"><i class="pi pi-exclamation-triangle"></i><div>No attendance on file: paid in full.</div></div>
+    <div class="sf-kv"><span>Worked / paid / working days</span><span>{{ lineRow.workedDays }} / {{ lineRow.paidDays }} / {{ lineRow.workingDays }}</span><span>Designation</span><span>{{ lineRow.designationName || '—' }}</span><span>Cost center</span><span>{{ lineRow.costCenterCode || '—' }}</span></div>
+    <table class="hrm-table">
+      <tbody>
+        <tr *ngFor="let c of earnings(lineRow)"><td>{{ c.name }}<span class="sub" *ngIf="c.basis !== null && c.basis !== undefined">on {{ money(c.basis) }}</span></td><td class="gl-num">{{ money(c.amount) }}</td></tr>
+        <tr><td><b>Gross</b></td><td class="gl-num"><b>{{ money(lineRow.gross) }}</b></td></tr>
+        <tr *ngFor="let c of deductions(lineRow)"><td>{{ c.name }}</td><td class="gl-num">−{{ money(c.amount) }}</td></tr>
+        <tr><td><b>Net pay</b></td><td class="gl-num"><b>{{ money(lineRow.net) }}</b></td></tr>
+        <tr *ngFor="let c of employer(lineRow)"><td class="sf-mu">{{ c.name }} (employer)</td><td class="gl-num sf-mu">{{ money(c.amount) }}</td></tr>
+      </tbody>
+    </table>
+  </div>
+</hrm-dialog>
+
+<hrm-dialog [(visible)]="dlgOpen" [title]="dlg === 'pay' ? 'Mark as paid' : 'Reverse run'" [subtitle]="run?.runNumber ?? null" [icon]="dlg === 'pay' ? 'pi-wallet' : 'pi-replay'" [tone]="dlg === 'pay' ? 'green' : 'red'" [saveLabel]="dlg === 'pay' ? 'Mark as paid' : 'Reverse'" [danger]="dlg === 'reverse'" [busy]="busy" [error]="dlgError" (save)="saveDlg()">
+  <p class="sf-mu" style="margin-top:0" *ngIf="dlg === 'reverse'">The posting is voided, loan installments, overtime and adjustments are released, and a new draft takes this run's place.</p>
+  <hrm-form *ngIf="dlg === 'pay'" [fields]="payFields" [values]="dlgValues" idPrefix="pay"></hrm-form>
+  <hrm-form *ngIf="dlg === 'reverse'" [fields]="reverseFields" [values]="dlgValues" idPrefix="rev"></hrm-form>
+</hrm-dialog>
+
+<hrm-dialog [(visible)]="journalOpen" title="Journal" [subtitle]="journal?.runNumber ?? null" icon="pi-book" [saveLabel]="null" width="56rem">
+  <div class="gl-scroll" *ngIf="journal"><table class="hrm-table hrm-stack" data-testid="journal-lines">
+    <thead><tr><th>Account role</th><th>Account</th><th>Cost center</th><th class="gl-num">Debit</th><th class="gl-num">Credit</th><th>Description</th></tr></thead>
+    <tbody><tr *ngFor="let l of journal.lines"><td data-label="Role">{{ l.accountRole }}</td><td data-label="Account" class="sf-mono">{{ l.accountCode || '—' }}</td><td data-label="Cost center">{{ l.costCenter || '—' }}</td><td data-label="Debit" class="gl-num">{{ l.debit ? money(l.debit) : '' }}</td><td data-label="Credit" class="gl-num">{{ l.credit ? money(l.credit) : '' }}</td><td data-label="Description">{{ l.description }}</td></tr></tbody>
+    <tfoot><tr><td colspan="3">Total</td><td class="gl-num">{{ money(journal.totalDebit) }}</td><td class="gl-num">{{ money(journal.totalCredit) }}</td><td></td></tr></tfoot>
+  </table></div>
+</hrm-dialog>
+
+<hrm-dialog [(visible)]="reconOpen" title="Reconciliation" [subtitle]="recon?.runNumber ?? null" icon="pi-check-square" [saveLabel]="null" width="40rem">
+  <div class="sf-kv" *ngIf="recon" data-testid="recon-view">
+    <span>Run gross</span><span>{{ money(recon.runGross) }}</span><span>Run deductions</span><span>{{ money(recon.runDeductions) }}</span><span>Run net</span><span>{{ money(recon.runNet) }}</span><span>Employer cost</span><span>{{ money(recon.runEmployerCost) }}</span>
+    <span>Journal debit</span><span>{{ money(recon.journalDebit) }}</span><span>Journal credit</span><span>{{ money(recon.journalCredit) }}</span>
+    <span>Balanced</span><span><span class="sf-pill" [ngClass]="recon.balanced ? 'ok' : 'er'">{{ recon.balanced ? 'Yes' : 'No' }}</span></span>
+  </div>
+</hrm-dialog>
+
+<hrm-pdf-viewer [(visible)]="viewer.open" [path]="viewer.path" [fileName]="viewer.name"></hrm-pdf-viewer>

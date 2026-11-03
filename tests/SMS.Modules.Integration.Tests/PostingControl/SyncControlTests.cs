@@ -55,7 +55,7 @@ public class SyncControlTests : IAsyncLifetime
         var rows = (await Control(c => c.GetAsync())).Rows.ToDictionary(r => r.DocumentType);
         _h.Tenant.RequestOrganizationId = _h.OrgId;
 
-        rows.Should().HaveCount(11).And.OnlyContain(r => !r.Value.IsDefault);
+        rows.Should().HaveCount(SyncControlDocumentTypes.All.Count, "the 11 of A44 + the 8 HRM types of A49").And.OnlyContain(r => !r.Value.IsDefault);
         foreach (var on in new[] { "Customer", "Vendor", "Item", "SalesInvoice", "CreditNote", "Payment" })
             rows[on].Action.Should().Be("Process", on);
         foreach (var held in new[] { "POSSale", "POSReturn" })

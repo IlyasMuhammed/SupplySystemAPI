@@ -60,6 +60,8 @@
   <small class="p-error block" *ngIf="error" data-testid="response-error">{{ error }}</small>
 
   <div class="panel-actions" *ngIf="canRespond">
+    <p-button *ngIf="unansweredRows.length" label="Accept all open lines" icon="pi pi-check" [text]="true" [disabled]="isBusy"
+              (onClick)="acceptOpenLines()" data-testid="accept-open-lines"></p-button>
     <p-button label="Save Responses" icon="pi pi-save" [outlined]="true" [disabled]="!canSave" [loading]="isBusy"
               (onClick)="saveResponses()" data-testid="save-responses"></p-button>
     <p-button *ngIf="showReject" label="Mark Quotation Rejected" icon="pi pi-times-circle" severity="danger" [outlined]="true"

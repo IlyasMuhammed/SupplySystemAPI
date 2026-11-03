@@ -282,6 +282,10 @@ internal sealed class SetupStatusService : ISetupStatusService
             ConversionDate          = s.ConversionDate,
             NextStep                = StepTitles.Select(x => x.Step).FirstOrDefault(step => !done[step]) is var next and > 0 ? next : 6,
             Steps                   = StepTitles.Select(x => new SetupStepModel { Step = x.Step, Title = x.Title, Done = done[x.Step] }).ToList(),
+            // D-7: an HR row exists only while MODULE_HRM is on, so no row, nothing missing.
+            HrRolesMissing          = await _db.AccountingDefaults.IgnoreQueryFilters().AsNoTracking()
+                .Where(d => d.OrganizationId == s.OrganizationId && d.AccountId == null && DefaultKeys.AllHr.Contains(d.DefaultKey))
+                .OrderBy(d => d.SortOrder).Select(d => d.DefaultKey).ToListAsync(ct),
         };
     }
 }

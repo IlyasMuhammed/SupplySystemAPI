@@ -348,7 +348,7 @@ export class SaleQuotationDetailComponent implements OnInit {
   }
 
   private formatAddress(a: AddressModel): string {
-    return [a.line1, a.line2, a.cityName, a.countryName].filter(p => !!p && `${p}`.trim()).join(', ');
+    return [a.line1, a.line2, a.cityName, a.state, a.countryName].filter(p => !!p && `${p}`.trim()).join(', ');
   }
 
   /** A shipped order needs an address; a customer PO reference is at most 50 characters. */

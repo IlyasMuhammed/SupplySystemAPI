@@ -47,9 +47,10 @@ describe('InvoiceCreateComponent', () => {
     return fixture.nativeElement.querySelector(`[data-testid="${testId}"]`);
   }
 
-  async function setup(opts: { baseCurrency?: string | null; codes?: TaxCodeModel[]; codesFail?: boolean; pos?: any[] } = {}) {
-    finance = jasmine.createSpyObj<FinanceService>('FinanceService', ['createInvoice']);
+  async function setup(opts: { baseCurrency?: string | null; codes?: TaxCodeModel[]; codesFail?: boolean; pos?: any[]; invoices?: any[] } = {}) {
+    finance = jasmine.createSpyObj<FinanceService>('FinanceService', ['createInvoice', 'getInvoices']);
     finance.createInvoice.and.returnValue(ok('inv-new'));
+    finance.getInvoices.and.returnValue(ok({ data: opts.invoices ?? [], totalRecords: (opts.invoices ?? []).length }));
 
     setupService = jasmine.createSpyObj<FinanceSetupService>('FinanceSetupService', ['getTaxCodes']);
     setupService.getTaxCodes.and.returnValue(opts.codesFail ? throwError(() => new Error('down')) : ok(opts.codes ?? [GST17, GST5]));
@@ -237,6 +238,43 @@ describe('InvoiceCreateComponent', () => {
     component.save();
     expect(finance.createInvoice).toHaveBeenCalledTimes(1);
     expect((finance.createInvoice.calls.mostRecent().args[0] as CreateInvoiceRequest).poUuid).toBe('po-9');
+  });
+
+  // ── The GRN's automatic invoice: name it rather than let a second one be typed in blind ──
+
+  const PO9 = { uuid: 'po-9', poNumber: 'PO-2026-00009', supplierId: 'sup-2', supplierName: 'Lahore Bolts', status: 'RECEIVED' };
+  const live = (over: object = {}) => ({
+    uuid: 'inv-auto', invoiceNumber: 'INV-2026-00005', poNumber: 'PO-2026-00009', grnNumber: 'GRN-2026-00004',
+    totalAmount: 220, currency: 'USD', matchStatus: 'Matched', paymentStatus: 'Unpaid', ...over
+  });
+
+  it('names the invoice a PO already has, so the one the GRN raised is corrected rather than duplicated', async () => {
+    await setup({
+      pos: [PO9],
+      invoices: [live(), live({ uuid: 'inv-other', invoiceNumber: 'INV-2026-00002', poNumber: 'PO-2026-00001' })]
+    });
+
+    component.form.poUuid = 'po-9';
+    component.onPoChange();
+    fixture.detectChanges();
+
+    expect(finance.getInvoices).toHaveBeenCalledWith(jasmine.objectContaining({ supplierId: 'sup-2' }));
+    expect(component.existingInvoices.map(i => i.invoiceNumber)).toEqual(['INV-2026-00005']);
+    expect(query('invoice-existing')?.textContent).toContain('INV-2026-00005');
+  });
+
+  it('does not count a rejected or reversed invoice, and shows nothing when the PO has none', async () => {
+    await setup({
+      pos: [PO9],
+      invoices: [live({ matchStatus: 'Rejected' }), live({ uuid: 'inv-r', invoiceNumber: 'INV-2026-00006', matchStatus: 'Reversed' })]
+    });
+
+    component.form.poUuid = 'po-9';
+    component.onPoChange();
+    fixture.detectChanges();
+
+    expect(component.existingInvoices).toEqual([]);
+    expect(query('invoice-existing')).toBeNull();
   });
 
   // ── Notes: the server's column holds 300 characters ─────────────────────────

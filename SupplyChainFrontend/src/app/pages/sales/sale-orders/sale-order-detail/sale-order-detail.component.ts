@@ -52,6 +52,7 @@ import {
 } from '../../../../services/logistics.service';
 import { ProductionOrderService, ProductionOrderListItem, productionStatusSeverity } from '../../../../services/production-order.service';
 import { AuthService } from '../../../service/auth.service';
+import { CreditBlock, creditBlockOf } from '../../../finance/ar-ap/ar-ap.shared';
 import { serviceStatusTone } from '../../../../services/service-order.service';
 import { DELIVERY_STATUS_SEVERITY } from '../../../logistics/deliveries/delivery-list/delivery-list.component';
 import { SALE_ORDER_STATUS_SEVERITY, formatCode } from '../sale-order-list/sale-order-list.component';
@@ -276,6 +277,10 @@ export class SaleOrderDetailComponent implements OnInit {
 
   /** The confirm 400, one blocker per line (the server joins them with "\n"). */
   confirmErrors: string[] = [];
+  /** A48 §2 — the credit-control refusal of the last confirm, with the check when the server sent it. */
+  creditBlock: CreditBlock | null = null;
+  creditOverrideReason = '';
+  creditOverrideError = '';
   /** Confirmed, but the deliveries were not (all) created: the server's reason, shown with the recovery button. */
   deliveryCreationMessage: string | null = null;
   isCreatingDeliveries = false;
@@ -673,6 +678,11 @@ export class SaleOrderDetailComponent implements OnInit {
   openConfirmDialog() {
     if (!this.canConfirm || this.isConfirmBlocked) return;
     this.confirmErrors = [];
+    // A48 review — a fresh dialog: no refusal of an earlier attempt.
+    this.missingRate = null;
+    this.creditBlock = null;
+    this.creditOverrideReason = '';
+    this.creditOverrideError = '';
     this.confirmDialogVisible = true;
     this.availability = [];
     this.availabilityFailed = false;
@@ -703,21 +713,50 @@ export class SaleOrderDetailComponent implements OnInit {
     return (this.order?.lines ?? []).filter(l => l.status !== 'CANCELLED' && isMakeToOrderLine(l));
   }
 
-  confirmOrder() {
+  /** A48 §2 — confirming over the credit check needs CREDIT_OVERRIDE and a reason. */
+  get canCreditOverride(): boolean { return this.authService.hasPermission('CREDIT_OVERRIDE'); }
+
+  /** A48 §2 — "Confirm anyway": the override reason is required. */
+  confirmWithCreditOverride() {
+    const reason = (this.creditOverrideReason ?? '').trim();
+    if (!reason) { this.creditOverrideError = 'A reason is required.'; return; }
+    this.creditOverrideError = '';
+    this.confirmOrder(reason);
+  }
+
+  confirmOrder(creditOverrideReason?: string) {
     if (!this.canConfirm || this.isConfirming || this.isConfirmBlocked) return;
     this.isConfirming = true;
     this.confirmErrors = [];
     this.missingRate = null;
+    if (!creditOverrideReason) { this.creditBlock = null; this.creditOverrideReason = ''; }
 
-    this.saleOrderService.confirmSaleOrder(this.uuid).subscribe({
+    const call = creditOverrideReason
+      ? this.saleOrderService.confirmSaleOrder(this.uuid, creditOverrideReason)
+      : this.saleOrderService.confirmSaleOrder(this.uuid);
+    call.subscribe({
       next: (res) => {
         this.isConfirming = false;
         this.confirmDialogVisible = false;
+        this.creditBlock = null;
         this.afterConfirm(res?.result ?? null);
+        // A48 §2 — Warn mode: confirmed, but over the limit.
+        const warning = res?.result?.creditWarning;
+        if (warning) this.messageService.add({ severity: 'warn', summary: 'Credit warning', detail: warning, life: 10000 });
         this.load();
       },
       error: (err) => {
         this.isConfirming = false;
+        // A48 §2 — credit control refused it (Block mode): shown in the dialog with the exposure, and an override for CREDIT_OVERRIDE.
+        const block = creditBlockOf(err);
+        if (block) {
+          this.creditBlock = block;
+          this.messageService.add({ severity: 'error', summary: 'Credit check failed', detail: block.message, life: 10000 });
+          return;
+        }
+        // Any other refusal (also after an override) replaces the credit panel.
+        this.creditBlock = null;
+        this.creditOverrideError = '';
         // A33 PC-09 — the gate's 400 is one blocker per line: listed in the dialog, which stays open.
         const message: string | undefined = err?.error?.message;
         this.confirmErrors = splitServerMessage(message);
@@ -1357,9 +1396,9 @@ export class SaleOrderDetailComponent implements OnInit {
     { id: 'sec-currency', label: 'Currency' }
   ];
 
-  /** "Plot 12, Korangi, Karachi 74900, Pakistan" */
+  /** "Plot 12, Korangi, Karachi 74900, Pakistan" — with a state: "1200 Commerce Blvd, Dallas, TX 75201, United States" */
   formatAddress(a: AddressModel): string {
-    const cityLine = [a.cityName, a.postalCode].filter(Boolean).join(' ');
+    const cityLine = [[a.cityName, a.state].filter(Boolean).join(', '), a.postalCode].filter(Boolean).join(' ');
     return [a.line1, a.line2, cityLine, a.countryName].filter(Boolean).join(', ');
   }
 

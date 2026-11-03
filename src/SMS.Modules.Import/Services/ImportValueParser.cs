@@ -18,6 +18,30 @@ internal static class ImportValueParser
         "dd-MMM-yyyy", "d-MMM-yyyy", "dd MMM yyyy", "d MMM yyyy", "dd-MMM-yy", "d-MMM-yy",
     ];
 
+    private static readonly string[] UnambiguousFormats =
+    [
+        "yyyy-MM-dd", "yyyy-M-d", "yyyy/MM/dd", "yyyy/M/d", "yyyy-MM-ddTHH:mm:ss", "yyyy-MM-dd HH:mm:ss", "yyyy-MM-ddTHH:mm:ss.FFFFFFF",
+        "dd-MMM-yyyy", "d-MMM-yyyy", "dd MMM yyyy", "d MMM yyyy",
+    ];
+
+    /// <summary>A49: only what cannot be read two ways. The file parser's Excel dates arrive as serials or ISO.</summary>
+    public static bool TryParseUnambiguousDate(string value, out DateOnly result)
+    {
+        var text = value.Trim();
+        if (DateTime.TryParseExact(text, UnambiguousFormats, CultureInfo.InvariantCulture, DateTimeStyles.AllowWhiteSpaces, out var dt))
+        {
+            result = DateOnly.FromDateTime(dt);
+            return true;
+        }
+        if (double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out var serial) && serial >= 1 && serial <= MaxSerial)
+        {
+            result = DateOnly.FromDateTime(DateTime.FromOADate(Math.Floor(serial)));
+            return true;
+        }
+        result = default;
+        return false;
+    }
+
     /// <summary>Excel's serial range (1 = 1900-01-01 … 9999-12-31).</summary>
     private const double MaxSerial = 2_958_465;
 
@@ -184,6 +208,13 @@ internal static class ImportGenericValidator
             }
             case ImportFieldTypes.Date:
             {
+                if (f.UnambiguousDateOnly)
+                {
+                    if (!ImportValueParser.TryParseUnambiguousDate(text, out var strict))
+                        return (null, Err(ImportErrorCodes.InvalidDate,
+                            $"{f.DisplayName} must be a date as yyyy-MM-dd or dd-MMM-yyyy (or an Excel date): 05/01/2024 could be read two ways."));
+                    return (strict.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture), null);
+                }
                 if (!ImportValueParser.TryParseDate(text, out var date))
                     return (null, Err(ImportErrorCodes.InvalidDate,
                         $"{f.DisplayName} must be a date (yyyy-MM-dd, MM-dd-yyyy, dd-MMM-yyyy or an Excel date)."));

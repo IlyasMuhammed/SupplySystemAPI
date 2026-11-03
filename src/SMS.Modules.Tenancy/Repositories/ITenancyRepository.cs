@@ -18,6 +18,8 @@ internal interface ITenancyRepository
     Task<List<PlanFeatureTemplateModel>> GetPlanTemplatesAsync();
     Task<List<OrganizationFeatureModel>> GetOrganizationFeaturesAsync(Guid orgId);
     Task SaveFeatureChangesAsync(Guid orgId, Dictionary<string, bool> changes, int modifiedBy);
+    /// <summary>A49 D-POST-1: licences these codes without switching them on. The default does nothing: fakes without the module.</summary>
+    Task GrantLicenceOnlyAsync(Guid orgId, IReadOnlyCollection<string> codes, int modifiedBy, string notes) => Task.CompletedTask;
 
     Task<bool> OrganizationExistsAsync(Guid orgId);
 }

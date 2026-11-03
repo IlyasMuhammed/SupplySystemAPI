@@ -185,6 +185,11 @@
     .layout-topbar {
         padding: 0 1rem 0 0.5rem;
 
+        // The logo and breadcrumbs give way, so the actions on the right always fit.
+        .layout-topbar-logo-container {
+            flex: 0 1 auto;
+        }
+
         .layout-menu-button {
             margin-left: 0;
             margin-right: 0.25rem;

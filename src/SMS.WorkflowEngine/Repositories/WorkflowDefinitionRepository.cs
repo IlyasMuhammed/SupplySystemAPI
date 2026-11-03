@@ -427,7 +427,10 @@ internal sealed class WorkflowDefinitionRepository : IWorkflowDefinitionReposito
             StepName         = s.StepName,
             StepType         = s.StepType,
             ApproverType     = s.ApproverType,
-            ApproverRefId    = s.ApproverRefId,
+            // A seeded ROLE step holds a role code and no id; show the id the engine resolves it to, so the editor's
+            // role picker is not blank.
+            ApproverRefId    = s.ApproverRefId
+                               ?? (s.ApproverType == "ROLE" ? Services.ApproverResolutionService.ResolveLegacyRoleId(s.ApproverRole) : null),
             ApproverRole     = s.ApproverRole,
             ApproverRefName  = s.ApproverRefName,
             IsMandatory      = s.IsMandatory,

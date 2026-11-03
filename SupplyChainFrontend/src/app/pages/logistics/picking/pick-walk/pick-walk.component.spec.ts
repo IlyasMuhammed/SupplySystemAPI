@@ -327,7 +327,7 @@ describe('PickWalkComponent', () => {
     expect(component.location(line())).toBe('Zone A · A-01-02');
     // Goods received but not yet put away have no bin — saying so is honest.
     expect(component.location(line({ zoneName: undefined, binCode: undefined })))
-      .toBe('Not put away');
+      .toBe('No bin assigned');
   });
 
   it('renders a short reason code as its label', async () => {

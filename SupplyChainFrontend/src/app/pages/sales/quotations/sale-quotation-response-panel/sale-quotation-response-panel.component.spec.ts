@@ -151,6 +151,40 @@ describe('SaleQuotationResponsePanelComponent (A32-PC-13)', () => {
     expect(changed).not.toHaveBeenCalled();
   });
 
+  // ── Accept all open lines ──────────────────────────────────────────────────
+
+  it('"Accept all open lines" answers the unanswered lines ACCEPTED, keeps the others, and sends nothing yet', async () => {
+    const lines = wireframeLines();
+    lines[4].customerResponse = 'COUNTER';
+    lines[4].customerCounterPrice = 0.1;
+    await setup(sent({ lines }));
+
+    fixture.detectChanges();
+    expect(el('accept-open-lines')).not.toBeNull();
+    el('accept-open-lines')!.click();
+
+    expect(component.rows.filter(r => r.line.uuid !== 'l-5').every(r => r.response === 'ACCEPTED')).toBeTrue();
+    expect(row('l-5').response).withContext('a counter the customer made stays a counter').toBe('COUNTER');
+    expect(service.recordCustomerResponse).not.toHaveBeenCalled();
+    expect(component.canMarkAccepted).toBeTrue();
+
+    component.markAccepted();
+    expect(service.recordCustomerResponse).toHaveBeenCalledTimes(4);
+    expect(service.acceptQuotation).toHaveBeenCalledOnceWith('sq-1');
+  });
+
+  it('offers "Accept all open lines" only while some line is unanswered, and only to someone who may record responses', async () => {
+    permissions = ['SALE_QUOTATION_VIEW'];
+    await setup();
+    expect(el('accept-open-lines')).toBeNull();
+
+    permissions = ['SALE_QUOTATION_VIEW', 'SALE_QUOTATION_EDIT'];
+    await setup();
+    for (const r of component.rows) r.response = 'ACCEPTED';
+    fixture.detectChanges();
+    expect(el('accept-open-lines')).toBeNull();
+  });
+
   // ── Mark accepted / rejected ───────────────────────────────────────────────
 
   it('enables "Mark Quotation Accepted" once at least one line is accepted', async () => {

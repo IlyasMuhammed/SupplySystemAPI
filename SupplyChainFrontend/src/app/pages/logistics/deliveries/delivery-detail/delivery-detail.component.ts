@@ -28,6 +28,7 @@ import {
 } from '../../../../services/logistics.service';
 import { SalesInvoiceService } from '../../../../services/sales-invoice.service';
 import { AuthService } from '../../../service/auth.service';
+import { creditWarningOf } from '../../../finance/ar-ap/ar-ap.shared';
 import { DELIVERY_STATUS_SEVERITY } from '../delivery-list/delivery-list.component';
 import { SHIPMENT_STATUS_SEVERITY } from '../../consignments/consignment-detail/consignment-detail.component';
 import { FLOW, FlowSection, FlowStage, flowStagesFrom } from '../../../../shared/flow';
@@ -311,6 +312,9 @@ export class DeliveryDetailComponent implements OnInit {
           summary: created?.alreadyExisted ? 'Already invoiced' : 'Invoice created',
           detail: res.message || 'Draft invoice raised.'
         });
+        // A48 §2 — credit warning (never blocks an invoice).
+        const warning = creditWarningOf(res);
+        if (warning) this.messageService.add({ severity: 'warn', summary: 'Credit warning', detail: warning, life: 10000 });
         if (created?.invoiceUuid) this.router.navigate(['/portal/pages/finance/sales-invoices', created.invoiceUuid]);
       },
       error: (err) => {

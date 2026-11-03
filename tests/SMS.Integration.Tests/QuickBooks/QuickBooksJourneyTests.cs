@@ -39,7 +39,7 @@ public sealed class QuickBooksJourneyTests : IClassFixture<QuickBooksWebApplicat
     {
         // ── 1. The module's own migration ran on startup ─────────────────────────────
         (await Scalar<int>("SELECT COUNT(*) AS N FROM sys.tables t JOIN sys.schemas s ON s.schema_id = t.schema_id WHERE s.name = 'integration'"))
-            .Should().Be(19, "14 from the initial schema + QuickBooksAppCredentials (docs/quickbooks/APP-CREDENTIALS.md) "
+            .Should().Be(20, "A49's CostCenterQboMappings + 14 from the initial schema + QuickBooksAppCredentials (docs/quickbooks/APP-CREDENTIALS.md) "
                            + "+ A44's SyncControlConfigs, ProviderDefaults, DocumentOverrides and RemoteEntities");
         (await _f.QueryAsync("SELECT MigrationId FROM __EFMigrationsHistory WHERE MigrationId LIKE '%A44_SyncControlAndDefaults'"))
             .Should().ContainSingle("the A44 migration ran on API start too");

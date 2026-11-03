@@ -65,6 +65,35 @@ internal sealed class WorkflowDefinitionSeeder : IWorkflowSeedingService
         await SeedIfMissingAsync(organizationId, "MIR_GENERAL", BuildMirGeneralDefinition);
     }
 
+    // A49 — HRM's approval chains, one NAMED step: the HRM module names the approver (line manager, department head, or a
+    // holder of the approving permission). Seeded when an organization first uses HRM, not with every new organization.
+    public async Task SeedHrmWorkflowsAsync(Guid organizationId)
+    {
+        await SeedIfMissingAsync(organizationId, HrmWorkflowCodes.LeaveRequest, (o, n) => BuildHrmDefinition(o, n, HrmWorkflowCodes.LeaveRequest, "Leave Request"));
+        await SeedIfMissingAsync(organizationId, HrmWorkflowCodes.ExpenseClaim, (o, n) => BuildHrmDefinition(o, n, HrmWorkflowCodes.ExpenseClaim, "Expense Claim"));
+        await SeedIfMissingAsync(organizationId, HrmWorkflowCodes.SalaryChange, (o, n) => BuildHrmDefinition(o, n, HrmWorkflowCodes.SalaryChange, "Salary Change"));
+    }
+
+    private static WorkflowDefinition BuildHrmDefinition(Guid organizationId, DateTime now, string interfaceCode, string name) => new()
+    {
+        UUID                       = Guid.NewGuid(),
+        OrganizationId             = organizationId,
+        InterfaceCode              = interfaceCode,
+        Name                       = $"{name} Approval",
+        Description                = $"One step: the employee's line manager, else the department head, else a holder of the approving permission. Add steps in the workflow editor.",
+        Version                    = 1,
+        IsActive                   = true,
+        RequiresSequentialApproval = true,
+        AllowRecall                = true,
+        AllowReissue               = false,
+        CreatedBy                  = 1,
+        CreatedDate                = now,
+        Steps = new List<WorkflowStep>
+        {
+            StepEx(organizationId, now, 1, "HR Approval", "NAMED", HrmWorkflowCodes.NamedApprover, slaHours: 48)
+        }
+    };
+
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     private async Task SeedIfMissingAsync(

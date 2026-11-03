@@ -30,14 +30,18 @@ internal sealed class LegacySyncControlReader : ISyncControlReader
     public async Task<SyncControlDecision> CheckAsync(int connectionId, string documentType, CancellationToken ct = default)
     {
         var settings = await SettingsAsync(connectionId, ct);
-        return settings is null ? SyncControlDecision.Enabled : Decide(settings, documentType);
+        return settings is null ? Unset(documentType) : Decide(settings, documentType);
     }
+
+    /// <summary>A49 G-15: nothing stored says enabled (BR-29), except for the HRM types, which are only ever on by an accountant's choice.</summary>
+    public static SyncControlDecision Unset(string documentType) =>
+        SyncControlDocumentTypes.IsHrm(documentType) ? new SyncControlDecision(false, true) : SyncControlDecision.Enabled;
 
     public async Task<IReadOnlyDictionary<string, SyncControlDecision>> GetAllAsync(int connectionId, CancellationToken ct = default)
     {
         var settings = await SettingsAsync(connectionId, ct);
         return SyncControlDocumentTypes.All.ToDictionary(
-            t => t, t => settings is null ? SyncControlDecision.Enabled : Decide(settings, t), StringComparer.OrdinalIgnoreCase);
+            t => t, t => settings is null ? Unset(t) : Decide(settings, t), StringComparer.OrdinalIgnoreCase);
     }
 
     /// <summary>A settings row created (or changed) in this unit of work wins over the stored one.</summary>
@@ -58,7 +62,7 @@ internal sealed class LegacySyncControlReader : ISyncControlReader
         SyncControlDocumentTypes.PurchaseBill => new(s.AutoPushBills, false),
         SyncControlDocumentTypes.BillPayment  => new(s.AutoPushBills, false),
         SyncControlDocumentTypes.VendorCredit => new(s.AutoPushBills, false),
-        _                                     => SyncControlDecision.Enabled
+        _                                     => Unset(documentType)
     };
 }
 
@@ -94,6 +98,7 @@ internal sealed class DocumentDefaults
     public string? DepartmentId      => Get(ProviderDefaultKeys.DepartmentRef);
     public string? SalesTermId       => Get(ProviderDefaultKeys.SalesTermRef);
     public string? PosCustomerId     => Get(ProviderDefaultKeys.PosDefaultCustomerRef);
+    public string? ServiceItemId     => Get(ProviderDefaultKeys.ServiceItemRef);
 
     public string? PaymentMethodId(string? method) => ForMethod(ProviderDefaultKeys.PaymentMethodRef, method);
 

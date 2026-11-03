@@ -3,6 +3,7 @@ import { Routes } from '@angular/router';
 import { AppMenu } from './app.menu';
 import { CurrentTenant } from '../../pages/service/tenant.service';
 import pageRoutes from '../../pages/pages.routes';
+import hrmRoutes from '../../pages/hrm/hrm.routes';
 
 // Duck-typed test doubles — AppMenu only ever calls these specific members, and its `model` is a
 // plain computed() signal, so constructing it directly (bypassing TestBed/HttpClient/Router) is
@@ -184,7 +185,8 @@ describe('AppMenu filtering (MT-005)', () => {
 
     it('every menu link points at a route that exists', () => {
         tenantService.tenant.set(baseTenant({ isSuperAdmin: true, enabledFeatureCodes: [] }));
-        const paths = new Set((pageRoutes as Routes).map(r => r.path));
+        // A49 — the HRM routes are lazy children of `hrm`.
+        const paths = new Set([...(pageRoutes as Routes).map(r => r.path), ...hrmRoutes.map(r => `hrm/${r.path}`)]);
 
         const dead = allLinks(menu.model())
             .filter(link => link.startsWith('/portal/pages/'))
@@ -240,7 +242,7 @@ describe('AppMenu filtering (MT-005)', () => {
 
         expect(menu.model().map((g: any) => g.label)).toEqual([
             'Home', 'Sales', 'CRM', 'Manufacturing', 'Services', 'Point of Sale', 'Procurement', 'Warehouse & Inventory', 'Material Management',
-            'Logistics', 'Finance', 'Reports & Analytics', 'Administration', 'System Administration'
+            'Logistics', 'Finance', 'HR & Payroll', 'Reports & Analytics', 'Administration', 'System Administration'
         ]);
     });
 

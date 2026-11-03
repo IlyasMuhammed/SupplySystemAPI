@@ -43,6 +43,8 @@ public interface IQuickBooksGateway
     Task<GatewayResult> UpsertCreditMemoAsync(CreditMemoPayload payload, CancellationToken ct = default)       => Task.FromResult(GatewayResult.Disabled());
     Task<GatewayResult> UpsertRefundReceiptAsync(RefundReceiptPayload payload, CancellationToken ct = default) => Task.FromResult(GatewayResult.Disabled());
     Task<GatewayResult> UpsertVendorCreditAsync(VendorCreditPayload payload, CancellationToken ct = default)   => Task.FromResult(GatewayResult.Disabled());
+    /// <summary>A49 G-1. Same pipeline as every other document; a reversal is a new entry, never a void (G-12).</summary>
+    Task<GatewayResult> UpsertJournalEntryAsync(JournalEntryPayload payload, CancellationToken ct = default)   => Task.FromResult(GatewayResult.Disabled());
     /// <summary>Void any voidable kind (SalesInvoice, Payment, BillPayment, SalesReceipt, CreditMemo, RefundReceipt).</summary>
     Task<GatewayResult> VoidAsync(SyncKind kind, string externalId, CancellationToken ct = default)            => Task.FromResult(GatewayResult.Disabled());
 }

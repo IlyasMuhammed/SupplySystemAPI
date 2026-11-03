@@ -336,6 +336,27 @@ internal sealed class RemoteVendorCredit : RemoteEntity
     public string?              DepartmentId { get; set; }
 }
 
+/// <summary>A49 G-1: one summarized line; Description is a cost center's name, never a person (G-11).</summary>
+internal sealed class RemoteJournalEntryLine
+{
+    public bool    IsDebit      { get; set; }
+    public decimal Amount       { get; set; }
+    public string  AccountId    { get; set; } = string.Empty;
+    public string? ClassId      { get; set; }
+    public string? DepartmentId { get; set; }
+    public string? Description  { get; set; }
+}
+
+internal sealed class RemoteJournalEntry : RemoteEntity
+{
+    public override SyncKind Kind => SyncKind.JournalEntry;
+    public string   DocNumber    { get; set; } = string.Empty;
+    public DateTime TxnDate      { get; set; }
+    public string?  CurrencyCode { get; set; }
+    public string?  PrivateNote  { get; set; }
+    public List<RemoteJournalEntryLine> Lines { get; set; } = new();
+}
+
 internal sealed class RemoteBillLine
 {
     /// <summary>Item-based line when set…</summary>

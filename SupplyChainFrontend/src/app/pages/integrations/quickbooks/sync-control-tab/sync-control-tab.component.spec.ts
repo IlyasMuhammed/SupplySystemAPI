@@ -142,3 +142,4 @@ describe('SyncControlTabComponent', () => {
     expect(query('load-failed')!.textContent).toContain('Down.');
   });
 });
+

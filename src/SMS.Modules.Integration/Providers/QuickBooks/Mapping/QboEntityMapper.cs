@@ -21,6 +21,7 @@ internal static class QboEntityMapper
         RemoteCreditMemo memo       => QboSalesDocumentMapper.ToSdk(memo),
         RemoteRefundReceipt refund  => QboSalesDocumentMapper.ToSdk(refund),
         RemoteVendorCredit credit   => QboVendorCreditMapper.ToSdk(credit),
+        RemoteJournalEntry entry    => QboJournalEntryMapper.ToSdk(entry),
         null => throw new ArgumentNullException(nameof(entity)),
         _ => throw new NotSupportedException($"No QuickBooks mapping for {entity.GetType().Name}.")
     };
@@ -39,6 +40,7 @@ internal static class QboEntityMapper
         SyncKind.CreditMemo    => new CreditMemo(),
         SyncKind.RefundReceipt => new RefundReceipt(),
         SyncKind.VendorCredit  => new VendorCredit(),
+        SyncKind.JournalEntry  => new JournalEntry(),
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "Unknown sync kind.")
     };
 
@@ -63,6 +65,7 @@ internal static class QboEntityMapper
         (SyncKind.CreditMemo, CreditMemo memo)          => QboSalesDocumentMapper.ToRecord(memo, "credit memo"),
         (SyncKind.RefundReceipt, RefundReceipt refund)  => QboSalesDocumentMapper.ToRecord(refund, "refund receipt"),
         (SyncKind.VendorCredit, VendorCredit credit)    => QboVendorCreditMapper.ToRecord(credit),
+        (SyncKind.JournalEntry, JournalEntry entry)     => QboJournalEntryMapper.ToRecord(entry),
         _ => throw new InvalidOperationException(
             $"QuickBooks returned {(entity is null ? "nothing" : entity.GetType().Name)} where a {kind} was expected.")
     };

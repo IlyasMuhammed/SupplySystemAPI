@@ -1,0 +1,146 @@
+// A49 — HRM pages. Tokens only (--sms-*), light and dark. Used next to ../finance/gl/gl.scss (gl-note, gl-scroll, gl-num).
+
+.hrm-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+  th, td { padding: 0.5rem 0.7rem; border-top: 1px solid var(--sms-border-soft); text-align: left; vertical-align: top; }
+  th { color: var(--sms-text-muted); font-weight: 600; font-size: 0.78rem; white-space: nowrap; background: var(--sms-surface-2); border-top: 0; }
+  th.gl-num, td.gl-num { text-align: right; }
+  tfoot td { font-weight: 600; background: var(--sms-surface-2); }
+  tr.off td { color: var(--sms-text-faint); }
+  tr.blocked td { background: var(--sms-danger-soft); }
+  tr.untracked td { background: var(--sms-warn-soft); }
+  tr.click { cursor: pointer; }
+  tr.click:hover td { background: var(--sms-row-hover); }
+  a { color: var(--sms-primary-text); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .sub { display: block; font-size: 0.78rem; color: var(--sms-text-muted); }
+}
+
+.hrm-actions { display: flex; flex-wrap: wrap; gap: 0.15rem; justify-content: flex-end; }
+.hrm-pager { display: flex; gap: 0.5rem; align-items: center; justify-content: flex-end; padding: 0.5rem 0.75rem; color: var(--sms-text-muted); font-size: 0.85rem; border-top: 1px solid var(--sms-border-soft); }
+.hrm-stack-gap { display: grid; gap: 0.75rem; }
+.hrm-masked { font-family: var(--sms-mono, monospace); letter-spacing: 0.04em; }
+.hrm-reveal { display: inline-flex; align-items: center; gap: 0.35rem; flex-wrap: wrap; }
+.hrm-full { grid-column: 1 / -1; }
+.hrm-w100 { width: 100%; }
+
+.hrm-steps {
+  display: flex;
+  gap: 0.25rem;
+  overflow-x: auto;
+  padding: 0.25rem 0 0.5rem;
+  button {
+    flex: 1 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.45rem 0.7rem;
+    border: 1px solid var(--sms-border);
+    border-radius: var(--sms-radius-sm);
+    background: var(--sms-surface);
+    color: var(--sms-text-muted);
+    font: inherit;
+    font-size: 0.85rem;
+    cursor: pointer;
+    white-space: nowrap;
+    &:disabled { cursor: default; opacity: 0.65; }
+    &.done { color: var(--sms-ok); border-color: var(--sms-ok-soft); background: var(--sms-ok-soft); }
+    &.on { color: var(--sms-on-primary); background: var(--sms-primary); border-color: var(--sms-primary); }
+    &:focus-visible { outline: 2px solid var(--sms-primary); outline-offset: 1px; }
+  }
+}
+
+.hrm-progress { height: 0.6rem; border-radius: var(--sms-radius-sm); background: var(--sms-surface-2); overflow: hidden; border: 1px solid var(--sms-border-soft); }
+.hrm-progress > div { height: 100%; background: var(--sms-primary); transition: width 0.3s; }
+
+.hrm-check { display: flex; gap: 0.5rem; align-items: flex-start; padding: 0.3rem 0; font-size: 0.9rem; }
+.hrm-check .pi-check-circle { color: var(--sms-ok); }
+.hrm-check .pi-times-circle { color: var(--sms-danger); }
+.hrm-check .pi-minus-circle { color: var(--sms-text-faint); }
+
+// Department tree
+.hrm-tree { list-style: none; margin: 0; padding: 0; }
+.hrm-tree .hrm-tree { padding-left: 1.25rem; border-left: 1px dashed var(--sms-border); margin-left: 0.6rem; }
+.hrm-node {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem 0.6rem;
+  padding: 0.45rem 0.6rem;
+  margin: 0.15rem 0;
+  border: 1px solid transparent;
+  border-radius: var(--sms-radius-sm);
+  &:hover { background: var(--sms-row-hover); }
+  &.drop { border-color: var(--sms-primary); background: var(--sms-primary-soft); }
+  &.off { color: var(--sms-text-faint); }
+  .grip { cursor: grab; color: var(--sms-text-faint); }
+  .name { font-weight: 600; }
+  .end { margin-left: auto; display: flex; flex-wrap: wrap; gap: 0.1rem; }
+}
+
+// Kanban
+.hrm-board { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(14rem, 1fr); gap: 0.6rem; overflow-x: auto; padding-bottom: 0.5rem; }
+.hrm-col {
+  background: var(--sms-surface-2);
+  border: 1px solid var(--sms-border-soft);
+  border-radius: var(--sms-radius);
+  padding: 0.5rem;
+  min-height: 10rem;
+  &.drop { border-color: var(--sms-primary); background: var(--sms-primary-soft); }
+  h3 { margin: 0 0 0.4rem; font-size: 0.85rem; font-weight: 600; color: var(--sms-text-muted); display: flex; justify-content: space-between; }
+}
+.hrm-card {
+  background: var(--sms-surface);
+  border: 1px solid var(--sms-border);
+  border-radius: var(--sms-radius-sm);
+  padding: 0.5rem 0.6rem;
+  margin-bottom: 0.4rem;
+  cursor: grab;
+  a { color: var(--sms-primary-text); font-weight: 600; text-decoration: none; }
+  select { width: 100%; margin-top: 0.35rem; padding: 0.25rem; background: var(--sms-input-bg); color: var(--sms-text); border: 1px solid var(--sms-border); border-radius: var(--sms-radius-sm); font: inherit; font-size: 0.8rem; }
+}
+
+// Calendar
+.hrm-cal { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 2px; }
+.hrm-cal .dow { font-size: 0.75rem; color: var(--sms-text-muted); text-align: center; padding: 0.25rem 0; }
+.hrm-cal .day { min-height: 4.5rem; background: var(--sms-surface-2); border-radius: var(--sms-radius-sm); padding: 0.2rem 0.3rem; font-size: 0.75rem; overflow: hidden; }
+.hrm-cal .day.blank { background: transparent; }
+.hrm-cal .day b { color: var(--sms-text-muted); font-weight: 600; }
+.hrm-cal .day span { display: block; background: var(--sms-primary-soft); color: var(--sms-primary-text); border-radius: 3px; padding: 0 0.2rem; margin-top: 0.1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+// Horizontal bars (rating distribution)
+.hrm-bar-row { display: grid; grid-template-columns: 5rem 1fr 3rem; gap: 0.5rem; align-items: center; font-size: 0.85rem; padding: 0.15rem 0; }
+.hrm-bar { height: 0.8rem; background: var(--sms-primary); border-radius: 0 var(--sms-radius-sm) var(--sms-radius-sm) 0; min-width: 2px; }
+
+.hrm-viewer { width: 100%; height: 70vh; border: 1px solid var(--sms-border); border-radius: var(--sms-radius-sm); background: var(--sms-surface-2); }
+
+.hrm-weekdays { display: flex; flex-wrap: wrap; gap: 0.25rem; }
+
+// Tabs row for object pages: scrolls on a phone instead of wrapping into a block.
+.hrm-tabs { display: flex; gap: 0.25rem; overflow-x: auto; border-bottom: 1px solid var(--sms-border); }
+.hrm-tabs button {
+  padding: 0.55rem 0.8rem; border: 0; border-bottom: 2px solid transparent; background: none; color: var(--sms-text-muted); font: inherit; font-size: 0.9rem; cursor: pointer; white-space: nowrap;
+  &.on { color: var(--sms-primary-text); border-bottom-color: var(--sms-primary); font-weight: 600; }
+  &:focus-visible { outline: 2px solid var(--sms-primary); outline-offset: -2px; }
+}
+
+// Phone: every table of class hrm-stack becomes cards; each cell labels itself from data-label.
+@media (max-width: 640px) {
+  .hrm-table.hrm-stack {
+    thead { display: none; }
+    tr { display: block; padding: 0.5rem 0.75rem; border-top: 1px solid var(--sms-border); }
+    tr:first-child { border-top: 0; }
+    td { display: flex; justify-content: space-between; gap: 0.75rem; padding: 0.2rem 0; border: 0; text-align: right; }
+    td > * { min-width: 0; }
+    td[data-label]::before { content: attr(data-label); color: var(--sms-text-muted); font-size: 0.78rem; font-weight: 600; text-align: left; flex: 0 0 40%; }
+    td.hrm-acts { justify-content: flex-end; padding-top: 0.35rem; }
+    td.hrm-empty { display: block; text-align: center; }
+    tfoot td::before { content: none; }
+  }
+  .hrm-actions { justify-content: flex-start; }
+  .hrm-cal .day { min-height: 3rem; font-size: 0.68rem; }
+  .hrm-bar-row { grid-template-columns: 4rem 1fr 2.2rem; }
+  .hrm-viewer { height: 55vh; }
+}

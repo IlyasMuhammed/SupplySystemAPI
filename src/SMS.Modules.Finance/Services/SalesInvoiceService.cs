@@ -47,6 +47,7 @@ internal sealed class SalesInvoiceService : ISalesInvoiceService
     private readonly IOrganizationCurrencyService? _orgCurrency;
     private readonly ICurrencyCodeLookup?          _currencyCodes;
     private readonly ICurrencyService?             _currency;
+    private readonly ICreditCheck?                 _creditCheck;
 
     /// <param name="quickBooks">
     /// Tells the QuickBooks gateway about an invoice once it is issued (plan D-7). Optional so a caller that
@@ -70,8 +71,9 @@ internal sealed class SalesInvoiceService : ISalesInvoiceService
         IBackgroundJobClient jobs, ILogger<SalesInvoiceService> log, TimeProvider? clock = null,
         SalesInvoiceQuickBooksPublisher? quickBooks = null,
         IExchangeRateProvider? exchangeRates = null, IOrganizationCurrencyService? orgCurrency = null,
-        ICurrencyCodeLookup? currencyCodes = null, ICurrencyService? currency = null)
+        ICurrencyCodeLookup? currencyCodes = null, ICurrencyService? currency = null, ICreditCheck? creditCheck = null)
     {
+        _creditCheck   = creditCheck;
         _db            = db;
         _demand        = demand;
         _deliveries    = deliveries;
@@ -190,7 +192,7 @@ internal sealed class SalesInvoiceService : ISalesInvoiceService
             try
             {
                 await _db.SaveChangesAsync();
-                return ToCreated(invoice, alreadyExisted: false);
+                return ToCreated(invoice, alreadyExisted: false) with { CreditWarning = await CreditWarningAsync(invoice) };
             }
             catch (DbUpdateException)
             {
@@ -270,6 +272,29 @@ internal sealed class SalesInvoiceService : ISalesInvoiceService
             .GroupBy(l => l.SoLineUuid)
             .Select(g => new { SoLineUuid = g.Key, Quantity = g.Sum(x => x.Quantity) })
             .ToDictionaryAsync(x => x.SoLineUuid!.Value, x => x.Quantity);
+    }
+
+    /// <summary>
+    /// A48 (AR, task 120, D-5) — the warning-only credit check at invoice creation. After the commit and never able to fail
+    /// it: a check that cannot run is logged and gives no warning.
+    /// </summary>
+    private async Task<string?> CreditWarningAsync(SalesInvoice invoice)
+    {
+        if (_creditCheck is null) return null;
+        try
+        {
+            var result = await _creditCheck.CheckAsync(new CreditCheckRequest(
+                invoice.OrganizationId == Guid.Empty ? _db.TenantContext.OrganizationId : invoice.OrganizationId,
+                invoice.PartnerId, invoice.GrandTotal, invoice.CurrencyCode, null,
+                "SALES_INVOICE", invoice.UUID, invoice.InvoiceNumber));
+            if (result.Mode == CreditControlModes.Off) return null;
+            return result.BlockReason ?? result.Warning;
+        }
+        catch (Exception ex)
+        {
+            _log.LogWarning(ex, "The credit check of sales invoice {Invoice} could not run; no warning given.", invoice.InvoiceNumber);
+            return null;
+        }
     }
 
     // ── Issue ────────────────────────────────────────────────────────────────
@@ -374,7 +399,9 @@ internal sealed class SalesInvoiceService : ISalesInvoiceService
             invoice.PartnerId, CustomerLedgerEntryTypes.Invoice,
             SalesInvoiceReferenceType, invoice.UUID, invoice.InvoiceNumber,
             Debit: invoice.GrandTotal, Credit: 0m, invoice.CurrencyCode,
-            Truncate(invoice.SourceType == SalesInvoiceSources.Pos
+            Truncate(invoice.SourceType == SalesInvoiceSources.ServiceManual
+                ? $"Service invoice {invoice.InvoiceNumber}"
+                : invoice.SourceType == SalesInvoiceSources.Pos
                 ? $"Invoice {invoice.InvoiceNumber} for POS sale {invoice.SourceNumber}"
                 : $"Invoice {invoice.InvoiceNumber} for sale order {invoice.SaleOrderNumber}"
                     + (invoice.DeliveryNumber is null ? "" : $" (delivery {invoice.DeliveryNumber})"), 500),
@@ -490,7 +517,8 @@ internal sealed class SalesInvoiceService : ISalesInvoiceService
     {
         try
         {
-            foreach (var line in invoice.Lines.OrderBy(l => l.LineNo))
+            // A49 E-13: a service line has no variant and moves no stock.
+            foreach (var line in invoice.Lines.Where(l => l.VariantUuid != Guid.Empty).OrderBy(l => l.LineNo))
                 tracked.Add(await _productLedger.TrackEntryAsync(new ProductLedgerPosting(
                     line.VariantUuid, ProductLedgerEntryTypes.Sale, ProductLedgerDirections.Out, line.Quantity, UnitCost: null,
                     "SalesInvoice", invoice.UUID, invoice.InvoiceNumber, userId,
@@ -619,6 +647,7 @@ internal sealed class SalesInvoiceService : ISalesInvoiceService
                 TaxPercent      = l.TaxPercent,
                 TaxCodeUuid     = l.TaxCodeUuid,
                 TaxCode         = l.TaxCode,
+                IncomeAccountCode = l.IncomeAccountCode,
                 LineTotal       = l.LineTotal,
                 DiscountAmount  = l.DiscountAmount,
                 TaxAmount       = l.TaxAmount

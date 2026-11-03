@@ -1,4 +1,4 @@
-using SMS.Shared.Common;
+﻿using SMS.Shared.Common;
 
 namespace SMS.Modules.Tenancy.Data;
 
@@ -79,7 +79,15 @@ internal static class TenancyFeatureCatalog
     /// docs/quickbooks/APP-CREDENTIALS.md D-9 — an organization's own Intuit app is an exception, not a tier.
     /// </summary>
     internal static readonly IReadOnlySet<string> LicensedByHandOnly =
-        new HashSet<string>(StringComparer.OrdinalIgnoreCase) { ModuleCodes.QuickBooksOwnApp };
+        new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ModuleCodes.QuickBooksOwnApp,
+            // A49 D-5 — enabling HRM needs a payroll cost center (§11A.2, 422), so no plan template or backfill may switch it on,
+            // for new or existing organizations. The super admin licenses the module and the sub-features wanted.
+            ModuleCodes.Hrm,
+            HrmFeatureCodes.Attendance, HrmFeatureCodes.Leave, HrmFeatureCodes.Payroll, HrmFeatureCodes.Recruitment, HrmFeatureCodes.Performance,
+            HrmFeatureCodes.Training, HrmFeatureCodes.Loans, HrmFeatureCodes.Expenses,
+        };
 
     /// <summary>A37 MOD-08 — switched on by the system while any of these modules is on.</summary>
     internal static readonly IReadOnlyList<string> BomManagementDrivers = [ModuleCodes.Manufacturing, ModuleCodes.Services];
@@ -113,6 +121,8 @@ internal static class TenancyFeatureCatalog
         new("MODULE_PROJECTS",       "Projects",                 CategoryModule, "Project planning, budgets and time tracking.",                          false, 140, IsAvailable: false, Icon: "pi pi-folder"),
         // A41 D-6 — built: leads, pipeline, opportunities, activities and campaigns.
         new(ModuleCodes.Crm,          "CRM",                      CategoryModule, "Leads, opportunities, sales pipeline, activities and campaigns.",       false, 145, Icon: "pi pi-comments"),
+        // A49 D-5 — built: licensed by hand (LicensedByHandOnly); no dependencies, so an HR-only organization can run it (profile P3).
+        new(ModuleCodes.Hrm,          "Human Resources",          CategoryModule, "Employees, leave and attendance, payroll, recruitment, performance, training, loans and expense claims.", false, 147, Icon: "pi pi-users"),
         new("MODULE_MAINTENANCE",     "Maintenance",              CategoryModule, "Asset register and preventive maintenance.",                            false, 150, IsAvailable: false, Icon: "pi pi-hammer"),
         new("MODULE_ECOMMERCE",       "E-commerce",               CategoryModule, "Online storefront and web orders.",                                     false, 155, IsAvailable: false, Icon: "pi pi-globe"),
 
@@ -187,6 +197,16 @@ internal static class TenancyFeatureCatalog
         new(CrmFeatureCodes.LeadScoring,           "Lead Scoring",           CategoryFeature, "Rule-based lead scoring.",                                          false, 505, Parent: ModuleCodes.Crm, IsAvailable: false),
         new(CrmFeatureCodes.LeadWidget,            "Embeddable Lead Widget", CategoryFeature, "Lead capture forms on external websites.",                          false, 506, Parent: ModuleCodes.Crm, IsAvailable: false),
         new(CrmFeatureCodes.ExternalSync,          "External CRM Sync",      CategoryFeature, "Syncing leads with Odoo, SAP and Dynamics.",                        false, 507, Parent: ModuleCodes.Crm, IsAvailable: false),
+
+        // A49 D-5 — HRM sub-features, all toggleable and licensed by hand with the module; the employee master is the module itself.
+        new(HrmFeatureCodes.Attendance,  "Attendance & Overtime",  CategoryFeature, "Shifts, holidays, clock events, daily attendance and overtime approval.",  false, 521, Parent: ModuleCodes.Hrm),
+        new(HrmFeatureCodes.Leave,       "Leave",                  CategoryFeature, "Leave types, entitlements, balances and leave requests.",                  false, 522, Parent: ModuleCodes.Hrm),
+        new(HrmFeatureCodes.Payroll,     "Payroll",                CategoryFeature, "Salary structures, tax and statutory tables, payroll runs, payslips, bank files and posting.", false, 523, Parent: ModuleCodes.Hrm),
+        new(HrmFeatureCodes.Recruitment, "Recruitment",            CategoryFeature, "Vacancies, candidates, the hiring pipeline, interviews and offers.",       false, 524, Parent: ModuleCodes.Hrm),
+        new(HrmFeatureCodes.Performance, "Performance",            CategoryFeature, "Review cycles, goals and ratings.",                                         false, 525, Parent: ModuleCodes.Hrm),
+        new(HrmFeatureCodes.Training,    "Training",               CategoryFeature, "Course catalog, enrollment and certificates.",                              false, 526, Parent: ModuleCodes.Hrm),
+        new(HrmFeatureCodes.Loans,       "Loans & Settlements",    CategoryFeature, "Employee loans, final settlements, increments and letters.",                false, 527, Parent: ModuleCodes.Hrm),
+        new(HrmFeatureCodes.Expenses,    "Expense Claims",         CategoryFeature, "Employee expense claims, reimbursement and statutory remittances.",         false, 528, Parent: ModuleCodes.Hrm),
     };
 
     internal static readonly IReadOnlyDictionary<string, Entry> ByCode =
@@ -228,7 +248,7 @@ internal static class TenancyFeatureCatalog
             PlanEnterprise => new HashSet<string>(StringComparer.OrdinalIgnoreCase), // literally everything
             _            => BasicExclusions // unknown plan — fail safe to the most restrictive tier
         };
-        var modules = Catalog.Where(e => e.Parent is null && e.IsAvailable && !excluded.Contains(e.Code))
+        var modules = Catalog.Where(e => e.Parent is null && e.IsAvailable && !excluded.Contains(e.Code) && !LicensedByHandOnly.Contains(e.Code))
             .Select(e => e.Code).ToHashSet(StringComparer.OrdinalIgnoreCase);
         var features = Catalog.Where(e => e.Parent is not null && e.IsAvailable && !excluded.Contains(e.Code)
                 && !LicensedByHandOnly.Contains(e.Code)

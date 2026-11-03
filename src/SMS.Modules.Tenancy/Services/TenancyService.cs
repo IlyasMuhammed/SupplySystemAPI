@@ -19,6 +19,7 @@ internal sealed class TenancyService : ITenancyService
     private readonly ILogger<TenancyService> _log;
     // A35 D-7 — keeps the stored sale base equal to Organization.BaseCurrency when the profile edit changes it.
     private readonly IOrganizationCurrencySettingsService? _currencySettings;
+    private readonly IReadOnlyList<IModuleEnablementGuard> _guards;
 
     /// <param name="currencies">
     /// Lookups' currency catalog, to check a base currency exists. Optional: a host (or a test) without the
@@ -30,8 +31,10 @@ internal sealed class TenancyService : ITenancyService
     public TenancyService(
         ITenancyRepository repo, IOrgUserProvisioningService orgUserProvisioning, ITenantSnapshotProvider snapshots,
         ICurrencyCodeLookup? currencies = null, IEnumerable<IOrganizationProvisionedHandler>? provisioned = null,
-        ILogger<TenancyService>? log = null, IOrganizationCurrencySettingsService? currencySettings = null)
+        ILogger<TenancyService>? log = null, IOrganizationCurrencySettingsService? currencySettings = null,
+        IEnumerable<IModuleEnablementGuard>? guards = null)
     {
+        _guards = guards?.ToList() ?? [];
         _currencySettings = currencySettings;
         _repo = repo;
         _orgUserProvisioning = orgUserProvisioning;
@@ -258,8 +261,28 @@ internal sealed class TenancyService : ITenancyService
                 changesToWrite[f.FeatureCode] = target;
         }
 
+        // A49 FD-9 / D-POST-1: this licence also switches the module on, and a guard may not allow that yet. The org then has the licence it
+        // needs to run the guard's own setup, and the module stays off until the guarded enable route says otherwise.
+        var licenceOnly = new List<string>();
+        foreach (var guard in _guards)
+        {
+            var code = changesToWrite.Keys.FirstOrDefault(c => c.Equals(guard.ModuleCode, StringComparison.OrdinalIgnoreCase));
+            if (code is null || !changesToWrite[code]) continue;
+            try
+            {
+                await guard.CheckAsync(orgId);
+            }
+            catch (UnprocessableEntityException ex)
+            {
+                changesToWrite.Remove(code);
+                licenceOnly.Add(code);
+                result.LicensedNotEnabled.Add(new LicensedNotEnabledModel { FeatureCode = code, Reason = ex.Message });
+            }
+        }
+
         await _repo.SaveFeatureChangesAsync(orgId, changesToWrite, modifiedBy);
-        if (changesToWrite.Count > 0) _snapshots.Invalidate(orgId);
+        if (licenceOnly.Count > 0) await _repo.GrantLicenceOnlyAsync(orgId, licenceOnly, modifiedBy, "Licensed; the switch waits for the module's setup.");
+        if (changesToWrite.Count > 0 || licenceOnly.Count > 0) _snapshots.Invalidate(orgId);
 
         result.UpdatedFeatures = await _repo.GetOrganizationFeaturesAsync(orgId);
         result.AutoEnabledDependencies = autoEnabled;

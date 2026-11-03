@@ -1,4 +1,4 @@
-using System.Reflection;
+﻿using System.Reflection;
 using FluentAssertions;
 using SMS.Modules.Auth.Data;
 using SMS.Shared.Authorization;
@@ -110,7 +110,8 @@ public class SaleOrderAdminRoleSeedTests
     {
         // The §3.1 carve-out must not have widened into "System Admin lost more than this one code."
         var granted = RolePermissionSeed()[(int)EnumRole.SystemAdmin];
-        var expected = PermissionCodes.All.Except([PermissionCodes.SALE_ORDER_CONFIG_WRITE]);
+        // A49 §3.3 — nor personal money and identity data: platform support has no automatic HR access.
+        var expected = PermissionCodes.All.Except([PermissionCodes.SALE_ORDER_CONFIG_WRITE, .. PermissionCodes.HrmSensitiveCodes]);
         granted.Should().BeEquivalentTo(expected);
     }
 

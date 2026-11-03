@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using SMS.Modules.Integration.Auth;
 using SMS.Modules.Integration.Core.Connections;
 using SMS.Modules.Integration.Core.Sync;
+using SMS.Modules.Integration.Gateway.JournalEntries;
 using SMS.Shared.Common;
 using SMS.Shared.Finance.Posting;
 using SMS.Shared.Integration.QuickBooks;
@@ -65,6 +66,10 @@ internal sealed class QuickBooksPostingTarget : IFinancialPostingTarget
     {
         try
         {
+            // A49 G-1 / BR-G1-001: HRM documents go as a journal entry, built from the lines; everything else as before.
+            if (JournalEntryRouting.IsJournalEntry(transaction.DocumentType, transaction.SourceModule))
+                return await PostJournalEntryAsync(transaction, ct);
+
             var document = transaction.Metadata?.Document;
             if (document is null)
                 return TargetResult.Skipped(TargetCode, "NO_DOCUMENT: the transaction carries no document for QuickBooks.");
@@ -86,6 +91,9 @@ internal sealed class QuickBooksPostingTarget : IFinancialPostingTarget
     {
         try
         {
+            if (JournalEntryRouting.IsJournalEntry(request.DocumentType, request.SourceModule))
+                return await ReverseJournalEntryAsync(request, ct);
+
             var externalId = request.SourceDocumentId.ToString();
             var kind = await FindKindAsync(request.DocumentType, externalId, ct);
             if (kind is null)
@@ -108,6 +116,9 @@ internal sealed class QuickBooksPostingTarget : IFinancialPostingTarget
     {
         try
         {
+            if (JournalEntryRouting.IsJournalEntry(request.DocumentType, request.SourceModule))
+                return await ReverseJournalEntryAsync(request, ct);
+
             var externalId = request.SourceDocumentId.ToString();
             var kind = await FindKindAsync(request.DocumentType, externalId, ct);
             if (kind is null)
@@ -121,6 +132,28 @@ internal sealed class QuickBooksPostingTarget : IFinancialPostingTarget
             _logger.LogError(ex, "QuickBooks target: reversing {DocumentType} {Id} failed.", request.DocumentType, request.SourceDocumentId);
             return TargetResult.Failed(TargetCode, ex.Message);
         }
+    }
+
+    private async Task<TargetResult> PostJournalEntryAsync(FinancialTransaction transaction, CancellationToken ct)
+    {
+        try
+        {
+            var result = await _services.GetRequiredService<IJournalEntryPoster>().PostAsync(transaction, ct);
+            return await TranslateAsync(SyncKind.JournalEntry, transaction.SourceDocumentId.ToString(), result, ct);
+        }
+        catch (JournalEntryBuildException ex)
+        {
+            return TargetResult.Failed(TargetCode, $"{ex.Code}: {ex.Message}");
+        }
+    }
+
+    /// <summary>G-12: never a void or a delete at QuickBooks; a new entry with debits and credits swapped.</summary>
+    private async Task<TargetResult> ReverseJournalEntryAsync(VoidRequest request, CancellationToken ct)
+    {
+        var result = await _services.GetRequiredService<IJournalEntryPoster>().ReverseAsync(request, ct);
+        if (result is null)
+            return TargetResult.Skipped(TargetCode, "NEVER_SYNCED: nothing of this document is in QuickBooks.");
+        return await TranslateAsync(SyncKind.JournalEntry, request.SourceDocumentId + ":void", result, ct, isUndo: true);
     }
 
     /// <summary>Property key: reason to flag the document for the accountant once QuickBooks has it (D-23 mixed tenders).</summary>

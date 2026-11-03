@@ -141,6 +141,13 @@ public sealed class SapWebApplicationFactory : WebApplicationFactory<Program>, I
             services.AddSingleton<IEmailService>(new NoOpEmailService());
             // The other mail senders (NotificationService, EmailSender) are disarmed assembly-wide: see NoRealMail.
 
+            // A48 QA: every IEmailSender send is recorded in Mail. By default the real (disarmed) sender still runs, so a
+            // send fails exactly as before; a test that sets Mail.Accept = true sees sends succeed without any SMTP.
+            var original = services.LastOrDefault(d => d.ServiceType == typeof(SMS.Shared.Common.IEmailSender))?.ImplementationType;
+            services.RemoveAll<SMS.Shared.Common.IEmailSender>();
+            services.AddScoped<SMS.Shared.Common.IEmailSender>(sp => new CapturingEmailSender(Mail,
+                original is null ? null : (SMS.Shared.Common.IEmailSender)ActivatorUtilities.CreateInstance(sp, original)));
+
             services.RemoveAll<IAccountingProvider>();
             services.AddSingleton<IAccountingProvider>(Company);
             services.RemoveAll<IAccountingAuthProvider>();
@@ -258,6 +265,37 @@ public sealed class SapWebApplicationFactory : WebApplicationFactory<Program>, I
         public bool    Success { get; set; }
         public string  Message { get; set; } = string.Empty;
         public T?      Result  { get; set; }
+    }
+
+    /// <summary>A48 QA — the sends this host made through <see cref="SMS.Shared.Common.IEmailSender"/>.</summary>
+    public MailCapture Mail { get; } = new();
+
+    public sealed class MailCapture
+    {
+        public sealed record Sent(string To, string Subject, string Body, IReadOnlyList<string> Attachments);
+        public System.Collections.Concurrent.ConcurrentQueue<Sent> Items { get; } = new();
+        /// <summary>True: sends succeed (nothing goes out). False (default): the disarmed real sender runs and fails.</summary>
+        public bool Accept { get; set; }
+        public List<Sent> To(string address) => Items.Where(i => string.Equals(i.To, address, StringComparison.OrdinalIgnoreCase)).ToList();
+    }
+
+    private sealed class CapturingEmailSender(MailCapture mail, SMS.Shared.Common.IEmailSender? inner) : SMS.Shared.Common.IEmailSender
+    {
+        public Task SendAsync(string to, string subject, string htmlBody, IReadOnlyList<SMS.Shared.Common.EmailAttachment>? attachments = null)
+        {
+            mail.Items.Enqueue(new MailCapture.Sent(to, subject, htmlBody, attachments?.Select(a => a.FileName).ToList() ?? []));
+            if (mail.Accept || inner is null) return Task.CompletedTask;
+            return inner.SendAsync(to, subject, htmlBody, attachments);
+        }
+
+        /// <summary>A48 REV-1 — recorded like SendAsync; Accept → sent, else the disarmed real sender's outcome (a failure).</summary>
+        public Task<SMS.Shared.Common.EmailSendResult> SendWithResultAsync(string to, string subject, string htmlBody,
+            IReadOnlyList<SMS.Shared.Common.EmailAttachment>? attachments = null, CancellationToken ct = default)
+        {
+            mail.Items.Enqueue(new MailCapture.Sent(to, subject, htmlBody, attachments?.Select(a => a.FileName).ToList() ?? []));
+            if (mail.Accept || inner is null) return Task.FromResult(SMS.Shared.Common.EmailSendResult.Sent);
+            return inner.SendWithResultAsync(to, subject, htmlBody, attachments, ct);
+        }
     }
 
     private sealed class NoOpEmailService : IEmailService

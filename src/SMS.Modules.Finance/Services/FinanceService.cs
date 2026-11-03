@@ -20,12 +20,17 @@ internal sealed class InvoiceService : IInvoiceService
     /// edit to one that is approved. Optional so a caller that builds this service by hand needs nothing
     /// extra; the module registers it.
     /// </param>
-    public InvoiceService(IInvoiceRepository repo, IBackgroundJobClient jobs, BillQuickBooksPublisher? quickBooks = null)
+    /// <param name="schedules">A48 C10 (D-8) — after an approval or reversal commits, the invoice's payment schedule follows. Optional.</param>
+    public InvoiceService(IInvoiceRepository repo, IBackgroundJobClient jobs, BillQuickBooksPublisher? quickBooks = null,
+        ArAp.Payables.IPaymentScheduleSync? schedules = null)
     {
         _repo = repo;
         _jobs = jobs;
         _quickBooks = quickBooks;
+        _schedules = schedules;
     }
+
+    private readonly ArAp.Payables.IPaymentScheduleSync? _schedules;
 
     /// <summary>After the repository's own save has committed. Never throws (see the publisher).</summary>
     private Task PublishToQuickBooksAsync(Guid uuid) =>
@@ -66,6 +71,7 @@ internal sealed class InvoiceService : IInvoiceService
         if (!ok) return false;
 
         await PublishToQuickBooksAsync(uuid);
+        if (_schedules is not null) await _schedules.OnInvoiceApprovedAsync(uuid);
 
         var inv = await _repo.GetByUuidAsync(uuid);
         if (inv is not null)
@@ -92,6 +98,7 @@ internal sealed class InvoiceService : IInvoiceService
     {
         var ok = await _repo.ReverseAsync(uuid, reason, reversedBy);
         if (!ok) return false;
+        if (_schedules is not null) await _schedules.SyncAsync([uuid]);
 
         var inv = await _repo.GetByUuidAsync(uuid);
         if (inv is null) return true;
@@ -153,20 +160,33 @@ internal sealed class SupplierPaymentService : ISupplierPaymentService
     private readonly SupplierPaymentPostings? _postings;
 
     /// <param name="postings">A44 (D-20) — after a post, bounce or cancel commits: the BillPayment posting or its void. Optional (hand-built harnesses).</param>
-    public SupplierPaymentService(ISupplierPaymentRepository repo, IBackgroundJobClient jobs, SupplierPaymentPostings? postings = null)
+    /// <param name="schedules">A48 C10 (D-8) — after a post, bounce or cancel commits, the payment's invoices' schedules follow. Optional.</param>
+    public SupplierPaymentService(ISupplierPaymentRepository repo, IBackgroundJobClient jobs, SupplierPaymentPostings? postings = null,
+        ArAp.Payables.IPaymentScheduleSync? schedules = null)
     {
         _repo = repo;
         _jobs = jobs;
         _postings = postings;
+        _schedules = schedules;
     }
 
-    /// <summary>After the repository's own transaction has committed. Never throws (see the postings class).</summary>
-    private Task PublishAsync(Guid uuid) => _postings is null ? Task.CompletedTask : _postings.PublishAsync(uuid);
+    private readonly ArAp.Payables.IPaymentScheduleSync? _schedules;
+
+    /// <summary>After the repository's own transaction has committed. Never throws (see the postings class and the schedule sync).</summary>
+    private async Task PublishAsync(Guid uuid)
+    {
+        if (_postings is not null) await _postings.PublishAsync(uuid);
+        if (_schedules is not null && await _repo.GetByUuidAsync(uuid) is { } payment)
+            await _schedules.SyncAsync(payment.Lines.Select(l => l.InvoiceUuid).Distinct().ToList());
+    }
 
     public async Task<Guid> CreateAsync(CreateSupplierPaymentRequest req, int createdBy)
     {
         var uuid = await _repo.CreateAsync(req, createdBy);
         await AppendTimelineEventAsync(uuid, "PAYMENT_CREATED", createdBy);
+        // A drafted payment already counts against what the invoices still owe (InvoiceSettlement).
+        if (_schedules is not null && req.Lines.Count > 0)
+            await _schedules.SyncAsync(req.Lines.Select(l => l.InvoiceUuid).Distinct().ToList());
         return uuid;
     }
 

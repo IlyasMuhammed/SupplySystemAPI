@@ -1,4 +1,4 @@
-namespace SMS.Modules.Accounting.Domain;
+﻿namespace SMS.Modules.Accounting.Domain;
 
 // A42 vocabularies (docs/general-ledger/API-CONTRACT.md "Codes"). Stored as strings; every list is also a CHECK constraint
 // (Data/Maps/AccountingMaps.cs). Comparisons are ordinal: the API accepts and returns these exact spellings.
@@ -158,14 +158,15 @@ public static class SystemJournalTypes
     {
         "SALES_INVOICE" or "CREDIT_NOTE" or "SALES_RETURN" or "POS_SALE" or "POS_RETURN" or "SALES_RECEIPT" or "REFUND_RECEIPT" => Sale,
         "PURCHASE_BILL" or "VENDOR_CREDIT" or "PURCHASE_RETURN" or "EXPENSE" => Purchase,
-        "PAYMENT" or "BILL_PAYMENT" or "DEPOSIT_SLIP" or "BANK_FEE" => usesDefaultCash ? Cash : Bank,
+        "PAYMENT" or "BILL_PAYMENT" or "DEPOSIT_SLIP" or "BANK_FEE"
+            or "PAYROLL_PAYMENT" or "LOAN_DISBURSEMENT" or "EXPENSE_PAYMENT" or "STATUTORY_REMITTANCE" => usesDefaultCash ? Cash : Bank, // A49 G-2
         JournalEntryTypes.OpeningBalance => Opening,
         JournalEntryTypes.YearEndClose => Closing,
         _ => Misc,
     };
 
     /// <summary>EntryTypes resolved by D-12 to CASH/BANK (the migration backfill needs the list).</summary>
-    public static readonly IReadOnlyList<string> MoneyEntryTypes = ["PAYMENT", "BILL_PAYMENT", "DEPOSIT_SLIP", "BANK_FEE"];
+    public static readonly IReadOnlyList<string> MoneyEntryTypes = ["PAYMENT", "BILL_PAYMENT", "DEPOSIT_SLIP", "BANK_FEE", "PAYROLL_PAYMENT", "LOAN_DISBURSEMENT", "EXPENSE_PAYMENT", "STATUTORY_REMITTANCE"];
     public static readonly IReadOnlyList<string> SaleEntryTypes = ["SALES_INVOICE", "CREDIT_NOTE", "SALES_RETURN", "POS_SALE", "POS_RETURN", "SALES_RECEIPT", "REFUND_RECEIPT"];
     public static readonly IReadOnlyList<string> PurchaseEntryTypes = ["PURCHASE_BILL", "VENDOR_CREDIT", "PURCHASE_RETURN", "EXPENSE"];
 }
@@ -247,10 +248,13 @@ public static class SyncStatuses
 public static class DefaultCategories
 {
     public const string Receivables = "Receivables", Payables = "Payables", Banking = "Banking", Tax = "Tax", Revenue = "Revenue",
-        CostOfSales = "CostOfSales", Inventory = "Inventory", Equity = "Equity";
+        CostOfSales = "CostOfSales", Inventory = "Inventory", Equity = "Equity", Payroll = "Payroll";
 
     /// <summary>Display order of the categories.</summary>
     public static readonly IReadOnlyList<string> All = [Receivables, Payables, Banking, Revenue, CostOfSales, Inventory, Tax, Equity];
+
+    /// <summary>A49 G-4 — plus the HR roles' category (only organizations with HRM on have rows in it).</summary>
+    public static readonly IReadOnlyList<string> AllWithHr = [.. All, Payroll];
 }
 
 /// <summary>One of the 16 accounting defaults of §8.3 (seeded per organization, D-15).</summary>
@@ -301,10 +305,47 @@ public static class DefaultKeys
             "Assigned automatically to account 3900 Opening Balance Equity, which absorbs any difference in the opening balances. It cannot be changed.", 160),
     ];
 
-    public static readonly IReadOnlyDictionary<string, DefaultDefinition> ByKey =
-        Definitions.ToDictionary(d => d.Key, StringComparer.Ordinal);
+    // A49 G-4 (docs/hrm/ADDENDUM-49-ANALYSIS.md D-7) — the HR account roles. Separate from the 16 of §8.3: a row exists only for an
+    // organization with MODULE_HRM on (AccountingInitializer), they are never required for "setup Complete" (that would stop every
+    // posting of a live organization the day it enabled HRM) and payroll Finalize checks them itself (G-3).
+    public const string SalaryExpense = "DEFAULT_SALARY_EXPENSE", OvertimeExpense = "DEFAULT_OVERTIME_EXPENSE", BonusExpense = "DEFAULT_BONUS_EXPENSE",
+        EmployerContribExpense = "DEFAULT_EMPLOYER_CONTRIB_EXPENSE", SalaryPayable = "DEFAULT_SALARY_PAYABLE", EmployeeTaxPayable = "DEFAULT_EMPLOYEE_TAX_PAYABLE",
+        EobiPayable = "DEFAULT_EOBI_PAYABLE", PfPayable = "DEFAULT_PF_PAYABLE", SocialSecurityPayable = "DEFAULT_SOCIAL_SECURITY_PAYABLE",
+        OtherDeductionPayable = "DEFAULT_OTHER_DEDUCTION_PAYABLE", EmployeeLoanReceivable = "DEFAULT_EMPLOYEE_LOAN_RECEIVABLE",
+        EmployeeAdvance = "DEFAULT_EMPLOYEE_ADVANCE", ExpenseClaimPayable = "DEFAULT_EXPENSE_CLAIM_PAYABLE", GratuityExpense = "DEFAULT_GRATUITY_EXPENSE",
+        GratuityProvision = "DEFAULT_GRATUITY_PROVISION", LeaveEncashmentExpense = "DEFAULT_LEAVE_ENCASHMENT_EXPENSE";
 
+    public static readonly IReadOnlyList<DefaultDefinition> HrDefinitions =
+    [
+        new(SalaryExpense,          "Salary Expense",                DefaultCategories.Payroll, false, AccountTypes.Expense,           "Gross salaries and allowances.", 200),
+        new(OvertimeExpense,        "Overtime Expense",              DefaultCategories.Payroll, false, AccountTypes.Expense,           "Overtime paid through payroll.", 210),
+        new(BonusExpense,           "Bonus Expense",                 DefaultCategories.Payroll, false, AccountTypes.Expense,           "Bonuses paid through payroll.", 220),
+        new(EmployerContribExpense, "Employer Contribution Expense", DefaultCategories.Payroll, false, AccountTypes.Expense,           "Employer EOBI, provident fund and social security.", 230),
+        new(GratuityExpense,        "Gratuity Expense",              DefaultCategories.Payroll, false, AccountTypes.Expense,           "Gratuity charged on final settlement or accrual.", 240),
+        new(LeaveEncashmentExpense, "Leave Encashment Expense",      DefaultCategories.Payroll, false, AccountTypes.Expense,           "Unused leave paid out.", 250),
+        new(SalaryPayable,          "Salaries Payable",              DefaultCategories.Payroll, false, AccountTypes.OtherCurrentLiability, "Net pay until the salaries are paid.", 260),
+        new(EmployeeTaxPayable,     "Employee Tax Payable",          DefaultCategories.Payroll, false, AccountTypes.OtherCurrentLiability, "Income tax withheld until remitted.", 270),
+        new(EobiPayable,            "EOBI Payable",                  DefaultCategories.Payroll, false, AccountTypes.OtherCurrentLiability, "EOBI, both shares, until remitted.", 280),
+        new(PfPayable,              "Provident Fund Payable",        DefaultCategories.Payroll, false, AccountTypes.OtherCurrentLiability, "Provident fund, both shares, until remitted.", 290),
+        new(SocialSecurityPayable,  "Social Security Payable",       DefaultCategories.Payroll, false, AccountTypes.OtherCurrentLiability, "Provincial social security, both shares, until remitted.", 300),
+        new(OtherDeductionPayable,  "Other Deductions Payable",      DefaultCategories.Payroll, false, AccountTypes.OtherCurrentLiability, "Other amounts deducted from pay.", 310),
+        new(ExpenseClaimPayable,    "Expense Claims Payable",        DefaultCategories.Payroll, false, AccountTypes.OtherCurrentLiability, "Approved expense claims until reimbursed.", 320),
+        new(GratuityProvision,      "Gratuity Provision",            DefaultCategories.Payroll, false, AccountTypes.OtherCurrentLiability, "Gratuity accrued but not yet paid.", 330),
+        new(EmployeeLoanReceivable, "Employee Loans Receivable",     DefaultCategories.Payroll, false, AccountTypes.OtherCurrentAsset, "Loans to employees, reduced by payroll recovery.", 340),
+        new(EmployeeAdvance,        "Employee Advances",             DefaultCategories.Payroll, false, AccountTypes.OtherCurrentAsset, "Salary advances, reduced by payroll recovery.", 350),
+    ];
+
+    /// <summary>Every default key a posting line may name: the 16 of §8.3 and the HR roles (the gateway validates against this).</summary>
+    public static readonly IReadOnlyDictionary<string, DefaultDefinition> ByKey =
+        Definitions.Concat(HrDefinitions).ToDictionary(d => d.Key, StringComparer.Ordinal);
+
+    /// <summary>The 16 of §8.3 (every organization has them).</summary>
     public static readonly IReadOnlyList<string> All = Definitions.Select(d => d.Key).ToList();
+
+    public static readonly IReadOnlyList<string> AllHr = HrDefinitions.Select(d => d.Key).ToList();
+
+    /// <summary>What the CHECK constraint allows: <see cref="All"/> + <see cref="AllHr"/>.</summary>
+    public static readonly IReadOnlyList<string> AllWithHr = [.. All, .. AllHr];
 
     /// <summary>D-24 — DEFAULT_OPENING_BALANCE is auto-assigned to 3900 and cannot be changed by a user.</summary>
     public static bool IsLocked(string key) => key == OpeningBalance;

@@ -1,4 +1,4 @@
-using FluentAssertions;
+﻿using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
@@ -583,6 +583,65 @@ public sealed class CounterSaleServiceTests
             var keyed = () => scope.Payments.RecordPaymentAsync(_customer, 10m, method, new CustomerPaymentDetails("PKR"), Receivables.User);
             await keyed.Should().ThrowAsync<BadRequestException>().WithMessage("*recorded by the POS only*");
         }
+    }
+
+    // ══ A48 REV-3: POS returns and AR credit memos share one ceiling ═════════
+
+    private async Task<SMS.Modules.Finance.ArAp.Receivables.CreditMemoModel> MemoAsync(
+        CounterSaleResult sale, decimal amount, Guid? invoiceLine = null)
+    {
+        await using var scope = _desk.Scope();
+        var memos = new SMS.Modules.Finance.ArAp.Receivables.ArCreditMemoService(scope.Db, scope.Ledger,
+            new SMS.Modules.Finance.ArAp.Receivables.ArDocumentCurrency(),
+            NullLogger<SMS.Modules.Finance.ArAp.Receivables.ArCreditMemoService>.Instance, clock: _world.Clock);
+        return await memos.CreateAsync(new SMS.Modules.Finance.ArAp.Receivables.CreateCreditMemoRequest
+        {
+            CustomerUuid = _customer, OriginalInvoiceUuid = sale.SalesInvoiceUuid, Reason = "Price adjustment", ApplyToOriginal = false,
+            Lines = [new() { Amount = amount, InvoiceLineUuid = invoiceLine }]
+        }, new SMS.Modules.Finance.ArAp.ArApCaller(_desk.Org, Receivables.User, SMS.Shared.Authorization.PermissionCodes.ArApCodes, "Tester"));
+    }
+
+    [Fact]
+    public async Task REV3_a_POS_return_cannot_take_credits_above_the_invoice_total_after_a_memo()
+    {
+        var v = await StockedVariantAsync(10m, 5m);
+        var sale = await SaleAsync([Line(v, 1m, 100m)], Cash(100m));
+        await MemoAsync(sale, 90m);
+
+        await FluentActions.Awaiting(() => ReturnAsync(sale, [ReturnLine(sale, 0, 1m, 100m)], Cash(100m)))
+            .Should().ThrowAsync<BadRequestException>().WithMessage("This return would credit more than the invoice total: returning 100.00 would take invoice *'s credits above its total of 100.00 (90.00 already credited, 10.00 remaining).");
+        (await PostAsync(s => s.GetCreditableRemainingAsync(_desk.Org, sale.SalesInvoiceUuid))).Should().Be(10m, "the read the till asks first (QA-5)");
+
+        (await ReturnAsync(sale, [ReturnLine(sale, 0, 1m, 10m)], Cash(10m))).Total.Should().Be(10m, "what is left can still be returned");
+    }
+
+    [Fact]
+    public async Task REV3_a_price_memo_on_a_line_does_not_use_up_its_quantity()
+    {
+        var v = await StockedVariantAsync(10m, 5m);
+        var sale = await SaleAsync([Line(v, 1m, 100m)], Cash(100m));
+        Guid lineUuid;
+        await using (var scope = _desk.Scope())
+            lineUuid = (await scope.Db.SalesInvoiceLines.SingleAsync(l => l.SalesInvoice.UUID == sale.SalesInvoiceUuid)).UUID;
+        await MemoAsync(sale, 30m, lineUuid);
+
+        // The goods can still come back — for what is left of the line's value.
+        (await ReturnAsync(sale, [ReturnLine(sale, 0, 1m, 70m)], Cash(70m))).Total.Should().Be(70m);
+    }
+
+    [Fact]
+    public async Task REV3_a_memo_on_a_line_is_bounded_by_what_the_line_was_sold_for()
+    {
+        var v = await StockedVariantAsync(10m, 5m);
+        var sale = await SaleAsync([Line(v, 2m, 50m), Line(v, 1m, 100m)], Cash(200m));
+        await ReturnAsync(sale, [ReturnLine(sale, 0, 1m, 50m)], Cash(50m));
+        Guid first;
+        await using (var scope = _desk.Scope())
+            first = (await scope.Db.SalesInvoiceLines.SingleAsync(l => l.SalesInvoice.UUID == sale.SalesInvoiceUuid && l.LineNo == 1)).UUID;
+
+        await FluentActions.Awaiting(() => MemoAsync(sale, 60m, first))
+            .Should().ThrowAsync<BadRequestException>().WithMessage("*would credit more than the 100.00 it was sold for (50.00 already credited).");
+        (await MemoAsync(sale, 50m, first)).Total.Should().Be(50m);
     }
 
     // ══ Harness ══════════════════════════════════════════════════════════════

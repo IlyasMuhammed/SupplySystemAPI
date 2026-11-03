@@ -1,4 +1,4 @@
-using FluentAssertions;
+﻿using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using SMS.Modules.Accounting.Domain;
 using SMS.Modules.Accounting.Models;
@@ -43,7 +43,8 @@ public sealed class GatewayJournalEngineTests
                 FinDocType.SalesInvoice or FinDocType.CreditNote or FinDocType.SalesReturn or FinDocType.POSSale or FinDocType.POSReturn
                     or FinDocType.SalesReceipt or FinDocType.RefundReceipt => SystemJournalTypes.Sale,
                 FinDocType.PurchaseBill or FinDocType.VendorCredit or FinDocType.PurchaseReturn or FinDocType.Expense => SystemJournalTypes.Purchase,
-                FinDocType.Payment or FinDocType.BillPayment or FinDocType.DepositSlip or FinDocType.BankFee => SystemJournalTypes.Bank,
+                FinDocType.Payment or FinDocType.BillPayment or FinDocType.DepositSlip or FinDocType.BankFee
+                    or FinDocType.PayrollPayment or FinDocType.LoanDisbursement or FinDocType.ExpensePayment or FinDocType.StatutoryRemittance => SystemJournalTypes.Bank,
                 FinDocType.OpeningBalance => SystemJournalTypes.Opening,
                 _ => SystemJournalTypes.Misc,
             });
@@ -51,10 +52,10 @@ public sealed class GatewayJournalEngineTests
     }
 
     [Fact]
-    public void Resolver_table_covers_all_20_FinDocTypes()
+    public void Resolver_table_covers_all_27_FinDocTypes()
     {
-        Enum.GetValues<FinDocType>().Should().HaveCount(20);
-        AllDocTypes().Should().HaveCount(20);
+        Enum.GetValues<FinDocType>().Should().HaveCount(27); // A49 G-2: 7 HRM values appended
+        AllDocTypes().Should().HaveCount(27);
     }
 
     [Theory]

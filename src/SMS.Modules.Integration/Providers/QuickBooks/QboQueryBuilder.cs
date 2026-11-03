@@ -62,6 +62,7 @@ internal sealed class QboQueryBuilder
             SyncKind.CreditMemo    => "CreditMemo",
             SyncKind.RefundReceipt => "RefundReceipt",
             SyncKind.VendorCredit  => "VendorCredit",
+            SyncKind.JournalEntry  => "JournalEntry",
             _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "Not a transaction found by DocNumber.")
         };
         return $"select * from {entity} where DocNumber = {Literal(docNumber)}";

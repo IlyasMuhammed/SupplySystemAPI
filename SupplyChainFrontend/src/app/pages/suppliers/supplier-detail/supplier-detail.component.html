@@ -36,7 +36,7 @@
     <div class="sf-t">
       <div>
         <div class="sf-kicker">
-          Supplier<ng-container *ngIf="supplier.createdDate"> · onboarded {{ supplier.createdDate | date:'mediumDate' }}</ng-container>
+          Supplier<ng-container *ngIf="supplier.createdDate"> · onboarded {{ supplier.createdDate | date:'dd MMM yyyy' }}</ng-container>
         </div>
         <h1>
           {{ supplier.supplierName || 'Loading…' }}
@@ -174,9 +174,9 @@
           </div>
           <div class="sf-fld">Lead time (days)<span class="v">{{ supplier.leadTimeDays || '—' }}</span></div>
           <div class="sf-fld">Rating<span class="v">{{ supplier.rating || '—' }}</span></div>
-          <div class="sf-fld">Onboarding date<span class="v">{{ (supplier.onboardingDate | date:'mediumDate') || '—' }}</span></div>
-          <div class="sf-fld">Last review<span class="v">{{ (supplier.lastReviewDate | date:'mediumDate') || '—' }}</span></div>
-          <div class="sf-fld">Created<span class="v">{{ supplier.createdDate | date:'mediumDate' }}</span></div>
+          <div class="sf-fld">Onboarding date<span class="v">{{ (supplier.onboardingDate | date:'dd MMM yyyy') || '—' }}</span></div>
+          <div class="sf-fld">Last review<span class="v">{{ (supplier.lastReviewDate | date:'dd MMM yyyy') || '—' }}</span></div>
+          <div class="sf-fld">Created<span class="v">{{ supplier.createdDate | date:'dd MMM yyyy' }}</span></div>
         </div>
       </section>
 
@@ -233,8 +233,8 @@
             <div class="sf-fld">Account number<span class="v sf-mono">{{ bankDetail.bankAccountNo || '—' }}</span></div>
             <div class="sf-fld">IBAN<span class="v sf-mono">{{ bankDetail.bankIban || '—' }}</span></div>
             <div class="sf-fld">SWIFT / BIC<span class="v sf-mono">{{ bankDetail.bankSwift || '—' }}</span></div>
-            <div class="sf-fld">Created at<span class="v">{{ bankDetail.createdAt | date:'medium' }}</span></div>
-            <div class="sf-fld" *ngIf="bankDetail.updatedAt">Last updated<span class="v">{{ bankDetail.updatedAt | date:'medium' }}</span></div>
+            <div class="sf-fld">Created at<span class="v">{{ bankDetail.createdAt | date:'dd MMM yyyy, HH:mm' }}</span></div>
+            <div class="sf-fld" *ngIf="bankDetail.updatedAt">Last updated<span class="v">{{ bankDetail.updatedAt | date:'dd MMM yyyy, HH:mm' }}</span></div>
           </div>
 
           <ng-template #noBankDetail>
@@ -258,7 +258,7 @@
               <div class="doc-name">{{ doc.fileName }}</div>
               <div class="sf-mu sf-sm">
                 <span *ngIf="doc.documentType" class="sf-pill in">{{ doc.documentType }}</span>
-                {{ doc.uploadedAt | date:'mediumDate' }}
+                {{ doc.uploadedAt | date:'dd MMM yyyy' }}
               </div>
             </div>
             <div class="doc-actions">
@@ -330,6 +330,12 @@
       </section>
 
       <!-- ══ Outstanding Invoices (SFM-003) ═══════════════════════════════ -->
+      <!-- A48 C1 — payables profile: priority, preferred method, withholding (MODULE_FINANCE + an AR/AP read code) -->
+      <section *ngIf="showApProfile" id="sec-ap-profile" class="sf-section sf-card" data-testid="section-ap-profile">
+        <div class="sf-ch"><h2>Payables profile</h2></div>
+        <app-partner-financial-profile [partnerUuid]="uuid" role="Vendor"></app-partner-financial-profile>
+      </section>
+
       <section id="sec-invoices" class="sf-section sf-card p0">
         <div class="sf-ch">
           <h2>Outstanding invoices</h2>

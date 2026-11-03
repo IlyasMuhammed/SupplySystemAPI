@@ -36,6 +36,9 @@
         <div class="sc-text">
           <div class="sc-label">{{ label[r.documentType] }}</div>
           <div class="hint">{{ hint[r.documentType] }}</div>
+          <ul class="note warn" *ngIf="notReady[r.documentType]?.length" style="display:block;margin:0.35rem 0 0;padding-left:1.5rem" role="alert" [attr.data-testid]="'sc-problems-' + r.documentType">
+            <li *ngFor="let p of notReady[r.documentType]">{{ p }}</li>
+          </ul>
         </div>
         <div class="sc-status">
           <p-tag [value]="draftStatus(r)" [severity]="tone[draftStatus(r)]" [attr.data-testid]="'sc-status-' + r.documentType"></p-tag>

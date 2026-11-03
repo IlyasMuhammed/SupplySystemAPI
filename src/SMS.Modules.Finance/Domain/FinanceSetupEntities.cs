@@ -47,6 +47,8 @@ internal class FinanceOrgSettings : ITenantScopedEntity
     public int       Id                 { get; set; }
     public Guid      OrganizationId     { get; set; }
     public DateOnly? OpeningBalanceDate { get; set; }
+    /// <summary>A48 (D-5) — Off (default) / Warn / Block: the credit check on sale-order confirmation. A missing row reads as Off.</summary>
+    public string    CreditControlMode  { get; set; } = CreditControlModes.Off;
 
     public int       CreatedBy    { get; set; }
     public DateTime  CreatedDate  { get; set; } = DateTime.UtcNow;

@@ -1,0 +1,104 @@
+// A48 — AR / AP sub-ledger pages. Tokens only (--sms-*), light and dark. Used next to ../gl/gl.scss (gl-note, gl-scroll, gl-num, gl-steps).
+
+.aa-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+  th, td { padding: 0.45rem 0.6rem; border-top: 1px solid var(--sms-border-soft); text-align: left; vertical-align: top; }
+  th { color: var(--sms-text-muted); font-weight: 600; font-size: 0.78rem; white-space: nowrap; }
+  th.gl-num, td.gl-num { text-align: right; }
+  tfoot td, tr.aa-total td { font-weight: 600; background: var(--sms-surface-2); }
+  tr.aa-sub td { background: var(--sms-surface-2); font-size: 0.82rem; }
+  tr.aa-off td { color: var(--sms-text-faint); text-decoration: line-through; }
+  tr.aa-blocked td { color: var(--sms-text-muted); }
+  tr.aa-click { cursor: pointer; }
+  tr.aa-click:hover td { background: var(--sms-row-hover); }
+  td.aa-bad { color: var(--sms-danger); }
+  td.aa-warn { color: var(--sms-warn); }
+}
+
+.aa-trend {
+  font-size: 0.75rem;
+  color: var(--sms-text-muted);
+  &.up { color: var(--sms-warn); }
+  &.down { color: var(--sms-ok); }
+}
+// A rising payables / falling DPO reads the other way round; pages flip with .aa-inv.
+.aa-inv .aa-trend.up { color: var(--sms-ok); }
+.aa-inv .aa-trend.down { color: var(--sms-warn); }
+
+.aa-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.75rem;
+  align-items: flex-end;
+  .sf-fld { min-width: 10rem; }
+}
+
+.aa-mark {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  font-size: 0.75rem;
+  padding: 0.05rem 0.4rem;
+  border-radius: var(--sms-radius-sm);
+  white-space: nowrap;
+  &.disc { background: var(--sms-ok-soft); color: var(--sms-ok); }
+  &.late { background: var(--sms-warn-soft); color: var(--sms-warn); }
+  &.lock { background: var(--sms-danger-soft); color: var(--sms-danger); }
+}
+
+.aa-group {
+  border: 1px solid var(--sms-border);
+  border-radius: var(--sms-radius);
+  background: var(--sms-surface);
+  margin-bottom: 0.6rem;
+  overflow: hidden;
+  .aa-group-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem 0.75rem;
+    padding: 0.55rem 0.85rem;
+    background: var(--sms-surface-2);
+    b { color: var(--sms-text); }
+    .aa-end { margin-left: auto; font-variant-numeric: tabular-nums; font-weight: 600; }
+  }
+  &.blocked { border-style: dashed; .aa-group-head { color: var(--sms-text-muted); } }
+}
+
+.aa-kv-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: 0.6rem 1.25rem;
+  .l { display: block; font-size: 0.75rem; color: var(--sms-text-muted); }
+  .v { font-weight: 600; font-variant-numeric: tabular-nums; }
+  .v.er { color: var(--sms-danger); }
+  .v.ok { color: var(--sms-ok); }
+  .s { display: block; font-size: 0.75rem; color: var(--sms-text-muted); }
+}
+
+.aa-bars {
+  display: grid;
+  gap: 0.35rem;
+  .aa-bar-row { display: grid; grid-template-columns: 7.5rem 1fr 7rem; gap: 0.5rem; align-items: center; font-size: 0.82rem; }
+  .aa-bar { height: 0.7rem; border-radius: var(--sms-radius-sm); background: var(--sms-primary); min-width: 2px; }
+  .aa-bar-track { background: var(--sms-surface-2); border-radius: var(--sms-radius-sm); }
+}
+
+.aa-actions { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+// styleClass="sdlg" zeroes the dialog's padding and expects its sdlg-header/-body/-footer markup; these give the same
+// spacing to dialogs that use the plain header attribute and footer buttons.
+.aa-dlg-body { display: grid; gap: 0.75rem; padding: 1.25rem 1.5rem 1.1rem; }
+.aa-dlg-body textarea, .aa-dlg-body input { width: 100%; }
+:host ::ng-deep .sdlg {
+  .p-dialog-header:not(:has(.sdlg-header)) { padding: 1.25rem 1.5rem !important; }
+  .p-dialog-footer:not(:has(.sdlg-footer)) { display: flex; justify-content: flex-end; gap: 0.65rem; padding: 0.9rem 1.5rem !important; }
+}
+.aa-wide { width: 100%; }
+
+@media (max-width: 640px) {
+  // Task 555 / 570 / 582 — tiles stack, wide tables scroll inside .gl-scroll.
+  .aa-bars .aa-bar-row { grid-template-columns: 5.5rem 1fr 5.5rem; }
+  .aa-toolbar .sf-fld { min-width: 100%; }
+}

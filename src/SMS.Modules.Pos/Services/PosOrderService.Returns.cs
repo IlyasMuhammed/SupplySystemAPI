@@ -199,6 +199,14 @@ internal sealed partial class PosOrderService
         var returnTotal = returnLines.Sum(l => Math.Abs(l.LineTotal));
         var returnTax   = returnLines.Sum(l => Math.Abs(l.TaxAmount));
 
+        // A48 QA-5 / D-AR-14 — the invoice's credit ceiling (returns + AR credit memos + credit notes ≤ its total), read from
+        // Finance up front so the till never pays out a refund Finance would refuse to book. Online: refused. Offline (the
+        // refund already happened): accepted, flagged and warned — its Finance posting stays failed for an accountant.
+        if (original.SalesInvoiceUuid is { } invoiceUuid && _finance is not null
+            && await _finance.GetCreditableRemainingAsync(Org, invoiceUuid, ct) is { } remaining && returnTotal > remaining)
+            Breach($"This return would credit more than the invoice total: returning {returnTotal:0.00} would take the sale's invoice " +
+                   $"credits above its total (only {remaining:0.00} remaining after earlier returns and credit memos).");
+
         // ── D-5 restocking fee: reason override wins (0 waives) ──
         var feePct = reason?.RestockingFeeOverride ?? policy.RestockingFeePct;
         var fee = Calc.Round(returnTotal * feePct / 100m);

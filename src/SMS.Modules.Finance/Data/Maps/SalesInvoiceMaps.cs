@@ -110,6 +110,7 @@ internal sealed class SalesInvoiceLineMap : IEntityTypeConfiguration<SalesInvoic
         b.Property(x => x.TaxPercent).HasColumnType("decimal(5,2)");
         b.Property(x => x.LineTotal).HasColumnType("decimal(18,2)");
         b.Property(x => x.TaxCode).HasMaxLength(20);
+        b.Property(x => x.IncomeAccountCode).HasMaxLength(30);
 
         // A38 (FIN) — POS lines carry absolute amounts; credit-note lines point at the line they credit.
         b.Property(x => x.DiscountAmount).HasColumnType("decimal(18,2)");

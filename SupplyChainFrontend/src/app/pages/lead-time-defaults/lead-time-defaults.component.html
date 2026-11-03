@@ -12,7 +12,7 @@
       </div>
     </div>
     <div class="sf-mu sf-sm" *ngIf="model?.isSaved && model?.modifiedDate" data-testid="ltd-last-changed">
-      Last changed {{ model!.modifiedDate | date:'medium' }}
+      Last changed {{ model!.modifiedDate | date:'dd MMM yyyy, HH:mm' }}
     </div>
   </header>
 

@@ -1,3 +1,4 @@
+using SMS.Modules.Finance.ArAp;
 using SMS.Shared.Common;
 
 namespace SMS.Modules.Finance.Domain;
@@ -52,6 +53,28 @@ internal class Invoice : ITenantScopedEntity
 
     // MatchStatus: Pending | Matched | Variance | Approved | Rejected
     public string MatchStatus    { get; set; } = "Pending";
+
+    // ── A48 (D-7, D-CORE-5): the invoice is the match header; the per-line rows are InvoiceMatchLines ──
+    /// <summary>The tolerance rule the last A48 match used.</summary>
+    public int?      ToleranceRuleId       { get; set; }
+    public MatchToleranceRule? ToleranceRule { get; set; }
+    /// <summary>ArApEnums.MatchType — null until the A48 per-line match ran.</summary>
+    public string?   MatchType             { get; set; }
+    /// <summary>ArApEnums.LineMatchResult — Matched / PartialMatch / Mismatch over the lines.</summary>
+    public string?   LineMatchResult       { get; set; }
+    public decimal?  MatchVariancePercent  { get; set; }
+    public bool?     WithinTolerance       { get; set; }
+    /// <summary>Approved automatically because every line was within an auto-approve rule (BR-MT-005).</summary>
+    public bool      AutoApproved          { get; set; }
+    public DateTime? MatchedAt             { get; set; }
+    public int?      MatchedBy             { get; set; }
+    public string?   MatchedByName         { get; set; }
+    /// <summary>BR-MT-006 — a variance accepted by someone holding MATCH_OVERRIDE, with the reason.</summary>
+    public string?   MatchOverrideReason   { get; set; }
+    public DateTime? MatchOverriddenAt     { get; set; }
+    public int?      MatchOverriddenBy     { get; set; }
+    public string?   MatchOverriddenByName { get; set; }
+    public ICollection<InvoiceMatchLine> MatchLines { get; set; } = new List<InvoiceMatchLine>();
     // PaymentStatus: Unpaid | Scheduled | Partial | Paid | Overdue (legacy single-invoice Payment
     // flow) — OR, once posted via SFM-004's SupplierPayment flow: UNPAID | PARTIALLY_PAID |
     // FULLY_PAID | OVERPAID, derived from PaidAmount. Both vocabularies can appear on this field
@@ -179,6 +202,9 @@ internal class DebitNote : ITenantScopedEntity
 
     // Status: DRAFT | ISSUED | ACKNOWLEDGED | DISPUTED | SETTLED | WRITTEN_OFF
     public string Status { get; set; } = "ISSUED";
+
+    /// <summary>A48 (D-6) — SRO: raised from a supplier return (SroUuid/SroNumber set); MEMO: a standalone AP debit memo (SroUuid = Guid.Empty, SroNumber = "").</summary>
+    public string Origin { get; set; } = ArApEnums.DebitNoteOrigin.Sro;
 
     public DateTime? IssuedAt       { get; set; }
     public DateTime? AcknowledgedAt { get; set; }
@@ -416,6 +442,11 @@ internal class SupplierPaymentLine : ITenantScopedEntity
     public string?  Notes                        { get; set; }
     /// <summary>A35 C7 — realized gain (+) / loss (−) on this line in the purchase base, set at posting.</summary>
     public decimal? ExchangeDifference           { get; set; }
+    /// <summary>
+    /// A48 (AP-1, C15) — early-payment discount taken on this invoice. <see cref="AllocatedAmount"/> stays the gross amount
+    /// settled (PaidAmount += it); the cash paid for the line is AllocatedAmount − DiscountAmount. 0 on every older line.
+    /// </summary>
+    public decimal  DiscountAmount               { get; set; }
 
     public SupplierPayment SupplierPayment { get; set; } = null!;
 }

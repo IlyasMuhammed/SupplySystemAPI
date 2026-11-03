@@ -240,10 +240,18 @@ public class FeatureToggleItem
     public bool IsEnabled { get; set; }
 }
 
+public class LicensedNotEnabledModel
+{
+    public string FeatureCode { get; set; } = string.Empty;
+    public string Reason { get; set; } = string.Empty;
+}
+
 public class UpdateFeaturesResult
 {
     public List<OrganizationFeatureModel> UpdatedFeatures { get; set; } = new();
     public List<string> AutoEnabledDependencies { get; set; } = new();
+    /// <summary>A49 D-POST-1: licensed, but a module guard kept the switch off (with why, "CODE: text").</summary>
+    public List<LicensedNotEnabledModel> LicensedNotEnabled { get; set; } = new();
 }
 
 // ── A37 module registry (API-CONTRACT §1.1) ─────────────────────────────────

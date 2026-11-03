@@ -409,6 +409,29 @@ internal class ProviderDefault : ITenantScopedEntity
     public DateTime? ModifiedAt     { get; set; }
 }
 
+/// <summary>
+/// A49 G-5 — one HRM cost center to a QuickBooks Class (required when a run posts to QuickBooks) and optionally a Location.
+/// Unique on (ConnectionId, CostCenterCode). An unmapped cost center blocks payroll Finalize (§11A.2); it never posts unclassified.
+/// </summary>
+internal class CostCenterQboMapping : ITenantScopedEntity
+{
+    public int       Id                { get; set; }
+    public Guid      Uuid              { get; set; } = Guid.NewGuid();
+    public Guid      OrganizationId    { get; set; }
+    public int       ConnectionId      { get; set; }
+    public string    CostCenterCode    { get; set; } = string.Empty;
+    public string    CostCenterName    { get; set; } = string.Empty;
+    public string?   QboClassRef       { get; set; }
+    public string?   QboClassName      { get; set; }
+    public string?   QboDepartmentRef  { get; set; }
+    public string?   QboDepartmentName { get; set; }
+    public bool      IsActive          { get; set; } = true;
+    public DateTime  CreatedAt         { get; set; } = DateTime.UtcNow;
+    public int?      CreatedBy         { get; set; }
+    public DateTime? ModifiedAt        { get; set; }
+    public int?      ModifiedBy        { get; set; }
+}
+
 /// <summary>A44 D-15 — a provider default for one document type only; wins over <see cref="ProviderDefault"/> (BR-12).</summary>
 internal class DocumentOverride : ITenantScopedEntity
 {

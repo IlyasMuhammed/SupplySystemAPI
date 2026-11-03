@@ -276,6 +276,7 @@ internal sealed class ScriptedAccountingProvider : IAccountingProvider
         RemoteBillPayment bp  => (null, bp.DocNumber, bp.VendorId),
         RemoteSalesDocument d => (null, d.DocNumber, null),
         RemoteVendorCredit v  => (null, v.DocNumber, v.VendorId),
+        RemoteJournalEntry j  => (null, j.DocNumber, null),
         _                     => (null, null, null)
     };
 

@@ -14,4 +14,7 @@ public interface IWorkflowSeedingService
     // Pass null when called outside a shared transaction (e.g. the app-startup path for the one
     // pre-existing organization).
     Task SeedDefaultWorkflowsAsync(Guid organizationId, DbTransaction? sharedTransaction);
+
+    /// <summary>A49 — the LEAVE_REQUEST, EXPENSE_CLAIM and SALARY_CHANGE definitions, when missing. Idempotent.</summary>
+    Task SeedHrmWorkflowsAsync(Guid organizationId) => Task.CompletedTask;
 }

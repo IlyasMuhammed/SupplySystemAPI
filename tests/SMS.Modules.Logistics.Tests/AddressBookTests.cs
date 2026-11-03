@@ -72,6 +72,49 @@ public class AddressBookTests
         (stored.ConsigneeUuid, stored.CreatedBy, stored.CreatedDate, stored.IsActive, stored.IsDelete).Should().Be(((Guid?)Acme, 7, book.Now, true, false));
     }
 
+    // ── Lead conversion seeds a new customer's book (A41) ────────────────────
+
+    private static CrmShippingAddress LeadAddress(string line1 = "410 Cedar Grove Lane") =>
+        new(line1, null, "Austin", "Texas", "78704", "United States", "Mia Torres", "+15125550143", "mia@cedar.test");
+
+    private static CrmShippingAddressGateway Gateway(Book book, Guid? tenant = null) =>
+        new(book.For(), new StaticTenantContext { OrganizationId = tenant ?? book.Org });
+
+    [Fact]
+    public async Task A_lead_conversion_saves_the_leads_address_in_the_customers_book_and_the_sale_order_picker_lists_it()
+    {
+        var book = new Book();
+
+        await Gateway(book).AddForCustomerAsync(book.Org, Acme, LeadAddress(), userId: 9);
+
+        var listed = await book.For().ListForConsigneeAsync(Acme);
+        var saved = listed.Should().ContainSingle().Subject;
+        (saved.Line1, saved.CityName, saved.State, saved.PostalCode, saved.CountryName, saved.ContactName, saved.AddressType)
+            .Should().Be(("410 Cedar Grove Lane", "Austin", "Texas", "78704", "United States", "Mia Torres", "CUSTOMER"));
+    }
+
+    [Fact]
+    public async Task Seeding_the_same_address_twice_leaves_one_in_the_book()
+    {
+        var book = new Book();
+
+        await Gateway(book).AddForCustomerAsync(book.Org, Acme, LeadAddress(), 9);
+        await Gateway(book).AddForCustomerAsync(book.Org, Acme, LeadAddress("  410 CEDAR GROVE LANE "), 9);
+
+        await using var db = LogisticsTestDb.OpenAs(book.DbName, book.Org);
+        (await db.Addresses.CountAsync()).Should().Be(1);
+    }
+
+    [Fact]
+    public async Task An_address_cannot_be_seeded_into_another_organizations_book()
+    {
+        var book = new Book();
+
+        var act = () => Gateway(book).AddForCustomerAsync(Guid.NewGuid(), Acme, LeadAddress(), 9);
+
+        await act.Should().ThrowAsync<BadRequestException>();
+    }
+
     [Fact]
     public async Task An_address_needs_a_customer()
     {

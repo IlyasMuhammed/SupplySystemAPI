@@ -45,6 +45,8 @@ import { ReportsService } from '../../../services/reports.service';
 import { TimelineEvent } from '../../../services/timeline.service';
 import { FLOW, FlowSection } from '../../../shared/flow';
 import { PricelistGridComponent } from '../../../shared/supplier-pricelist/pricelist-grid.component';
+import { ModuleService } from '../../../services/module.service';
+import { PartnerFinancialProfileComponent, profileReadCodes } from '../../finance/ar-ap/partner-profile/partner-financial-profile.component';
 
 @Component({
   selector: 'app-supplier-detail',
@@ -54,7 +56,7 @@ import { PricelistGridComponent } from '../../../shared/supplier-pricelist/price
     ButtonModule, CardModule, TabViewModule, TagModule, ToastModule,
     DialogModule, InputTextModule, TextareaModule, InputNumberModule,
     CheckboxModule, DividerModule, TooltipModule, ConfirmDialogModule,
-    DropdownModule, MultiSelectModule, TableModule, CalendarModule, PricelistGridComponent, ...FLOW
+    DropdownModule, MultiSelectModule, TableModule, CalendarModule, PricelistGridComponent, PartnerFinancialProfileComponent, ...FLOW
   ],
   templateUrl: './supplier-detail.component.html',
   styleUrls: ['./supplier-detail.component.scss'],
@@ -163,16 +165,26 @@ export class SupplierDetailComponent implements OnInit {
   ) {}
 
   /** SMS Flow section anchors. */
-  readonly sections: FlowSection[] = [
-    { id: 'sec-general', label: 'General' },
-    { id: 'sec-purchasing', label: 'Purchasing' },
-    { id: 'sec-products', label: 'Products' },
-    { id: 'sec-contacts', label: 'Contacts' },
-    { id: 'sec-bank', label: 'Bank' },
-    { id: 'sec-documents', label: 'Documents' },
-    { id: 'sec-ledger', label: 'Ledger' },
-    { id: 'sec-invoices', label: 'Outstanding invoices' }
-  ];
+  get sections(): FlowSection[] {
+    return [
+      { id: 'sec-general', label: 'General' },
+      { id: 'sec-purchasing', label: 'Purchasing' },
+      { id: 'sec-products', label: 'Products' },
+      { id: 'sec-contacts', label: 'Contacts' },
+      { id: 'sec-bank', label: 'Bank' },
+      { id: 'sec-documents', label: 'Documents' },
+      { id: 'sec-ledger', label: 'Ledger' },
+      ...(this.showApProfile ? [{ id: 'sec-ap-profile', label: 'Payables' }] : []),
+      { id: 'sec-invoices', label: 'Outstanding invoices' }
+    ];
+  }
+
+  private readonly modules = inject(ModuleService, { optional: true });
+
+  /** A48 C1 — the vendor's financial profile: MODULE_FINANCE and any AR/AP read code (its GET needs one). */
+  get showApProfile(): boolean {
+    return !!this.modules?.isFeatureEnabled('MODULE_FINANCE') && profileReadCodes('Vendor').some(c => this.authService.hasPermission(c));
+  }
 
   private createEmptySupplier(): SupplierDetailModel {
     return {

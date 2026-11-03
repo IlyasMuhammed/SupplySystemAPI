@@ -102,10 +102,10 @@ describe('SaleQuotationDetailComponent', () => {
       expect(link.getAttribute('href')).toBe('/portal/pages/sales/inquiries/inq-42');
     });
 
-    it('says "—" for a quotation made on its own', async () => {
+    it('does not mention an inquiry for a quotation made on its own', async () => {
       await setup(quotation({ sourceInquiry: null }));
-      expect(el('source-inquiry')!.querySelector('a')).toBeNull();
-      expect(el('source-inquiry')!.textContent!.trim()).toBe('—');
+      expect(el('source-inquiry')).toBeNull();
+      expect(el('customer')!.parentElement!.textContent).not.toContain('from inquiry');
     });
 
     it('has Details, Lines, Terms and Attachments tabs, with the terms on their own tab', async () => {

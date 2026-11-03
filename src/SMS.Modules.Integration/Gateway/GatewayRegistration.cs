@@ -9,6 +9,7 @@ using SMS.Modules.Integration.Core.Matching;
 using SMS.Modules.Integration.Core.Settings;
 using SMS.Shared.Finance.Posting;
 using SMS.Modules.Integration.Core.Sync;
+using SMS.Modules.Integration.Gateway.JournalEntries;
 using SMS.Modules.Integration.Gateway.Validation;
 using SMS.Modules.Integration.Jobs;
 
@@ -57,6 +58,13 @@ internal static class GatewayRegistration
         // A44 D-2: QuickBooks as a target of the financial posting / entity sync gateways (Accounting enumerates them).
         services.AddScoped<IFinancialPostingTarget, QuickBooksPostingTarget>();
         services.AddScoped<IEntitySyncTarget, QuickBooksEntitySyncTarget>();
+
+        // A49 G-1, G-3, G-5
+        services.AddScoped<IQuickBooksJournalEntryBuilder, QuickBooksJournalEntryBuilder>();
+        services.AddScoped<IJournalEntryRefSource, JournalEntryRefSource>();
+        services.AddScoped<IJournalEntryPoster, JournalEntryPoster>();
+        services.AddScoped<ICostCenterQboMappingService, CostCenterQboMappingService>();
+        services.AddScoped<SMS.Shared.Integration.QuickBooks.IQuickBooksPostingReadiness, QuickBooksPostingReadinessService>();
 
         // Matching
         services.AddScoped<IQuickBooksMatchingService, MatchingService>();

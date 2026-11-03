@@ -36,6 +36,11 @@ internal static class PostingRegistration
         services.AddScoped<IEntitySyncGateway>(sp => sp.GetRequiredService<EntitySyncGateway>());
         services.RemoveAll<IExternalAccountMapReader>();
         services.AddScoped<IExternalAccountMapReader>(sp => sp.GetRequiredService<ExternalAccountMapReader>());
+        // A48 (AP, D-AP-12) — are the roles a posting will name mapped for the active internal GL?
+        services.TryAddScoped<InternalGlPostingTarget>();
+        services.TryAddScoped<GlPostingRoleReadiness>();
+        services.RemoveAll<IPostingRoleReadiness>();
+        services.AddScoped<IPostingRoleReadiness>(sp => sp.GetRequiredService<GlPostingRoleReadiness>());
         return services;
     }
 }

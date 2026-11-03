@@ -14,7 +14,14 @@ public sealed record SalesInvoiceCreated(
     string  InvoiceNumber,
     decimal GrandTotal,
     string  CurrencyCode,
-    bool    AlreadyExisted);
+    bool    AlreadyExisted)
+{
+    /// <summary>
+    /// A48 (AR, D-5) — warning only: the customer is on credit hold or over the limit (credit control Warn / Block). Null
+    /// when credit control is Off or the check passed. Never refuses the invoice (the order was already approved).
+    /// </summary>
+    public string? CreditWarning { get; init; }
+}
 
 /// <param name="PartnerBalance">What the customer owes after this invoice — the ledger's running balance.</param>
 public sealed record SalesInvoiceIssued(

@@ -30,7 +30,15 @@ public enum FinDocType
     BankFee,
     Expense,
     DepositSlip,
-    OpeningBalance
+    OpeningBalance,
+    // A49 G-2 — appended (the enum is stored by name, never by number). All go to QuickBooks as JournalEntry (G-1).
+    PayrollRun,
+    PayrollPayment,
+    LoanDisbursement,
+    ExpensePayment,
+    StatutoryRemittance,
+    FinalSettlement,
+    PayrollProvision
 }
 
 [JsonConverter(typeof(JsonStringEnumConverter))]
@@ -56,6 +64,8 @@ public static class PostingSourceModules
     public const string Pos       = "pos";
     public const string Suppliers = "suppliers";
     public const string Inventory = "inventory";
+    /// <summary>A49 G-2.</summary>
+    public const string Hrm       = "hrm";
 }
 
 /// <summary>

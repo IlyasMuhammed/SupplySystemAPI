@@ -1,0 +1,59 @@
+Area,SMS entity,SMS property (code),Import column,Import status,Odoo field (FSD),Odoo check,SAP field (FSD),SAP check,Sensitivity (FSD),Notes
+Employee import,ImportExternalReference,ExternalId,external_id,Built,id or barcode,unverified,PA0001-PERNR,unverified,S0,Reference only; not on the employee; SMS generates EmployeeNumber
+Employee import,Employee,FirstName + LastName,name,Built (required),name,unverified,PA0002-VORNA + NACHN,unverified,S1,Split on first space; one-word name fails at run and rolls back its batch
+Employee import,Employee,CnicEncrypted + CnicHash + CnicLastDigit,identification_id,Built,identification_id,unverified,PA0185-ICNUM (ICTYP national ID),unverified,S3,13 digits; plain text in import.rows for 90 days
+Employee import,Employee,DateOfBirth,birthday,Built,birthday,unverified,PA0002-GBDAT,unverified,S1,Use yyyy-MM-dd; day-first is misread or refused
+Employee import,Employee,Gender,gender,Built,gender,unverified,PA0002-GESCH,unverified,S1,male/m/female/f/other; SAP codes must be converted
+Employee import,Employee,MaritalStatus,marital,Built,marital,unverified,PA0002-FAMST,unverified,S1,cohabitant to Other; widower/widow/widowed to Widowed
+Employee import,Employee,WorkEmail,work_email,Built,work_email,unverified,PA0105 subtype 0010,unverified,S1,
+Employee import,Employee,PersonalEmail,private_email,Built,private_email,unverified,PA0105 subtype 0010,unverified,S1,
+Employee import,Employee,Mobile,mobile_phone,Built,mobile_phone,unverified,PA0105 subtype CELL,unverified,S1,7 to 15 digits
+Employee import,EmploymentRecord,DepartmentId,department_id,Built (hire record),department_id,unverified,PA0001-ORGEH,unverified,S0,Code or name of an active department; must exist first
+Employee import,EmploymentRecord,DesignationId,job_id,Built (hire record),job_id,unverified,PA0001-STELL,unverified,S0,Code or name of an active designation; must exist first
+Employee import,EmploymentRecord,BranchId,work_location_id,Built (hire record),work_location_id,unverified,PA0001-WERKS + BTRTL,unverified,S0,Code or name of an active branch; must exist first
+Employee import,Employee + EmploymentRecord,JoinDate + EffectiveFrom,date_start,Built (hire record),contract date_start,unverified,PA0041 or PA0000 action date,unverified,S0,All four hire columns or none
+Employee import,EmploymentRecord,ManagerEmployeeId,parent_id,Built (only with hire record),parent_id,unverified,OM reports-to,unverified,S0,SMS employee number of someone already on file; Odoo exports a name
+Employee import,EmploymentRecord,ContractEndDate,date_end,Built (only with hire record),contract date_end,unverified,PA0016 or PA0041,unverified,S0,Dropped without a hire record
+Employee import,EmployeeBankAccount,BankName,bank_name,Built,none (SMS addition),unverified,PA0009-BANKL (translate key to name),unverified,S1,Required with bank_account_id
+Employee import,EmployeeBankAccount,AccountNumberEncrypted + AccountNumberLast4,bank_account_id,Built,bank_account_id.acc_number,unverified,PA0009-BANKN,unverified,S3,Primary account; plain text in import.rows for 90 days
+Employee (screen),Employee,EmployeeNumber,,Generated,barcode or registration_number,unverified,PERNR,unverified,S0,{prefix}-NNNN; cannot be imported
+Employee (screen),Employee,FatherOrHusbandName,,Not imported,none,unverified,PA0002-NACH2 or custom,unverified,S1,
+Employee (screen),Employee,Nationality,,Not imported,country_id,unverified,PA0002-NATIO,unverified,S1,
+Employee (screen),Employee,NtnEncrypted,,Not imported,none,unverified,PA0185 other ID type,unverified,S3,
+Employee (screen),Employee,Phone,,Not imported,phone,unverified,PA0105,unverified,S1,
+Employee (screen),Employee,CurrentAddressJson + PermanentAddressJson,,Not imported,private_street etc,unverified,PA0006 subtypes 1 and 2,unverified,S1,
+Employee (screen),Employee,EmergencyContactsJson,,Not imported,emergency_contact + emergency_phone,unverified,PA0021 emergency,unverified,S1,
+Employee (screen),Employee,PhotoAttachmentUuid,,Not imported,image_1920,unverified,none,unverified,S1,
+Employee (screen),Employee,Status,,Fixed to Active on import,active + departure_date,unverified,PA0000-STAT2,unverified,S0,Leave former employees out of the file
+Employee (screen),Employee,UserId,,Not imported,user_id,unverified,PA0105 subtype 0001,unverified,S0,
+Employee (screen),Employee,LeaveDate + DepartureReason,,Not imported,departure_date + departure_reason_id,unverified,PA0041 + PA0000-MASSG,unverified,S1,
+Employment (screen),EmploymentRecord,EmploymentType,,Not imported,contract_type_id,unverified,PA0016-CTTYP + PA0001-PERSG,unverified,S0,
+Employment (screen),EmploymentRecord,GradeId,,Not imported,none,unverified,PA0001-PERSK,unverified,S0,
+Employment (screen),EmploymentRecord,ShiftId,,Not imported,resource_calendar_id,unverified,PA0007-SCHKZ,unverified,S0,
+Employment (screen),EmploymentRecord,ProbationEndDate,,Not imported,trial_date_end,unverified,PA0016-PRBZT,unverified,S0,
+Employment (screen),EmploymentRecord,ConfirmationDate,,Not imported,none,unverified,PA0041 date type,unverified,S0,
+Employment (screen),EmploymentRecord,NoticePeriodDays,,Not imported,none,unverified,PA0016-KGZRT,unverified,S0,
+Employment (screen),EmploymentRecord,CostCenterId + CostCenterCode,,Not imported,analytic account,unverified,PA0001-KOSTL,unverified,S0,
+Employment (screen),EmploymentRecord,PayrollGroup,,Not imported,structure type,unverified,PA0001-ABKRS,unverified,S0,
+Bank (screen),EmployeeBankAccount,BranchName,,Not imported,bank_id,unverified,PA0009-BANKS/BANKL,unverified,S1,
+Bank (screen),EmployeeBankAccount,AccountTitle,,Not imported,acc_holder_name,unverified,PA0009-EMFTX,unverified,S1,
+Bank (screen),EmployeeBankAccount,IbanEncrypted,,Not imported,none,unverified,PA0009-IBAN,unverified,S3,
+Bank (screen),EmployeeBankAccount,PaymentMethod,,Not imported,none,unverified,PA0009-ZLSCH,unverified,S0,
+Org set-up (before import),Branch,Code + Name + Address + City,,Create first,hr.work.location,unverified,BTRTL + T001P,unverified,S0,No import profile
+Org set-up (before import),Department,Code + Name + ParentId + HeadEmployeeId + BranchId,,Create first,hr.department,unverified,Org unit O + A002 + A012,unverified,S0,No import profile
+Org set-up (before import),Department,CostCenterId + CostCenterCode,,Create first,analytic_account_id,unverified,PA0001-KOSTL,unverified,S0,Drives the posting cost center
+Org set-up (before import),Designation,Code + Name + Level,,Create first,hr.job,unverified,Job C + PA0001-STELL,unverified,S0,No import profile
+Org set-up (before import),Grade,Code + Name + MinSalary + MaxSalary,,Create first,none,unverified,PERSK + T510,unverified,S2,No import profile
+Pay (screen),SalaryAssignment,StructureId + EffectiveFrom + EffectiveTo + ApprovalStatus,,Not imported,contract structure_type_id + state,unverified,PA0008-TRFAR/TRFGR,unverified,S2,Needs a structure and approval (D-POST-5)
+Pay (screen),SalaryAssignmentLine,ComponentId + Amount,,Not imported,contract wage,unverified,PA0008 LGA01/BET01,unverified,S2,FSD maps wage to BASIC; not built
+Pay (screen),SalaryComponent,Code + Name + Type + CalcMethod + PostingRole,,Not imported,hr.salary.rule,unverified,Wage type T512W + T52EL,unverified,S0,
+Pay (screen),SalaryStructure,Code + Name,,Not imported,hr.payroll.structure,unverified,Payroll schema,unverified,S0,
+Leave (screen),LeaveType,Code + Name + IsPaid + CarryForwardCap,,Not imported,hr.leave.type,unverified,T554S + T556,unverified,S0,
+Leave (screen),LeavePolicy,Entitlement + AccrualMethod,,Not imported,hr.leave.accrual.plan,unverified,T559L,unverified,S0,
+Leave (screen),LeaveLedgerEntry,Delta + Reason + Date,,Not imported,hr.leave.allocation,unverified,PA2006 + PA2001,unverified,S0,Enter opening balances with POST api/hrm/leave/allocate; FSD's opening balance import is not built
+Attendance (screen),AttendanceEvent,EventTimeUtc + Source + ExternalEventId,,Separate CSV route,hr.attendance,unverified,PA2011,unverified,S0,POST api/hrm/attendance/events/import
+Loans (screen),Loan,Type + Principal + InstallmentCount + StartMonth,,Not imported,loan app,unverified,PA0045,unverified,S2,FSD's opening loans import is not built
+Expenses (screen),ExpenseClaim,ClaimDate + Status + PaymentMode + SettlementMethod,,Not imported,hr.expense.sheet,unverified,Trip or expense report,unverified,S0,
+Recruitment (screen),Candidate,FirstName + LastName + Email + Phone,,Not imported,hr.applicant,unverified,PB0000,unverified,S1,
+Performance (screen),PerformanceReview,OverallRating + Status,,Not imported,hr.appraisal,unverified,Appraisal catalog,unverified,S1,
+Training (screen),Course,Code + Name,,Not imported,slide.channel,unverified,Business event D,unverified,S0,

@@ -892,6 +892,26 @@
         then confirm again.</p>
     </div>
 
+    <!-- A48 §2 — credit control refused the order (Block mode); CREDIT_OVERRIDE may confirm it with a reason. -->
+    <div class="dialog-error" *ngIf="creditBlock as cb" role="alert" data-testid="credit-block">
+      <p><i class="pi pi-shield"></i> <strong>{{ cb.message }}</strong></p>
+      <dl class="credit-check" *ngIf="cb.check as k" data-testid="credit-check">
+        <dt>Credit limit</dt><dd>{{ k.effectiveLimit === null || k.effectiveLimit === undefined ? 'No limit' : (k.effectiveLimit | number:'1.2-2') }} {{ k.baseCurrencyCode || '' }}</dd>
+        <dt>Open orders</dt><dd>{{ k.openOrdersAmount | number:'1.2-2' }}</dd>
+        <dt>Open invoices</dt><dd>{{ k.openInvoicesAmount | number:'1.2-2' }}</dd>
+        <dt>This order</dt><dd>{{ k.requestedAmount | number:'1.2-2' }}</dd>
+        <dt>Projected exposure</dt><dd>{{ k.projectedExposure | number:'1.2-2' }}</dd>
+        <dt>Available</dt><dd>{{ k.availableCredit === null || k.availableCredit === undefined ? '—' : (k.availableCredit | number:'1.2-2') }}</dd>
+        <ng-container *ngIf="k.onHold"><dt>Credit hold</dt><dd>On hold</dd></ng-container>
+      </dl>
+      <ng-container *ngIf="canCreditOverride; else noOverride">
+        <label for="so-credit-reason"><strong>Confirm anyway — reason</strong></label>
+        <textarea id="so-credit-reason" pTextarea rows="2" [(ngModel)]="creditOverrideReason" maxlength="500" style="width:100%" data-testid="credit-override-reason"></textarea>
+        <small *ngIf="creditOverrideError" data-testid="credit-override-error">{{ creditOverrideError }}</small>
+      </ng-container>
+      <ng-template #noOverride><p>Confirming it needs the credit override permission, or the customer's credit to be sorted out first.</p></ng-template>
+    </div>
+
     <div class="dialog-error" *ngIf="confirmErrors.length && !missingRate" role="alert" data-testid="confirm-errors">
       <p><i class="pi pi-times-circle"></i> The order was not confirmed:</p>
       <ul><li *ngFor="let e of confirmErrors" data-testid="confirm-error-line">{{ e }}</li></ul>
@@ -899,6 +919,8 @@
 
     <ng-template pTemplate="footer">
       <p-button label="Back" [text]="true" severity="secondary" (onClick)="confirmDialogVisible = false"></p-button>
+      <p-button *ngIf="creditBlock && canCreditOverride" label="Confirm anyway" icon="pi pi-shield" severity="danger" [disabled]="isConfirming" [loading]="isConfirming"
+                (onClick)="confirmWithCreditOverride()" data-testid="confirm-credit-override"></p-button>
       <p-button label="Confirm order" icon="pi pi-check" [disabled]="isConfirming" [loading]="isConfirming"
                 (onClick)="confirmOrder()" data-testid="confirm-order"></p-button>
     </ng-template>

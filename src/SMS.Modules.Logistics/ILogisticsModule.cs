@@ -112,6 +112,8 @@ public static class LogisticsModuleExtensions
         services.AddScoped<IShipmentService,    ShipmentService>();
         services.AddScoped<IAddressNormalizer,  AddressNormalizer>();
         services.AddScoped<IAddressBookService, AddressBookService>();
+        // A41 lead conversion seeds the new customer's address book with the lead's address (contract in SMS.Shared).
+        services.AddScoped<ICrmShippingAddressGateway, CrmShippingAddressGateway>();
         services.AddScoped<IDocumentNumberGenerator, DocumentNumberGenerator>();
         services.AddScoped<IDeliveryService,    DeliveryService>();
         services.AddScoped<ISaleOrderDeliveryService, SaleOrderDeliveryService>();

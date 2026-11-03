@@ -45,8 +45,10 @@
         <div class="sf-meta">
           <span data-testid="customer">{{ q.partnerName || q.partnerId }}</span>
           · <span data-testid="currency">{{ q.currencyCode || '—' }}</span>
-          · from inquiry <span data-testid="source-inquiry"><a *ngIf="q.sourceInquiry; else noInquiry" class="sf-mono"
-                [routerLink]="[inquiriesRoute, q.sourceInquiry.uuid]">{{ q.sourceInquiry.number }}</a><ng-template #noInquiry>—</ng-template></span>
+          <ng-container *ngIf="q.sourceInquiry">
+            · from inquiry <span data-testid="source-inquiry"><a class="sf-mono"
+                [routerLink]="[inquiriesRoute, q.sourceInquiry.uuid]">{{ q.sourceInquiry.number }}</a></span>
+          </ng-container>
         </div>
       </div>
     </div>

@@ -38,6 +38,7 @@ internal sealed partial class SaleOrderService : ISaleOrderService
     private readonly ICurrencyService? _currency;
     private readonly IPartnerCurrencyDefaults? _partnerCurrencies;
     private readonly IOrgCurrencyLookup? _orgCurrencies;
+    private readonly ICreditCheck? _creditCheck;
 
     // Both are optional the way InventoryLedgerService's master ledger is: production DI always
     // supplies them (Inventory registers both), and a caller without one gets the same behaviour
@@ -65,8 +66,11 @@ internal sealed partial class SaleOrderService : ISaleOrderService
         IManufacturingLevelDays? levelDays = null,
         ICurrencyService? currency = null, IPartnerCurrencyDefaults? partnerCurrencies = null,
         IOrgCurrencyLookup? orgCurrencies = null,
-        IServiceVariantClassifier? serviceVariants = null, IServiceOrderDemandService? serviceOrders = null)
+        IServiceVariantClassifier? serviceVariants = null, IServiceOrderDemandService? serviceOrders = null,
+        ICreditCheck? creditCheck = null)
     {
+        // A48 (AR, D-5) — Finance's credit check on confirm. Optional: without it (or with the org's mode Off) confirm is unchanged.
+        _creditCheck        = creditCheck;
         // A36 D-10 — Inventory's product type (which lines are services) and Material's service orders. Optional: without
         // the classifier no line is a service line; without Material's service none gets a service order (D-11).
         _serviceVariants    = serviceVariants;
@@ -359,18 +363,51 @@ internal sealed partial class SaleOrderService : ISaleOrderService
     // built-out business logic.
     public async Task<bool> ConfirmAsync(Guid uuid, int userId) => await ConfirmWithResultAsync(uuid, userId) is not null;
 
-    public async Task<SaleOrderConfirmResultModel?> ConfirmWithResultAsync(Guid uuid, int userId)
-    {
-        if (!await OwnOrders().AnyAsync(x => x.UUID == uuid)) return null;
+    public Task<SaleOrderConfirmResultModel?> ConfirmWithResultAsync(Guid uuid, int userId) =>
+        ConfirmWithResultAsync(uuid, userId, null);
 
-        // Under the order's hold lock, like reserve, release and cancel: confirming reserves the order's stock, and the
-        // ledger is Inventory's and commits on its own, so two confirmations of the same draft at the same moment both
-        // passed the DRAFT check and both reserved it. The second now waits, reads CONFIRMED and is refused.
-        var confirmed = await SaleOrderHolds.OneChangeAtATimeAsync<ConfirmOutcome?>(
-            _db, uuid, () => ConfirmHeldAsync(uuid, userId));
+    public async Task<SaleOrderConfirmResultModel?> ConfirmWithResultAsync(Guid uuid, int userId, SaleOrderCreditContext? credit)
+    {
+        var customer = await OwnOrders().Where(x => x.UUID == uuid).Select(x => (Guid?)x.PartnerId).FirstOrDefaultAsync();
+        if (customer is null) return null;
+
+        // A48 (AR, D-5) — the credit check is serialized per customer (TS-CR-008): the customer lock is taken before the
+        // order's own lock and held until the confirm has committed, so two orders of one customer cannot both pass on the
+        // same headroom. Mode Off (every org by default) is answered from one settings read and takes no lock at all.
+        IAsyncDisposable? creditLock = null;
+        if (_creditCheck is not null)
+        {
+            // REV-11 — the mode alone, and a failing read (a drifted database, a transient error) is Off, never a failed confirm.
+            string mode;
+            try { mode = await _creditCheck.GetModeAsync(_tenantContext.OrganizationId); }
+            catch (Exception ex)
+            {
+                _log.LogError(ex, "The credit-control mode could not be read; sale order {Uuid} is confirmed without a credit check.", uuid);
+                mode = CreditControlModes.Off;
+            }
+            if (mode != CreditControlModes.Off)
+                creditLock = await _creditCheck.LockCustomerAsync(_tenantContext.OrganizationId, customer.Value);
+        }
+
+        ConfirmOutcome? confirmed;
+        try
+        {
+            // Under the order's hold lock, like reserve, release and cancel: confirming reserves the order's stock, and the
+            // ledger is Inventory's and commits on its own, so two confirmations of the same draft at the same moment both
+            // passed the DRAFT check and both reserved it. The second now waits, reads CONFIRMED and is refused.
+            confirmed = await SaleOrderHolds.OneChangeAtATimeAsync<ConfirmOutcome?>(
+                _db, uuid, () => ConfirmHeldAsync(uuid, userId, creditLock is null ? null : credit ?? new SaleOrderCreditContext(null, false)));
+        }
+        finally
+        {
+            if (creditLock is not null) await creditLock.DisposeAsync();
+        }
         if (confirmed is null) return null;
 
         var (order, reservations, createDeliveries, createProduction) = confirmed;
+        var creditOutcome = confirmed.Credit;
+        if (creditOutcome is { Overridden: true })
+            await RecordCreditOverrideAsync(order, creditOutcome, userId, credit);
         var makeToOrderCode = EnumCode<SaleOrderLineFulfillmentMode>.Of(SaleOrderLineFulfillmentMode.MakeToOrder);
 
         // §13.4 — SO_CONFIRMED carries the outcome ("60 reserved, 40 deficit"), and each reservation
@@ -417,7 +454,12 @@ internal sealed partial class SaleOrderService : ISaleOrderService
         // ConfirmAsync's own transaction.
         await _emailService.SendConfirmationAsync(order.UUID);
 
-        var result = new SaleOrderConfirmResultModel { Status = order.Status };
+        var result = new SaleOrderConfirmResultModel
+        {
+            Status        = order.Status,
+            CreditCheck   = creditOutcome?.Result,
+            CreditWarning = creditOutcome?.Warning
+        };
 
         // A33 D-1 — the deliveries, one per route × ship-from warehouse. Only now, after the lock's transaction has
         // committed: Logistics' creator takes the same per-order lock on its own connection (REV-02), and inside ours it
@@ -449,10 +491,54 @@ internal sealed partial class SaleOrderService : ISaleOrderService
         return result;
     }
 
-    private sealed record ConfirmOutcome(SaleOrder Order, IReadOnlyList<LineReservation> Reservations, bool CreateDeliveries, bool CreateProduction);
+    private sealed record ConfirmOutcome(SaleOrder Order, IReadOnlyList<LineReservation> Reservations, bool CreateDeliveries, bool CreateProduction)
+    {
+        public CreditOutcome? Credit { get; init; }
+    }
+
+    /// <summary>A48 — what the credit check said at confirm, and whether a refusal was overridden.</summary>
+    private sealed record CreditOutcome(CreditCheckRequest Request, CreditCheckResult Result, bool Overridden, string? Warning);
+
+    internal const string CreditDocSaleOrder = "SALE_ORDER";
+
+    /// <summary>
+    /// A48 (AR, D-5, API-CONTRACT §2) — the credit check inside the confirm, after the gates and the rate lock and before
+    /// anything is reserved. A refusal is a 409 unless the caller holds CREDIT_OVERRIDE and gave a reason.
+    /// </summary>
+    private async Task<CreditOutcome?> CheckCreditAsync(SaleOrder order, DocumentRateLock? rateLock, SaleOrderCreditContext? credit)
+    {
+        if (_creditCheck is null || credit is null) return null;
+
+        var request = new CreditCheckRequest(
+            _tenantContext.OrganizationId, order.PartnerId, order.GrandTotal, null,
+            rateLock is null ? order.GrandTotal : rateLock.ToBase(order.GrandTotal), CreditDocSaleOrder, order.UUID, order.SoNumber);
+        var result = await _creditCheck.CheckAsync(request);
+        if (result.Mode == CreditControlModes.Off) return null;
+        if (result.Approved) return new CreditOutcome(request, result, false, result.Warning);
+
+        if (!credit.CanOverride || string.IsNullOrWhiteSpace(credit.OverrideReason))
+            throw new CreditCheckBlockedException(
+                $"Credit check failed: {result.BlockReason} Confirming needs the CREDIT_OVERRIDE permission and an override reason.", result);
+
+        return new CreditOutcome(request, result, true, $"Confirmed over the credit check: {result.BlockReason}");
+    }
+
+    /// <summary>The Override audit row, after the confirm committed. Never fails the confirm: the order is confirmed either way.</summary>
+    private async Task RecordCreditOverrideAsync(SaleOrder order, CreditOutcome outcome, int userId, SaleOrderCreditContext? credit)
+    {
+        try
+        {
+            await _creditCheck!.RecordOverrideAsync(outcome.Request, outcome.Result, credit!.OverrideReason!.Trim(), userId, credit.UserName);
+        }
+        catch (Exception ex)
+        {
+            _log.LogError(ex, "Sale order {SoNumber} was confirmed over its credit check, but the override could not be recorded.", order.SoNumber);
+        }
+    }
 
     /// <summary>The DRAFT → CONFIRMED change itself, run under the order's hold lock: read afresh, check, reserve, save.</summary>
-    private async Task<ConfirmOutcome?> ConfirmHeldAsync(Guid uuid, int userId)
+    /// <param name="credit">A48 — non-null when the credit check is on for this confirm (the customer lock is held).</param>
+    private async Task<ConfirmOutcome?> ConfirmHeldAsync(Guid uuid, int userId, SaleOrderCreditContext? credit = null)
     {
         var order = await OwnOrders().Include(x => x.Lines).FirstOrDefaultAsync(x => x.UUID == uuid);
         if (order is null) return null;
@@ -491,6 +577,9 @@ internal sealed partial class SaleOrderService : ISaleOrderService
         var rateLock = await DemandCurrency.LockAsync(_currency, _orgCurrency, _tenantContext.OrganizationId, order.CurrencyId,
             DemandCurrency.Today(lockedAt), TransactionDomain.Sale);
 
+        // A48 (AR, D-5) — credit, with nothing held yet (a refusal leaves the draft exactly as it was).
+        var creditOutcome = await CheckCreditAsync(order, rateLock, credit);
+
         var reservations = makeToOrder.Count == 0
             ? await _availabilityCheck.CheckAndReserveAsync(uuid, userId)
             : await _availabilityCheck.CheckAndReserveAsync(uuid, userId, makeToOrder);
@@ -518,7 +607,7 @@ internal sealed partial class SaleOrderService : ISaleOrderService
         order.ModifiedBy   = userId;
         order.ModifiedDate = DateTime.UtcNow;
         await _db.SaveChangesAsync();
-        return new ConfirmOutcome(order, reservations, createDeliveries, createProduction);
+        return new ConfirmOutcome(order, reservations, createDeliveries, createProduction) { Credit = creditOutcome };
     }
 
     // A29-P4-04 §4.5.

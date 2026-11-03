@@ -1,7 +1,8 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
+import { Router } from '@angular/router';
 import { ButtonModule } from 'primeng/button';
 import { DialogModule } from 'primeng/dialog';
 import { DrawerModule } from 'primeng/drawer';
@@ -90,6 +91,8 @@ const ACTION_LABELS: Record<string, [string, FlowTone]> = {
   providers: [MessageService]
 })
 export class ModulesComponent implements OnInit {
+  private readonly router = inject(Router, { optional: true });
+
   cards: ModuleCard[] = [];
   sections: SectionVm[] = [];
   isLoading = true;
@@ -237,6 +240,8 @@ export class ModulesComponent implements OnInit {
   onToggle(vm: CardVm, value: boolean): void {
     vm.on = value;
     if (!this.canManage || !vm.toggleable) { vm.on = !value; return; }
+    // A49 FD-9 — HRM refuses to switch on without a payroll cost center: the wizard sets that first, then switches it on.
+    if (value && vm.card.code === 'MODULE_HRM') { vm.on = false; this.router?.navigate(['/portal/pages/hrm/setup']); return; }
     if (value) this.enable(vm);
     else this.askDisable(vm);
   }

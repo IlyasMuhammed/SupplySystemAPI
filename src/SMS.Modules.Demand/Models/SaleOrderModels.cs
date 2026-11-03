@@ -365,7 +365,41 @@ public class SaleOrderConfirmResultModel
     // A36 D-10 (additive): some service line's service order could not be raised; retried on the next detail load.
     public bool    ServiceOrderCreationFailed { get; set; }
     public string? ServiceOrderMessage        { get; set; }
+
+    // A48 (AR, D-5): the credit check at confirm — null when the organization's credit control is Off.
+    public SMS.Shared.Common.CreditCheckResult? CreditCheck { get; set; }
+    /// <summary>Warn mode over the limit, or a Block-mode refusal confirmed under CREDIT_OVERRIDE: what the user should know.</summary>
+    public string? CreditWarning { get; set; }
 }
+
+/// <summary>A48 (AR, API-CONTRACT §2) — the optional body of <c>POST api/sale-orders/{uuid}/confirm</c>.</summary>
+public class ConfirmSaleOrderRequest
+{
+    /// <summary>Confirms an order the credit check blocks; needs CREDIT_OVERRIDE.</summary>
+    public string? CreditOverrideReason { get; set; }
+}
+
+/// <summary>
+/// A48 (AR, task 121, FE-3) — a confirm the credit check blocks: still a 409 (a <see cref="SMS.Shared.Exceptions.ConflictException"/>,
+/// so any caller that maps exceptions keeps working), carrying the check so the confirm dialog can show the figures.
+/// </summary>
+public sealed class CreditCheckBlockedException : SMS.Shared.Exceptions.ConflictException
+{
+    public CreditCheckBlockedException(string message, SMS.Shared.Common.CreditCheckResult result) : base(message) => Result = result;
+
+    public SMS.Shared.Common.CreditCheckResult Result { get; }
+}
+
+/// <summary>A48 (FE-3) — <c>result</c> of the 409 body of a credit-blocked confirm.</summary>
+public sealed class SaleOrderCreditBlockedModel
+{
+    public SMS.Shared.Common.CreditCheckResult CreditCheck { get; set; } = null!;
+    /// <summary>The same text as <c>message</c> (the global error body carries it as <c>result.exceptionMessage</c> too).</summary>
+    public string ExceptionMessage { get; set; } = string.Empty;
+}
+
+/// <summary>A48 (AR) — who confirms, as the credit check needs it (override permission and reason, name for the audit row).</summary>
+public sealed record SaleOrderCreditContext(string? OverrideReason, bool CanOverride, string? UserName = null);
 
 public class SaleOrderDeliveryRefModel
 {

@@ -102,7 +102,8 @@ internal sealed class AttachmentService : IAttachmentService
             throw new BadRequestException("InterfaceCode is required.");
         if (req.InterfaceCode.Length > 30)
             throw new BadRequestException("InterfaceCode is longer than 30 characters.");
-        RequireKnownKind(req.InterfaceCode);
+        // A49 — a filed-only kind has no rule on purpose: its module reads it back, api/attachments refuses it.
+        if (!AttachmentAccessPolicy.IsFiledOnly(req.InterfaceCode)) RequireKnownKind(req.InterfaceCode);
         if (req.DocumentId == Guid.Empty)
             throw new BadRequestException("DocumentId is required.");
 
@@ -166,6 +167,44 @@ internal sealed class AttachmentService : IAttachmentService
 
         await _db.SaveChangesAsync();
         return new StoredAttachment(uuid, AlreadyStored: false);
+    }
+
+    public async Task<Guid> StorePrivateUploadAsync(CreateAttachmentRequest req, byte[] content, int uploadedBy)
+    {
+        ArgumentNullException.ThrowIfNull(req);
+        if (!AttachmentAccessPolicy.KeepsUploadsPrivate(req.InterfaceCode))
+            throw new BadRequestException("Attachments cannot be kept on this kind of document.");
+        if (req.DocumentId == Guid.Empty) throw new BadRequestException("DocumentId is required.");
+        var fileName = UploadRules.DisplayName(req.FileName) ?? throw new BadRequestException("FileName is required.");
+        if (content.Length == 0) throw new BadRequestException("The file is empty.");
+
+        var uuid = Guid.NewGuid();
+        var entity = new DocumentAttachment
+        {
+            UUID = uuid, InterfaceCode = req.InterfaceCode, DocumentId = req.DocumentId, FileName = fileName,
+            FileUrl = $"/api/hrm/attachments/{uuid}/content", FileSize = content.Length, ContentType = req.ContentType, Notes = req.Notes,
+            UploadedBy = uploadedBy, UploadedDate = DateTime.UtcNow
+        };
+        _db.DocumentAttachments.Add(entity);
+        _db.DocumentAttachmentContents.Add(new DocumentAttachmentContent
+        {
+            DocumentAttachment = entity, Content = content, Sha256 = Convert.ToHexString(SHA256.HashData(content)).ToLowerInvariant()
+        });
+        await _db.SaveChangesAsync();
+        return uuid;
+    }
+
+    public async Task RemovePrivateUploadAsync(Guid uuid)
+    {
+        var entity = await OwnAttachments().FirstOrDefaultAsync(a => a.UUID == uuid && !a.IsDelete)
+            ?? throw new NotFoundException("Attachment", uuid);
+        if (!AttachmentAccessPolicy.KeepsUploadsPrivate(entity.InterfaceCode))
+            throw new ConflictException(FiledDocumentCannotBeRemoved);
+
+        var content = await OwnContents().FirstOrDefaultAsync(c => c.DocumentAttachmentId == entity.Id);
+        if (content is not null) _db.DocumentAttachmentContents.Remove(content);
+        entity.IsDelete = true;
+        await _db.SaveChangesAsync();
     }
 
     public async Task<AttachmentContent?> GetContentAsync(Guid uuid) =>

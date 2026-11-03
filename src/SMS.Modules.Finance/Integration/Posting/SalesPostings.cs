@@ -135,6 +135,17 @@ internal static class SalesPostings
     private static void RevenueAndTax(GlLines lines, SalesInvoice document, decimal headerDiscount, bool credit)
     {
         var revenue = document.GrandTotal - document.TaxAmount + headerDiscount;
+        // A49 E-13: service lines with their own income account. Whatever remains (cents of rounding included) stays on the role, or on the last account.
+        var own = document.Lines.Where(l => !string.IsNullOrWhiteSpace(l.IncomeAccountCode))
+            .GroupBy(l => l.IncomeAccountCode!.Trim(), StringComparer.OrdinalIgnoreCase)
+            .Select(g => (Code: g.Key, Amount: GlLines.Round(g.Sum(l => l.Quantity * l.UnitPrice * (1m - l.DiscountPercent / 100m))))).ToList();
+        var allOwn = own.Count > 0 && document.Lines.All(l => !string.IsNullOrWhiteSpace(l.IncomeAccountCode));
+        for (var i = 0; i < own.Count; i++)
+        {
+            var amount = allOwn && i == own.Count - 1 ? revenue : own[i].Amount;
+            lines.AccountLine(own[i].Code, amount, credit ? "Sales" : "Sales returned", debit: !credit);
+            revenue -= amount;
+        }
         if (credit) lines.Credit(PostingRoles.Revenue, revenue, "Sales"); else lines.Debit(PostingRoles.Revenue, revenue, "Sales returned");
 
         var weights = document.Lines
@@ -212,7 +223,7 @@ internal static class SalesPostings
         string.Join(", ", tenders.Select(t => $"{t.Method} {t.Amount:0.00}"));
 
     private static FinancialTransaction Transaction(
-        FinDocType type, SalesInvoice document, IAccountingDocument payload, GlLines lines, string description,
+        FinDocType type, SalesInvoice document, IAccountingDocument? payload, GlLines lines, string description,
         DateTime? dueDate = null, Guid? linked = null, IReadOnlyDictionary<string, string>? properties = null)
     {
         var (rate, _) = SalesInvoicePayloadFactory.DocumentRate(document.CurrencyCode, document.ExchangeRate, document.BaseCurrencyCode);

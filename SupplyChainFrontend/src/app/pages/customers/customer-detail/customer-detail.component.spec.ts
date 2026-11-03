@@ -11,6 +11,7 @@ import { AuthService } from '../../service/auth.service';
 import { ModuleService } from '../../../services/module.service';
 import { PosAdminService } from '../../../services/pos-admin.service';
 import { PosReturnsAdminService } from '../../../services/pos-returns-admin.service';
+import { ArApService } from '../../../services/ar-ap.service';
 
 /** A37 §15.4 — the customer object page: Details, Financial, Orders; activate / deactivate; walk-in rules. */
 describe('CustomerDetailComponent (A37)', () => {
@@ -21,6 +22,7 @@ describe('CustomerDetailComponent (A37)', () => {
   let orders: jasmine.SpyObj<SaleOrderService>;
   let posSettings: jasmine.SpyObj<PosAdminService>;
   let storeCredit: jasmine.SpyObj<PosReturnsAdminService>;
+  let arAp: jasmine.SpyObj<ArApService>;
 
   const ok = (result: unknown) => of({ success: true, message: '', result } as any);
   const acme: CustomerDetail = {
@@ -42,6 +44,9 @@ describe('CustomerDetailComponent (A37)', () => {
     storeCredit = jasmine.createSpyObj<PosReturnsAdminService>('PosReturnsAdminService', ['getCustomerStoreCredits']);
     storeCredit.getCustomerStoreCredits.and.returnValue(ok([{ uuid: 'cn-1', number: 'CN-S1-1', status: 'ACTIVE', remainingBalance: 60,
       originalAmount: 100, redeemedAmount: 40, currencyCode: 'PKR', issuedAt: '2026-10-10', issuedAtStoreName: 'Mall', issuedByName: 'Sara' }]));
+    arAp = jasmine.createSpyObj<ArApService>('ArApService', ['getProfile', 'getProcedures']);
+    arAp.getProfile.and.returnValue(of({ partnerUuid: customer.uuid, partnerName: customer.name, role: 'Customer', creditHold: true, creditHoldReason: 'Late',
+      riskTier: 'High', currentDunningLevel: 1, creditLimit: 1000 } as any));
     orders = jasmine.createSpyObj<SaleOrderService>('SaleOrderService', ['getSaleOrders']);
     orders.getSaleOrders.and.returnValue(ok({ data: [
       { uuid: 'so-1', soNumber: 'SO-0001', orderDate: '2026-10-02', grandTotal: 900, currencyCode: 'PKR', status: 'CONFIRMED' }
@@ -55,7 +60,8 @@ describe('CustomerDetailComponent (A37)', () => {
         { provide: CustomerService, useValue: service },
         { provide: SaleOrderService, useValue: orders },
         { provide: CurrenciesService, useValue: { getAll: () => ok([]) } },
-        { provide: AuthService, useValue: { hasPermission: (c: string) => perms.includes(c) } },
+        { provide: AuthService, useValue: { hasPermission: (c: string) => perms.includes(c), hasAnyPermission: (...c: string[]) => c.some(x => perms.includes(x)) } },
+        { provide: ArApService, useValue: arAp },
         { provide: ModuleService, useValue: { isFeatureEnabled: (c: string) => features.includes(c) } },
         { provide: PosAdminService, useValue: posSettings },
         { provide: PosReturnsAdminService, useValue: storeCredit }
@@ -82,6 +88,15 @@ describe('CustomerDetailComponent (A37)', () => {
     expect(component.overCredit).toBeTrue();
     expect(q('ledger-link')!.getAttribute('href')).toContain('/portal/pages/finance/customer-ledger/c-1');
     expect(component.sections.map(s => s.label)).toEqual(['Details', 'Financial', 'Orders']);
+  });
+
+  it('A48 — the receivables profile section: MODULE_FINANCE + an AR read code', async () => {
+    await setup(acme, { perms: ['CUSTOMER_VIEW', 'AR_VIEW'], features: ['MODULE_FINANCE'] });
+    expect(component.sections.map(s => s.label)).toEqual(['Details', 'Financial', 'Receivables', 'Orders']);
+    expect(arAp.getProfile).toHaveBeenCalledWith('c-1', 'Customer');
+    expect(q('pf-hold')!.textContent).toContain('On hold');
+    await setup(acme, { perms: ['CUSTOMER_VIEW', 'AP_VIEW'], features: ['MODULE_FINANCE'] });
+    expect(q('section-ar-profile')).toBeNull();
   });
 
   it('credit management off: the limit is shown as not enforced', async () => {

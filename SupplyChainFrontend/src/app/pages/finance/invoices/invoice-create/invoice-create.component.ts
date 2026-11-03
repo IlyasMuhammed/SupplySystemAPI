@@ -15,7 +15,7 @@ import { DividerModule } from 'primeng/divider';
 import { TooltipModule } from 'primeng/tooltip';
 import { MessageService } from 'primeng/api';
 import {
-  FinanceService, CreateInvoiceRequest, InvoiceLineRequest, purchaseTaxFor, INVOICE_NOTES_MAX, taxCodeOptionLabel
+  FinanceService, CreateInvoiceRequest, InvoiceLineRequest, InvoiceListItemModel, purchaseTaxFor, INVOICE_NOTES_MAX, taxCodeOptionLabel
 } from '../../../../services/finance.service';
 import { FinanceSetupService, TaxCodeModel } from '../../../../services/finance-setup.service';
 import { CurrenciesService } from '../../../../services/currencies.service';
@@ -88,6 +88,12 @@ export class InvoiceCreateComponent implements OnInit {
   grnMatchingOptions: { label: string; value: string }[] = [];  // for 3-way match field (includes "No GRN")
   grnFetchOptions:    { label: string; value: string }[] = [];  // for fetch dropdown (only real GRNs)
   selectedPoStatus = '';
+
+  /**
+   * Live invoices already on the chosen purchase order. Approving a GRN raises one by itself, so a second typed
+   * in by hand double-books the payable; the page names the existing one and asks AP to correct that instead.
+   */
+  existingInvoices: InvoiceListItemModel[] = [];
 
   /** From Lookups (every currency with a code), not a fixed list. PKR until they load. */
   currencyOptions: { label: string; value: string }[] = [{ label: 'PKR', value: 'PKR' }];
@@ -209,6 +215,23 @@ export class InvoiceCreateComponent implements OnInit {
     this.form.grnUuid     = undefined;
     this.invoiceLines     = [];
     this.buildGrnOptions();
+    this.loadExistingInvoices(sel?.label.split(' — ')[0]);
+  }
+
+  /** The supplier's invoices on this PO that are still live (a rejected or reversed one does not count). */
+  private loadExistingInvoices(poNumber: string | undefined) {
+    this.existingInvoices = [];
+    if (!poNumber || !this.form.supplierId) return;
+
+    this.financeService.getInvoices({ supplierId: this.form.supplierId, page: 1, pageSize: 100 }).subscribe({
+      next: (res) => {
+        // Still on the same PO by the time the answer comes back.
+        if (this.poOptions.find(p => p.value === this.form.poUuid)?.label.split(' — ')[0] !== poNumber) return;
+        this.existingInvoices = (res.result?.data ?? []).filter(i =>
+          i.poNumber === poNumber && i.matchStatus !== 'Rejected' && i.matchStatus !== 'Reversed');
+      },
+      error: () => { /* a hint only: the server still has its own checks */ }
+    });
   }
 
   private buildGrnOptions() {

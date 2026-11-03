@@ -37,7 +37,7 @@ internal sealed class ImportTargetRegistry
                 throw new InvalidOperationException($"Two import targets describe entity type {def.EntityType}.");
             var fields = def.Fields.Any(f => f.FieldName.Equals(ImportLimits.ExternalIdField, StringComparison.OrdinalIgnoreCase))
                 ? def.Fields.OrderBy(f => f.SortOrder).ToList()
-                : new[] { ExternalIdField }.Concat(def.Fields.OrderBy(f => f.SortOrder)).ToList();
+                : new[] { def.ExternalIdHelp is { } help ? ExternalIdField with { Description = help } : ExternalIdField }.Concat(def.Fields.OrderBy(f => f.SortOrder)).ToList();
             _byType[def.EntityType] = new ImportTargetEntry(target, def, fields);
         }
     }

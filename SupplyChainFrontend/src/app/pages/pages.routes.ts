@@ -201,6 +201,26 @@ import { GlJournalTypesComponent } from './finance/gl/journal-types/gl-journal-t
 import { GlReconciliationComponent } from './finance/gl/reconciliation/gl-reconciliation.component';
 import { GlTrialBalanceComponent } from './finance/gl/trial-balance/gl-trial-balance.component';
 import { GlPeriodCloseComponent } from './finance/gl/period-close/gl-period-close.component';
+import { hrmModuleGuard } from './hrm/core/hrm.guards';
+import { ArDashboardComponent } from './finance/ar-ap/ar-dashboard/ar-dashboard.component';
+import { CreditControlComponent } from './finance/ar-ap/credit-control/credit-control.component';
+import { CustomerStatementComponent } from './finance/ar-ap/customer-statement/customer-statement.component';
+import { DunningProceduresComponent } from './finance/ar-ap/dunning-procedures/dunning-procedures.component';
+import { DunningRunsComponent } from './finance/ar-ap/dunning-runs/dunning-runs.component';
+import { ApDashboardComponent } from './finance/ar-ap/ap-dashboard/ap-dashboard.component';
+import { PaymentSchedulesComponent } from './finance/ar-ap/payment-schedules/payment-schedules.component';
+import { PaymentRunListComponent } from './finance/ar-ap/payment-runs/payment-run-list.component';
+import { PaymentRunWizardComponent } from './finance/ar-ap/payment-runs/payment-run-wizard.component';
+import { MatchingListComponent } from './finance/ar-ap/matching/matching-list.component';
+import { InvoiceMatchingComponent } from './finance/ar-ap/matching/invoice-matching.component';
+import { ApSettingsComponent } from './finance/ar-ap/ap-settings/ap-settings.component';
+import { VendorStatementComponent } from './finance/ar-ap/vendor-statement/vendor-statement.component';
+import { CreditMemosComponent } from './finance/ar-ap/credit-memos/credit-memos.component';
+import { DebitMemosComponent } from './finance/ar-ap/debit-memos/debit-memos.component';
+import {
+  AP_READ, ARAP_SETTINGS_READ, AR_READ, CREDIT_MEMO_READ, CREDIT_READ, DEBIT_MEMO_READ, DUNNING_PROCEDURE_READ, DUNNING_RUN_READ, MATCH_READ, PAYMENT_RUN_READ, SCHEDULE_READ,
+  STATEMENT_READ, VENDOR_STATEMENT_READ
+} from '../services/ar-ap.service';
 
 // Permission code constants (mirrors PermissionCodes.cs)
 const P = {
@@ -523,6 +543,11 @@ export default [
 
     // ── Services — Service Orders (A36 D-15) ──────────────────────────────────
     // "new" and "dashboard" ahead of ":uuid".
+    // ── HRM (A49, docs/hrm/API-CONTRACT.md) — lazy. The setup wizard is reached with the module still off (§10.2), so it sits outside the gate.
+    { path: 'hrm/setup', loadComponent: () => import('./hrm/setup/hrm-setup.component').then(m => m.HrmSetupComponent),
+      canActivate: [permissionGuard('HRM_SETTINGS_MANAGE', P.MODULES_MANAGE)] },
+    { path: 'hrm', canActivate: [hrmModuleGuard], loadChildren: () => import('./hrm/hrm.routes') },
+
     // ── CRM (A41, docs/crm/API-CONTRACT.md) — same codes as the menu; the API also needs MODULE_CRM. ──
     { path: 'crm/leads', component: LeadListComponent,
       canActivate: [permissionGuard(P.CRM_VIEW_LEADS)] },
@@ -789,6 +814,9 @@ export default [
     // whoever can read or record, and each page hides what its user may not do.
     { path: 'finance/sales-invoices', component: SalesInvoiceListComponent,
       canActivate: [permissionGuard(P.SALES_INVOICE_VIEW, P.SALES_INVOICE_MANAGE)] },
+    // A49 E-13 — manual service invoice; same code as POST api/sales-invoices/service.
+    { path: 'finance/sales-invoices/service/new', loadComponent: () => import('./finance/sales-invoices/service-invoice/service-invoice.component').then(m => m.ServiceInvoiceComponent),
+      canActivate: [permissionGuard(P.SALES_INVOICE_MANAGE)] },
     { path: 'finance/sales-invoices/:uuid', component: SalesInvoiceDetailComponent,
       canActivate: [permissionGuard(P.SALES_INVOICE_VIEW, P.SALES_INVOICE_MANAGE)] },
     // "new" comes before ":uuid", or it would be taken for a payment's id.
@@ -845,6 +873,27 @@ export default [
       canActivate: [permissionGuard(P.GL_REPORTS_VIEW), glFeatureGuard] },
     { path: 'finance/gl/period-close', component: GlPeriodCloseComponent,
       canActivate: [permissionGuard(P.GL_PERIOD_CLOSE_VIEW, P.GL_PERIOD_CLOSE_EXECUTE, P.GL_PERIOD_CLOSE_ADMIN), glFeatureGuard] },
+
+    // ── AR & AP sub-ledgers (A48 D-18, docs/ar-ap-subledgers/API-CONTRACT.md) — D-14 codes, as the API reads are gated;
+    // each page hides the actions its user may not take. "new" before ":uuid".
+    { path: 'finance/ar', component: ArDashboardComponent, canActivate: [permissionGuard(...AR_READ)] },
+    { path: 'finance/ar/credit', component: CreditControlComponent, canActivate: [permissionGuard(...CREDIT_READ)] },
+    { path: 'finance/ar/credit/:uuid', component: CreditControlComponent, canActivate: [permissionGuard(...CREDIT_READ)] },
+    { path: 'finance/ar/statements', component: CustomerStatementComponent, canActivate: [permissionGuard(...STATEMENT_READ)] },
+    { path: 'finance/ar/credit-memos', component: CreditMemosComponent, canActivate: [permissionGuard(...CREDIT_MEMO_READ)] },
+    { path: 'finance/ap/debit-memos', component: DebitMemosComponent, canActivate: [permissionGuard(...DEBIT_MEMO_READ)] },
+    { path: 'finance/ar/dunning/procedures', component: DunningProceduresComponent, canActivate: [permissionGuard(...DUNNING_PROCEDURE_READ)] },
+    { path: 'finance/ar/dunning/runs', component: DunningRunsComponent, canActivate: [permissionGuard(...DUNNING_RUN_READ)] },
+    { path: 'finance/ap', component: ApDashboardComponent, canActivate: [permissionGuard(...AP_READ)] },
+    { path: 'finance/ap/payment-schedules', component: PaymentSchedulesComponent, canActivate: [permissionGuard(...SCHEDULE_READ)] },
+    { path: 'finance/ap/payment-runs', component: PaymentRunListComponent, canActivate: [permissionGuard(...PAYMENT_RUN_READ)] },
+    { path: 'finance/ap/payment-runs/new', component: PaymentRunWizardComponent, canActivate: [permissionGuard('PAYMENT_RUN_PROPOSE')] },
+    { path: 'finance/ap/payment-runs/:uuid', component: PaymentRunWizardComponent, canActivate: [permissionGuard(...PAYMENT_RUN_READ)] },
+    { path: 'finance/ap/matching', component: MatchingListComponent, canActivate: [permissionGuard(...MATCH_READ)] },
+    { path: 'finance/ap/matching/:uuid', component: InvoiceMatchingComponent, canActivate: [permissionGuard(...MATCH_READ)] },
+    { path: 'finance/ap/settings', component: ApSettingsComponent, canActivate: [permissionGuard(...ARAP_SETTINGS_READ)] },
+    { path: 'finance/ap/vendor-statement', component: VendorStatementComponent, canActivate: [permissionGuard(...VENDOR_STATEMENT_READ)] },
+    { path: 'finance/ap/vendor-statement/:uuid', component: VendorStatementComponent, canActivate: [permissionGuard(...VENDOR_STATEMENT_READ)] },
 
     // ── Reports & Analytics ───────────────────────────────────────────────────
     { path: 'reports/kpi-dashboard', component: KpiDashboardComponent,

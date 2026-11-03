@@ -1,4 +1,4 @@
-using System.Security.Claims;
+﻿using System.Security.Claims;
 using SMS.Shared.Authorization;
 
 namespace SMS.WorkflowEngine.Services;
@@ -135,6 +135,17 @@ public static class AttachmentAccessPolicy
         // whatever opens the order page (its route guard), changed with SALE_ORDER_CREATE / SALE_ORDER_EDIT.
         Rule("CUSTOMER_PO", SaleOrderViewers, SaleOrderEditors, [PermissionCodes.SALE_ORDER_EDIT], [PermissionCodes.SALE_ORDER_CREATE]),
         Rule("SALE_ORDER",  SaleOrderViewers, SaleOrderEditors, [PermissionCodes.SALE_ORDER_EDIT], [PermissionCodes.SALE_ORDER_CREATE]),
+        // A49 — HRM files, keyed by the document's uuid. Each viewer list is the module's own gate; HRM endpoints also apply the
+        // employee scope (docs/hrm/API-CONTRACT.md §2.9). Payslips, letters and tax certificates are generated PDFs read only
+        // through HRM's own endpoints (scope + own-record check), so they have no rule here: api/attachments refuses them.
+        Rule("HRM_EMPLOYEE", [PermissionCodes.HRM_EMPLOYEE_EDIT, PermissionCodes.HRM_EMPLOYEE_SENSITIVE_VIEW], [PermissionCodes.HRM_EMPLOYEE_EDIT], [PermissionCodes.HRM_EMPLOYEE_EDIT]),
+        Rule("HRM_LEAVE_REQUEST", [PermissionCodes.HRM_LEAVE_VIEW, PermissionCodes.HRM_LEAVE_APPROVE, PermissionCodes.HRM_LEAVE_MANAGE, PermissionCodes.HRM_SELF_SERVICE],
+            [PermissionCodes.HRM_SELF_SERVICE, PermissionCodes.HRM_LEAVE_MANAGE], [PermissionCodes.HRM_LEAVE_MANAGE], [PermissionCodes.HRM_SELF_SERVICE]),
+        Rule("HRM_EXPENSE_CLAIM", [PermissionCodes.HRM_EXPENSE_VIEW, PermissionCodes.HRM_EXPENSE_APPROVE, PermissionCodes.HRM_EXPENSE_PAY, PermissionCodes.HRM_SELF_SERVICE],
+            [PermissionCodes.HRM_SELF_SERVICE], [], [PermissionCodes.HRM_SELF_SERVICE]),
+        Rule("HRM_CANDIDATE", [PermissionCodes.HRM_RECRUITMENT_VIEW, PermissionCodes.HRM_RECRUITMENT_MANAGE], [PermissionCodes.HRM_RECRUITMENT_MANAGE], [PermissionCodes.HRM_RECRUITMENT_MANAGE]),
+        Rule("HRM_ENROLLMENT", [PermissionCodes.HRM_TRAINING_VIEW, PermissionCodes.HRM_TRAINING_MANAGE, PermissionCodes.HRM_SELF_SERVICE],
+            [PermissionCodes.HRM_TRAINING_MANAGE], [PermissionCodes.HRM_TRAINING_MANAGE]),
     ];
 
     /// <summary>
@@ -142,6 +153,21 @@ public static class AttachmentAccessPolicy
     /// picture, the PO letterhead's logo — so nothing but a picture may be uploaded there.
     /// </summary>
     public static bool TakesPicturesOnly(string interfaceCode) => interfaceCode is "PRODUCT_IMAGE" or "PO_TEMPLATE_LOGO";
+
+    /// <summary>
+    /// A49 — uploads that must not land under wwwroot, where static files serve them to anyone holding the URL: HR files (identity
+    /// scans, receipts, resumes). Their bytes go to the database and are read through <c>/content</c>, which checks the rule.
+    /// </summary>
+    public static bool KeepsUploadsPrivate(string interfaceCode) =>
+        interfaceCode is "HRM_EMPLOYEE" or "HRM_LEAVE_REQUEST" or "HRM_EXPENSE_CLAIM" or "HRM_CANDIDATE" or "HRM_ENROLLMENT";
+
+    /// <summary>
+    /// A49 — kinds the system files through <c>StoreGeneratedAsync</c> and reads back in-process only. They deliberately have
+    /// no <see cref="Rules"/> entry, so <c>api/attachments</c> refuses them on every route (no list, no upload, no content,
+    /// no removal) and the owning module's endpoints stay the only way in: a permission code cannot express
+    /// "only their own payslip" or the HR scope.
+    /// </summary>
+    public static bool IsFiledOnly(string interfaceCode) => interfaceCode is "HRM_PAYSLIP" or "HRM_LETTER" or "HRM_TAX_CERTIFICATE";
 
     /// <summary>
     /// Whether this caller may remove this uploaded file: anybody's with <see cref="AttachmentAccessRule.Delete"/>,

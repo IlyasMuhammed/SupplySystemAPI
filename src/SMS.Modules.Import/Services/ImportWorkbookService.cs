@@ -35,10 +35,12 @@ internal sealed class ImportWorkbookService : IImportWorkbookService
     private readonly ITenantContext _tenant;
     private readonly ImportSessionService _sessions;
     private readonly ILogger _log;
+    private readonly ImportRowProtector _protector;
 
     public ImportWorkbookService(ImportDbContext db, ImportTargetRegistry registry, ITenantContext tenant, ImportSessionService sessions,
-        ILogger<ImportWorkbookService>? log = null)
+        ILogger<ImportWorkbookService>? log = null, ImportRowProtector? protector = null)
     {
+        _protector = protector ?? new ImportRowProtector();
         _db = db; _registry = registry; _tenant = tenant; _sessions = sessions;
         _log = log ?? (ILogger)NullLogger.Instance;
     }
@@ -73,7 +75,7 @@ internal sealed class ImportWorkbookService : IImportWorkbookService
             header.Style.Font.Bold = true;
             if (f.IsRequired) header.Style.Font.FontColor = RequiredFont;
             if (f.FieldName.Equals(ImportLimits.ExternalIdField, StringComparison.OrdinalIgnoreCase))
-                header.CreateComment().AddText(ImportTargetRegistry.ExternalIdField.Description!);
+                header.CreateComment().AddText(f.Description!);
 
             var helpCell = data.Cell(2, c + 1);
             helpCell.Value = help[c];
@@ -185,9 +187,13 @@ internal sealed class ImportWorkbookService : IImportWorkbookService
             def.Description ?? string.Empty,
             "Fill one record per row on the Data sheet, starting below the blue sample row (you may overwrite or delete the grey help row and the blue sample row).",
             "Headers in red are required. Do not rename the headers; extra columns are ignored unless you map them.",
-            "External ID (first column) is optional: your previous system's id. Importing the same External ID again updates the record it created.",
+            def.ExternalIdHelp is { } externalHelp
+                ? $"External ID (first column): {externalHelp}"
+                : "External ID (first column) is optional: your previous system's id. Importing the same External ID again updates the record it created.",
             $"Records are matched to existing ones by: {string.Join(", ", def.MatchFields.Select(m => entry.Field(m)?.DisplayName ?? m))}.",
-            "Dates: yyyy-MM-dd (also MM-dd-yyyy, dd-MMM-yyyy or an Excel date). Yes/No columns accept Yes, No, Y, N, 1, 0, True, False.",
+            (entry.Fields.Any(f => f.UnambiguousDateOnly)
+                ? "Dates: yyyy-MM-dd or dd-MMM-yyyy (or an Excel date). 05/01/2024 is refused: it can be read two ways."
+                : "Dates: yyyy-MM-dd (also MM-dd-yyyy, dd-MMM-yyyy or an Excel date).") + " Yes/No columns accept Yes, No, Y, N, 1, 0, True, False.",
         };
         for (var i = 0; i < lines.Length; i++) ws.Cell(i + 2, 1).Value = lines[i];
 
@@ -231,7 +237,7 @@ internal sealed class ImportWorkbookService : IImportWorkbookService
     {
         using var wb = new XLWorkbook();
         var position = 1;
-        foreach (var entry in _registry.All)
+        foreach (var entry in _registry.All.Where(e => e.Definition.RequiresModule is null))
         {
             var ws = wb.AddWorksheet(SheetName(position, entry.Definition.Name));
             for (var c = 0; c < entry.Fields.Count; c++)
@@ -262,6 +268,8 @@ internal sealed class ImportWorkbookService : IImportWorkbookService
     public async Task<ImportFile> ErrorReportAsync(Guid uuid, ImportCaller caller, CancellationToken ct = default)
     {
         var session = await _sessions.LoadAsync(uuid, caller, false, ct);
+        var def = _registry.TryGet(session.EntityType, out var entry) ? entry.Definition : null;
+        ImportOpeningGate.EnsureProfileCodes(def, caller);
         var headers = JsonSerializer.Deserialize<List<string>>(session.HeadersJson, ImportSessionService.Json) ?? [];
         var rows = await _db.Rows.IgnoreQueryFilters().AsNoTracking()
             .Where(r => r.SessionId == session.Id && (r.Status == ImportRowStatus.Invalid || r.Status == ImportRowStatus.Error))
@@ -274,7 +282,7 @@ internal sealed class ImportWorkbookService : IImportWorkbookService
         var counts = new Dictionary<string, int>();
         foreach (var row in rows)
         {
-            var raw = JsonSerializer.Deserialize<string?[]>(row.RawJson, ImportSessionService.Json) ?? [];
+            var raw = _protector.MaskedRaw(def, row, session.Mappings.ToList());
             for (var c = 0; c < headers.Count; c++) ws.Cell(r, c + 1).Value = c < raw.Length ? raw[c] ?? string.Empty : string.Empty;
             var errors = ImportSessionService.Errors(row);
             foreach (var e in errors) counts[e.Code] = counts.GetValueOrDefault(e.Code) + 1;
@@ -305,6 +313,8 @@ internal sealed class ImportWorkbookService : IImportWorkbookService
     public async Task<ImportFile> ResultsReportAsync(Guid uuid, ImportCaller caller, CancellationToken ct = default)
     {
         var session = await _sessions.LoadAsync(uuid, caller, false, ct);
+        var def = _registry.TryGet(session.EntityType, out var entry) ? entry.Definition : null;
+        ImportOpeningGate.EnsureProfileCodes(def, caller);
         var headers = JsonSerializer.Deserialize<List<string>>(session.HeadersJson, ImportSessionService.Json) ?? [];
         var rows = await _db.Rows.IgnoreQueryFilters().AsNoTracking().Where(r => r.SessionId == session.Id)
             .OrderBy(r => r.RowNumber).ToListAsync(ct);
@@ -315,7 +325,7 @@ internal sealed class ImportWorkbookService : IImportWorkbookService
         var r = 2;
         foreach (var row in rows)
         {
-            var raw = JsonSerializer.Deserialize<string?[]>(row.RawJson, ImportSessionService.Json) ?? [];
+            var raw = _protector.MaskedRaw(def, row, session.Mappings.ToList());
             for (var c = 0; c < headers.Count; c++) ws.Cell(r, c + 1).Value = c < raw.Length ? raw[c] ?? string.Empty : string.Empty;
             ws.Cell(r, headers.Count + 1).Value = row.RowNumber;
             ws.Cell(r, headers.Count + 2).Value = row.Status;

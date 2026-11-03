@@ -17,6 +17,7 @@ import { CustomerFormDialogComponent } from '../customer-form-dialog/customer-fo
 import { CustomerPosSectionComponent } from '../../pos/customer-pos-section/customer-pos-section.component';
 import { CustomerStoreCreditComponent } from '../../pos/customer-store-credit/customer-store-credit.component';
 import { FLOW, FlowSection } from '../../../shared/flow';
+import { PartnerFinancialProfileComponent, profileReadCodes } from '../../finance/ar-ap/partner-profile/partner-financial-profile.component';
 import { formatCode } from '../../../shared/format-code';
 import { SALE_ORDER_STATUS_SEVERITY } from '../../sales/sale-orders/sale-order-list/sale-order-list.component';
 
@@ -26,7 +27,7 @@ import { SALE_ORDER_STATUS_SEVERITY } from '../../sales/sale-orders/sale-order-l
   standalone: true,
   imports: [
     CommonModule, RouterModule, ButtonModule, TagModule, ToastModule, TooltipModule, TableModule, ConfirmDialogModule,
-    CustomerFormDialogComponent, CustomerPosSectionComponent, CustomerStoreCreditComponent, ...FLOW
+    CustomerFormDialogComponent, CustomerPosSectionComponent, CustomerStoreCreditComponent, PartnerFinancialProfileComponent, ...FLOW
   ],
   templateUrl: './customer-detail.component.html',
   providers: [MessageService, ConfirmationService]
@@ -70,10 +71,16 @@ export class CustomerDetailComponent implements OnInit {
     return [
       { id: 'sec-details', label: 'Details' },
       { id: 'sec-financial', label: 'Financial' },
+      ...(this.showArProfile ? [{ id: 'sec-ar-profile', label: 'Receivables' }] : []),
       { id: 'sec-orders', label: 'Orders', count: this.canViewOrders ? this.ordersTotal : null },
       ...(this.showPos ? [{ id: 'sec-pos', label: 'POS' }] : []),
       ...(this.showStoreCredit ? [{ id: 'sec-store-credit', label: 'Store credit' }] : [])
     ];
+  }
+
+  /** A48 C1 — the financial profile section: MODULE_FINANCE and any AR/AP read code (its GET needs one). */
+  get showArProfile(): boolean {
+    return this.modules.isFeatureEnabled('MODULE_FINANCE') && profileReadCodes('Customer').some(c => this.auth.hasPermission(c));
   }
 
   /** A39 — the customer's POS store credit (CN-…). */
