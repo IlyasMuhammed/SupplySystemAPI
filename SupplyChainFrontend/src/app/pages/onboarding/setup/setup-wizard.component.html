@@ -1,0 +1,311 @@
+<p-toast></p-toast>
+<p-confirmDialog key="ob-wiz"></p-confirmDialog>
+<sf-page [crumbs]="['Settings', 'Organization', 'Setup wizard']">
+  <div sfCmd class="sf-cmd" role="toolbar" aria-label="Commands">
+    <p-button *ngIf="!launched && state?.setupStatus !== 'Completed'" label="Skip setup" icon="pi pi-forward" [text]="true" [loading]="skipping"
+              [disabled]="applying" (onClick)="confirmSkip()" data-testid="skip"></p-button>
+    <p-button *ngIf="!launched && stepInfo && step !== 2 && step !== lastStep" label="Reset to default" icon="pi pi-refresh" [text]="true"
+              [disabled]="applying || previewLoading" (onClick)="confirmReset()" data-testid="reset-step"></p-button>
+    <span class="sf-end">
+      <span class="sf-mu sf-sm" *ngIf="saving" data-testid="saving"><i class="pi pi-spin pi-spinner"></i> Saving…</span>
+      <p-button label="Default data" icon="pi pi-database" [text]="true" routerLink="/portal/pages/onboarding/default-data"></p-button>
+    </span>
+  </div>
+
+  <header class="sf-hdr">
+    <div class="sf-t"><div>
+      <div class="sf-kicker">Setup wizard</div>
+      <h1>Set up {{ orgName || 'your organization' }}
+        <span class="sf-pill" *ngIf="state" [ngClass]="statusTone(state.setupStatus)" data-testid="status">{{ statusLabel(state.setupStatus) }}</span></h1>
+      <div class="sf-meta">Accounts, tax, currencies, warehouses and your team — pre-filled for your country and industry, ready to change.</div>
+    </div></div>
+    <nav class="ob-steps" aria-label="Setup steps" data-testid="stepper" *ngIf="!launched">
+      <button *ngFor="let s of steps" type="button" [class.on]="s.step === step" [class.done]="s.step < step || (s.step <= maxStep && s.step !== step)"
+              [disabled]="s.step > maxStep + 1 || applying || (s.step > step && !!stepProblem)" (click)="go(s.step)"
+              [attr.aria-current]="s.step === step ? 'step' : null" [attr.data-testid]="'step-' + s.step">
+        <b>{{ s.step }}. {{ s.short }}</b><span>{{ s.step === step ? 'now' : s.step <= maxStep ? 'visited' : '' }}</span>
+      </button>
+    </nav>
+  </header>
+
+  <div class="sf-body">
+    <div class="sf-card sf-empty" *ngIf="loading" data-testid="loading"><i class="pi pi-spin pi-spinner"></i> Loading the setup…</div>
+    <div class="ob-note er" *ngIf="loadError" data-testid="load-error"><i class="pi pi-exclamation-triangle"></i><div>{{ loadError }}</div></div>
+
+    <ng-container *ngIf="!loading && !loadError && state">
+      <div class="ob-note" *ngIf="isRerun && !launched" data-testid="rerun-note">
+        <i class="pi pi-info-circle"></i>
+        <div>Setup was {{ state.setupStatus === 'Skipped' ? 'skipped' : 'completed' }}<ng-container *ngIf="state.completedAt"> on {{ state.completedAt | date:'d MMM y' }}</ng-container>.
+          Running it again only adds what is missing — nothing you created or changed is overwritten.</div>
+      </div>
+      <div class="ob-note er" *ngIf="previewError" data-testid="preview-error"><i class="pi pi-exclamation-triangle"></i>
+        <div class="grow">{{ previewError }}</div><p-button label="Retry" size="small" [text]="true" (onClick)="loadPreview()"></p-button></div>
+
+      <!-- ═══ Success ═══ -->
+      <ng-container *ngIf="launched; else wizardTpl">
+        <section class="sf-card" data-testid="success">
+          <div class="ob-note ok"><i class="pi pi-check-circle"></i><div><strong>Your system is ready!</strong>
+            The defaults were created. Here is where to go next.</div></div>
+          <div class="ob-links">
+            <ng-container *ngFor="let l of quickLinks">
+              <a *ngIf="linkVisible(l)" [routerLink]="l.route" [attr.data-testid]="'quick-' + l.route"><i [class]="l.icon"></i>{{ l.label }}</a>
+            </ng-container>
+          </div>
+        </section>
+        <ng-container *ngTemplateOutlet="resultsTpl"></ng-container>
+      </ng-container>
+
+      <ng-template #wizardTpl>
+        <div class="sf-card">
+          <div class="sf-ch" style="margin-bottom:0"><div><h2 data-testid="step-title">Step {{ step }} of {{ lastStep }} — {{ stepInfo.title }}</h2></div></div>
+        </div>
+
+        <ng-container [ngSwitch]="step">
+          <!-- ── 1. Company & industry ── -->
+          <section class="sf-card" *ngSwitchCase="1" data-testid="step1">
+            <div class="sf-fields">
+              <div class="sf-fld"><label for="ob-org">Company name</label>
+                <input pInputText id="ob-org" [value]="orgName" readonly data-testid="org-name" /></div>
+              <div class="sf-fld"><label for="ob-country">Country <span class="sf-req">*</span></label>
+                <p-select inputId="ob-country" [options]="countries" optionLabel="name" optionValue="code" [(ngModel)]="countryCode"
+                          (ngModelChange)="onCountryChange()" [filter]="true" placeholder="Choose the country" [style]="{ width: '100%' }"
+                          data-testid="country"></p-select></div>
+              <div class="sf-fld"><label for="ob-industry">Industry <span class="sf-req">*</span></label>
+                <p-select inputId="ob-industry" [options]="industries" optionLabel="name" optionValue="code" [(ngModel)]="industryType"
+                          (ngModelChange)="onIndustryChange()" placeholder="Choose the industry" [style]="{ width: '100%' }"
+                          data-testid="industry"></p-select></div>
+            </div>
+            <p class="ob-mu ob-sm" style="margin-top:.75rem">The country and industry choose the starting defaults: chart of accounts,
+              tax codes, currencies and fiscal year. You can change all of them in the next steps.</p>
+            <div class="sf-mu sf-sm" *ngIf="previewLoading" data-testid="preview-loading"><i class="pi pi-spin pi-spinner"></i> Loading the defaults…</div>
+            <div class="ob-row ob-sm" *ngIf="!previewLoading && previews.length" data-testid="resolved">
+              <span class="ob-mu">Defaults found for</span>
+              <span class="sf-pill" *ngFor="let p of previews" [ngClass]="rTone(p.status)">{{ catLabel(p.category) }}<ng-container *ngIf="p.resolvedFrom">
+                · {{ p.resolvedFrom.country }}/{{ p.resolvedFrom.industry }}</ng-container></span>
+            </div>
+          </section>
+
+          <!-- ── 2. Modules ── -->
+          <section class="sf-card" *ngSwitchCase="2" data-testid="step2">
+            <p class="ob-mu ob-sm">Switch on the parts of the system you will use. Only modules in your plan can be switched; each category of
+              defaults is applied only when its module is on.</p>
+            <div class="ob-note" *ngIf="!canManageModules" data-testid="modules-readonly"><i class="pi pi-eye"></i><div>Switching modules needs the "Manage modules" permission.</div></div>
+            <div class="sf-mu" *ngIf="modulesLoading" data-testid="modules-loading"><i class="pi pi-spin pi-spinner"></i> Loading modules…</div>
+            <div class="ob-note er" *ngIf="modulesError" data-testid="modules-error"><i class="pi pi-exclamation-triangle"></i>
+              <div class="grow">{{ modulesError }}</div><p-button label="Retry" size="small" [text]="true" (onClick)="loadModules()"></p-button></div>
+            <div class="sf-empty" *ngIf="!modulesLoading && !modulesError && !moduleCards.length" data-testid="modules-empty">No modules to show.</div>
+            <div class="ob-cards">
+              <div class="ob-choice" *ngFor="let m of moduleCards" [class.on]="m.isEnabled" [class.off]="!m.isLicensed" [attr.data-testid]="'module-' + m.code">
+                <p-toggleswitch [ngModel]="m.isEnabled" (ngModelChange)="toggleModule(m, $event)" [disabled]="!moduleSwitchable(m)"
+                                [ariaLabel]="m.name" [attr.data-testid]="'module-toggle-' + m.code"></p-toggleswitch>
+                <div class="ob-grow"><div class="t">{{ m.name }}</div>
+                  <div class="d">{{ m.description || '—' }}</div>
+                  <div class="d"><i class="pi pi-spin pi-spinner" *ngIf="moduleBusy === m.code"></i> {{ moduleNote(m) }}</div></div>
+              </div>
+            </div>
+          </section>
+
+          <!-- ── 3. Chart of accounts ── -->
+          <section class="sf-card" *ngSwitchCase="3" data-testid="step3">
+            <ng-container *ngIf="preview('COA') as p; else noCoa">
+              <div class="ob-note wn" *ngIf="p.status === 'ModuleDisabled'"><i class="pi pi-info-circle"></i><div>The general ledger is off, so the chart is not created now.</div></div>
+              <div class="ob-row" style="margin-bottom:.5rem">
+                <p-checkbox [binary]="true" [ngModel]="!skip.has('COA')" (ngModelChange)="toggleSkip('COA', $event)" inputId="ob-coa-inc"></p-checkbox>
+                <label for="ob-coa-inc">Create this chart of accounts</label>
+                <span class="ob-grow"></span><span class="ob-mu ob-sm">{{ p.displayName }} · v{{ p.version }}</span>
+              </div>
+              <p class="ob-mu ob-sm">Rename, add or remove accounts, and drag them between groups (or use "Move to…"). Badges show the default
+                role an account plays — those accounts stay. Existing accounts in your books are never changed.</p>
+              <app-coa-tree-editor [payload]="payloads['COA']" (payloadChange)="setPayload('COA', $event)" [readonly]="skip.has('COA')"></app-coa-tree-editor>
+            </ng-container>
+            <ng-template #noCoa><div class="sf-empty" data-testid="coa-none">No chart of accounts defaults for this country.</div></ng-template>
+          </section>
+
+          <!-- ── 4. Tax codes ── -->
+          <section class="sf-card" *ngSwitchCase="4" data-testid="step4">
+            <ng-container *ngIf="preview('TAX') as p; else noTax">
+              <div class="ob-note wn" *ngIf="p.status === 'ModuleDisabled'"><i class="pi pi-info-circle"></i><div>Finance is off, so tax codes are not created now.</div></div>
+              <div class="ob-note wn" *ngIf="p.verified === false && !payloads['TAX']" data-testid="tax-unverified-top">
+                <i class="pi pi-exclamation-triangle"></i><div>verified: false — check with your tax adviser.</div></div>
+              <div class="ob-row" style="margin-bottom:.5rem">
+                <p-checkbox [binary]="true" [ngModel]="!skip.has('TAX')" (ngModelChange)="toggleSkip('TAX', $event)" inputId="ob-tax-inc"></p-checkbox>
+                <label for="ob-tax-inc">Create these tax codes</label>
+              </div>
+              <app-tax-table-editor [payload]="payloads['TAX']" (payloadChange)="setPayload('TAX', $event)" [readonly]="skip.has('TAX')"></app-tax-table-editor>
+            </ng-container>
+            <ng-template #noTax><div class="sf-empty" data-testid="tax-none">No tax defaults for this country.</div></ng-template>
+          </section>
+
+          <!-- ── 5. Currency & fiscal year ── -->
+          <section class="sf-card" *ngSwitchCase="5" data-testid="step5">
+            <div class="sf-fields">
+              <div class="sf-fld"><label for="ob-base">Base currency <span class="sf-req">*</span></label>
+                <p-select inputId="ob-base" [options]="currencyOptions" optionLabel="label" optionValue="code" [ngModel]="baseCurrency"
+                          (ngModelChange)="setBaseCurrency($event)" [filter]="true" [style]="{ width: '100%' }" data-testid="base-currency"></p-select>
+                <small class="ob-mu">Set as the base for sales, purchases and services only while no documents exist.</small></div>
+              <div class="sf-fld"><label for="ob-add">Additional currencies</label>
+                <p-multiselect inputId="ob-add" [options]="currencyOptions" optionLabel="label" optionValue="code" [ngModel]="additionalCurrencies"
+                               (ngModelChange)="setAdditionalCurrencies($event)" [filter]="true" display="chip" [style]="{ width: '100%' }"
+                               data-testid="additional-currencies"></p-multiselect></div>
+              <div class="sf-fld"><label for="ob-month">Fiscal year starts in</label>
+                <p-select inputId="ob-month" [options]="months" optionLabel="label" optionValue="value" [ngModel]="fiscal.startMonth"
+                          (ngModelChange)="setFiscal('startMonth', $event)" [style]="{ width: '100%' }" data-testid="fiscal-month"></p-select></div>
+              <div class="sf-fld"><label for="ob-period">Period type</label>
+                <p-select inputId="ob-period" [options]="periodTypes" optionLabel="label" optionValue="value" [ngModel]="fiscal.periodType || 'Monthly'"
+                          (ngModelChange)="setFiscal('periodType', $event)" [style]="{ width: '100%' }" data-testid="fiscal-period"></p-select></div>
+            </div>
+            <p class="ob-mu ob-sm" style="margin-top:.75rem">The fiscal year that contains today is created with monthly periods (and a 13th for
+              year-end adjustments), when the general ledger is on.</p>
+          </section>
+
+          <!-- ── 6. Warehouses ── -->
+          <section class="sf-card" *ngSwitchCase="6" data-testid="step6">
+            <ng-container *ngIf="preview('WAREHOUSE') as p">
+              <div class="ob-note wn" *ngIf="p.status === 'ModuleDisabled'"><i class="pi pi-info-circle"></i><div>Inventory is off, so warehouses are not created now.</div></div>
+            </ng-container>
+            <p class="ob-mu ob-sm">Name your warehouses and tick the zones each one has. A warehouse that already exists (same code) is kept.</p>
+            <div class="sf-empty" *ngIf="!warehouses.length" data-testid="wh-empty">No warehouses. Add one, or continue without.</div>
+            <div class="sf-card" *ngFor="let w of warehouses; let i = index" [attr.data-testid]="'wh-' + i" style="margin-bottom:.6rem">
+              <div class="sf-fields">
+                <div class="sf-fld"><label [for]="'wh-code-' + i">Code <span class="sf-req">*</span></label>
+                  <input pInputText [id]="'wh-code-' + i" [(ngModel)]="w.code" maxlength="20" [attr.data-testid]="'wh-code-' + i" /></div>
+                <div class="sf-fld"><label [for]="'wh-name-' + i">Name <span class="sf-req">*</span></label>
+                  <input pInputText [id]="'wh-name-' + i" [(ngModel)]="w.name" maxlength="100" [attr.data-testid]="'wh-name-' + i" /></div>
+                <div class="sf-fld"><label [for]="'wh-addr-' + i">Address</label>
+                  <input pInputText [id]="'wh-addr-' + i" [(ngModel)]="w.address" maxlength="300" /></div>
+              </div>
+              <div class="ob-row" style="margin-top:.5rem">
+                <span class="ob-mu ob-sm">Zones:</span>
+                <span class="ob-row" *ngFor="let z of zoneTypes">
+                  <p-checkbox [binary]="true" [ngModel]="hasZone(w, z.code)" (ngModelChange)="setZone(w, z.code, $event)" [inputId]="'wh-' + i + '-' + z.code"
+                              [attr.data-testid]="'wh-zone-' + i + '-' + z.code"></p-checkbox>
+                  <label [for]="'wh-' + i + '-' + z.code" [title]="z.description || ''">{{ z.name }}</label>
+                </span>
+                <span class="ob-grow"></span>
+                <p-button icon="pi pi-trash" label="Remove" [text]="true" severity="danger" size="small" (onClick)="removeWarehouse(i)"
+                          [attr.data-testid]="'wh-remove-' + i"></p-button>
+              </div>
+            </div>
+            <p-button label="Add warehouse" icon="pi pi-plus" [text]="true" (onClick)="addWarehouse()" data-testid="wh-add"></p-button>
+          </section>
+
+          <!-- ── 7. Users, roles & QuickBooks ── -->
+          <ng-container *ngSwitchCase="7">
+            <section class="sf-card" data-testid="step7">
+              <div class="sf-ch"><h2>Invite your team</h2></div>
+              <p class="ob-mu ob-sm">Each person gets an email to set their password (the link lasts 7 days). Someone who already has an account is
+                left as is. Roles are those of your modules.</p>
+              <div class="sf-empty" *ngIf="!invites.length" data-testid="inv-empty">Nobody to invite yet — you can also add users later.</div>
+              <div class="ob-scroll" *ngIf="invites.length">
+                <table class="ob-matrix" style="width:100%;min-width:40rem">
+                  <thead><tr><th style="text-align:left">Email *</th><th style="text-align:left">First name</th><th style="text-align:left">Last name</th>
+                    <th style="text-align:left">Role *</th><th></th></tr></thead>
+                  <tbody>
+                    <tr *ngFor="let r of invites; let i = index" [attr.data-testid]="'inv-' + i">
+                      <td><input pInputText type="email" [(ngModel)]="r.email" maxlength="200" aria-label="Email" style="width:100%" [attr.data-testid]="'inv-email-' + i" /></td>
+                      <td><input pInputText [(ngModel)]="r.firstName" maxlength="100" aria-label="First name" style="width:100%" /></td>
+                      <td><input pInputText [(ngModel)]="r.lastName" maxlength="100" aria-label="Last name" style="width:100%" /></td>
+                      <td><p-select [options]="roleOptions" optionLabel="label" optionValue="value" [(ngModel)]="r.roleRef" appendTo="body"
+                                    placeholder="Role" [style]="{ width: '100%' }" ariaLabel="Role" [attr.data-testid]="'inv-role-' + i"></p-select></td>
+                      <td><p-button icon="pi pi-trash" [text]="true" severity="danger" size="small" ariaLabel="Remove" (onClick)="removeInvite(i)"></p-button></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="sf-mu sf-sm" *ngIf="!roleOptions.length" data-testid="no-roles">No roles are available for your modules.</div>
+              <p-button label="Add person" icon="pi pi-plus" [text]="true" (onClick)="addInvite()" [disabled]="!roleOptions.length" data-testid="inv-add"></p-button>
+            </section>
+            <section class="sf-card" data-testid="qbo">
+              <div class="sf-ch"><h2>QuickBooks Online <span class="ob-mu ob-sm">(optional)</span></h2></div>
+              <ng-container *ngIf="qboAvailable; else noQbo">
+                <p class="ob-mu ob-sm">Connecting opens the QuickBooks page in a new tab, where Intuit asks you to sign in. Come back here when you are done.</p>
+                <div class="ob-row">
+                  <span *ngIf="qboLoading" class="sf-mu"><i class="pi pi-spin pi-spinner"></i> Checking…</span>
+                  <span *ngIf="!qboLoading && qboStatus" class="sf-pill" [ngClass]="qboStatus.isConnected ? 'ok' : ''" data-testid="qbo-status">
+                    {{ qboStatus.isConnected ? 'Connected' + (qboStatus.companyName ? ' — ' + qboStatus.companyName : '') : 'Not connected' }}</span>
+                  <span *ngIf="qboError" class="sf-pill er" data-testid="qbo-error">{{ qboError }}</span>
+                  <span class="ob-grow"></span>
+                  <p-button *ngIf="!qboStatus?.isConnected" label="Connect QuickBooks" icon="pi pi-external-link" (onClick)="openQbo()" data-testid="qbo-connect"></p-button>
+                  <p-button label="Check again" icon="pi pi-refresh" [text]="true" (onClick)="loadQbo()" data-testid="qbo-refresh"></p-button>
+                </div>
+              </ng-container>
+              <ng-template #noQbo><div class="sf-mu sf-sm" data-testid="qbo-off">The QuickBooks integration is not switched on for your organization (or you cannot manage it). Skip this.</div></ng-template>
+            </section>
+          </ng-container>
+
+          <!-- ── 8. Review & launch ── -->
+          <ng-container *ngSwitchCase="8">
+            <section class="sf-card" data-testid="step8">
+              <div class="sf-kv" style="margin-bottom:.75rem">
+                <span>Company</span><span>{{ orgName }}</span>
+                <span>Country / industry</span><span data-testid="r-country">{{ countryName }} · {{ industryName }}</span>
+                <span>People to invite</span><span data-testid="r-invites">{{ invites.length }}</span>
+              </div>
+              <p class="ob-mu ob-sm">Untick a category to leave it out. Categories whose module is off are not applied.</p>
+              <div class="ob-review" data-testid="review">
+                <div class="ob-rv" *ngFor="let p of previews" [class.off]="!willApply(p)" [attr.data-testid]="'rv-' + p.category">
+                  <span class="l ob-row"><p-checkbox [binary]="true" [ngModel]="!skip.has(p.category)" (ngModelChange)="toggleSkip(p.category, $event)"
+                                [disabled]="applying || p.status === 'ModuleDisabled' || p.status === 'NoDefaults' || p.status === 'NoSeeder'"
+                                [ariaLabel]="catLabel(p.category)"></p-checkbox>{{ catLabel(p.category) }}</span>
+                  <span class="v" [attr.data-testid]="'rv-count-' + p.category">{{ p.category === 'WAREHOUSE' ? warehouses.length : reviewCount(p.category) }}</span>
+                  <span class="s">{{ reviewNote(p) }}</span>
+                </div>
+              </div>
+            </section>
+            <div class="ob-note er" *ngIf="launchProblems.length" data-testid="launch-problems"><i class="pi pi-times-circle"></i>
+              <div>Fix these before launching:<ul><li *ngFor="let p of launchProblems">{{ p }}</li></ul></div></div>
+            <section class="sf-card" *ngIf="applying" data-testid="applying">
+              <div class="sf-ch"><h2>Setting up your system…</h2></div>
+              <p-progressBar mode="indeterminate" [style]="{ height: '6px' }"></p-progressBar>
+              <p class="ob-mu ob-sm">Creating {{ previews.length - skip.size }} categories, one at a time. This usually takes a few seconds.</p>
+            </section>
+            <div class="ob-note er" *ngIf="applyError" data-testid="apply-error"><i class="pi pi-times-circle"></i><div>{{ applyError }}</div></div>
+            <ng-container *ngIf="applyResult && !applyResult.completed">
+              <div class="ob-note er" data-testid="apply-partial"><i class="pi pi-exclamation-triangle"></i>
+                <div>Setup stopped at <strong>{{ catLabel(failedResult?.category) }}</strong><ng-container *ngIf="failedResult?.message">: {{ failedResult?.message }}</ng-container>.
+                  The categories before it were created. Fix the problem and launch again — it continues where it stopped.</div></div>
+              <ng-container *ngTemplateOutlet="resultsTpl"></ng-container>
+            </ng-container>
+          </ng-container>
+        </ng-container>
+      </ng-template>
+    </ng-container>
+  </div>
+
+  <div class="sf-fbar" *ngIf="state && !launched">
+    <span class="sf-mu sf-sm" data-testid="footer-hint">{{ stepProblem || (step === lastStep ? 'Ready when you are.' : 'Your progress is saved as you go.') }}</span>
+    <span class="sf-end">
+      <p-button label="Back" icon="pi pi-arrow-left" [text]="true" [disabled]="step === 1 || applying" (onClick)="back()" data-testid="back"></p-button>
+      <p-button *ngIf="step < lastStep" label="Continue" icon="pi pi-arrow-right" iconPos="right" [disabled]="!canContinue" (onClick)="next()"
+                data-testid="continue"></p-button>
+      <p-button *ngIf="step === lastStep" [label]="applyResult ? 'Launch again' : 'Launch my system'" icon="pi pi-rocket" [loading]="applying"
+                [disabled]="!!launchProblems.length || previewLoading" (onClick)="confirmLaunch()" data-testid="launch"></p-button>
+    </span>
+  </div>
+</sf-page>
+
+<ng-template #resultsTpl>
+  <section class="sf-card p0" *ngIf="applyResult" data-testid="results">
+    <div class="sf-ch sf-pad"><h2>What was created</h2></div>
+    <div class="ob-scroll">
+      <table class="ob-matrix" style="width:100%;min-width:36rem">
+        <thead><tr><th style="text-align:left">Category</th><th>Result</th><th class="ob-num">Created</th><th class="ob-num">Already there</th><th style="text-align:left">Notes</th></tr></thead>
+        <tbody>
+          <tr *ngFor="let r of applyResult.results" [attr.data-testid]="'res-' + r.category">
+            <td>{{ catLabel(r.category) }}</td>
+            <td class="c"><span class="sf-pill" [ngClass]="rTone(r.status)">{{ rLabel(r.status) }}</span></td>
+            <td class="ob-num">{{ r.created }}</td>
+            <td class="ob-num">{{ r.skipped }}</td>
+            <td class="ob-sm">{{ r.message }}<ng-container *ngFor="let w of r.warnings"><div class="ob-mu">{{ w }}</div></ng-container></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="sf-pad" *ngIf="applyResult.invites?.length" data-testid="invite-results">
+      <h3 class="ob-sm">Invitations</h3>
+      <div class="ob-row" *ngFor="let i of applyResult.invites">
+        <span class="sf-pill" [ngClass]="inviteTone(i.outcome)">{{ i.outcome }}</span><span>{{ i.email }}</span><span class="ob-mu ob-sm">{{ i.message }}</span>
+      </div>
+    </div>
+  </section>
+</ng-template>

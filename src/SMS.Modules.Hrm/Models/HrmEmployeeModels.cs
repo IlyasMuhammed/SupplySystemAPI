@@ -19,6 +19,16 @@ public sealed class EmergencyContact
     public string? Phone { get; set; }
 }
 
+/// <summary>GET api/hrm/employees/lookup (REV49-5): what a picker shows, nothing more.</summary>
+public sealed class EmployeeLookupItem
+{
+    public Guid    Uuid           { get; set; }
+    public string  EmployeeNumber { get; set; } = string.Empty;
+    public string  FullName       { get; set; } = string.Empty;
+    public string  Status         { get; set; } = string.Empty;
+    public string? DepartmentName { get; set; }
+}
+
 public sealed class EmployeeListItem
 {
     public Guid    Uuid            { get; set; }

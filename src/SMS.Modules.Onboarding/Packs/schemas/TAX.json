@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "sms://onboarding/schemas/TAX.json",
+  "title": "TAX",
+  "description": "Tax codes (Finance finance.tax_codes, natural key = code). UNVERIFIED: every pack ships verified:false, shown in the wizard as \"check rates with your tax adviser\" (D-13).",
+  "type": "object",
+  "properties": {
+    "verified": {
+      "type": "boolean"
+    },
+    "verificationNote": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 500
+    },
+    "taxCodes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 20,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.\\-]*$"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 300
+          },
+          "rate": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "usage": {
+            "enum": [
+              "SALES",
+              "PURCHASE",
+              "BOTH"
+            ]
+          },
+          "type": {
+            "enum": [
+              "Output",
+              "Input",
+              "Withholding",
+              "Excise",
+              "Exempt",
+              "ZeroRated",
+              "None"
+            ]
+          },
+          "isDefault": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "code",
+          "name",
+          "rate",
+          "usage"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 1
+    },
+    "displayName": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 200
+    },
+    "notes": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 2000
+    }
+  },
+  "required": [
+    "verified",
+    "taxCodes"
+  ],
+  "additionalProperties": false
+}

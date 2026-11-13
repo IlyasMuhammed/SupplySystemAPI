@@ -1,0 +1,32 @@
+{
+  "zoneTypes": [
+    {
+      "code": "RECEIVING",
+      "name": "Receiving",
+      "description": "Inbound dock: goods are checked in here.",
+      "default": true
+    },
+    {
+      "code": "STORAGE",
+      "name": "Storage",
+      "description": "Main put-away and storage area.",
+      "default": true
+    },
+    {
+      "code": "DISPATCH",
+      "name": "Dispatch",
+      "description": "Outbound staging: picked goods wait here for shipping.",
+      "default": true
+    },
+    {
+      "code": "QUALITY_HOLD",
+      "name": "Quality Hold",
+      "description": "Quarantine for goods awaiting inspection or rejected.",
+      "default": true
+    }
+  ],
+  "defaultWarehouse": {
+    "code": "WH-MAIN",
+    "name": "Main Warehouse"
+  }
+}

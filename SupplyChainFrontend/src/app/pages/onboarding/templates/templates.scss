@@ -1,0 +1,143 @@
+// A50 template editors (document + email). Frame, header, cards and footer bar come from the SMS Flow kit.
+.tpl-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 16px;
+  align-items: start;
+
+  @media (max-width: 1100px) { grid-template-columns: minmax(0, 1fr); }
+}
+
+.tpl-main { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.tpl-main .sf-card { display: flex; flex-direction: column; gap: .6rem; }
+
+.tpl-side {
+  position: sticky;
+  top: 1rem;
+  max-height: calc(100vh - 8rem);
+  overflow-y: auto;
+
+  @media (max-width: 1100px) { position: static; max-height: none; }
+}
+
+.tpl-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); @media (max-width: 640px) { grid-template-columns: 1fr; } }
+.tpl-span { grid-column: 1 / -1; }
+
+.tpl-hint { margin: 0; font-size: .8rem; color: var(--sms-text-muted); line-height: 1.5; }
+.tpl-errtxt { color: var(--sms-danger); font-size: .76rem; }
+.tpl-err { color: var(--sms-danger); }
+
+.tpl-drop {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: .9rem;
+  border: 1px dashed var(--sms-border);
+  border-radius: .6rem;
+  background: var(--sms-surface-2);
+  transition: border-color .12s ease, background .12s ease;
+
+  &.over { border-color: var(--sms-primary); background: var(--sms-primary-soft); }
+}
+
+.tpl-logo {
+  width: 96px;
+  height: 72px;
+  border-radius: .5rem;
+  background: var(--sms-surface);
+  border: 1px solid var(--sms-border-soft);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  flex-shrink: 0;
+
+  img { max-width: 100%; max-height: 100%; object-fit: contain; }
+  i { font-size: 1.6rem; color: var(--sms-text-faint); }
+}
+
+.tpl-drop-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: .3rem;
+  font-size: .84rem;
+  color: var(--sms-text-muted);
+}
+
+.tpl-upload {
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+  font-size: .8125rem;
+  font-weight: 600;
+  color: var(--sms-primary-text);
+  border: 1px solid var(--sms-primary);
+  border-radius: .5rem;
+  padding: .35rem .8rem;
+  cursor: pointer;
+
+  &:hover { background: var(--sms-primary-soft); }
+}
+
+.tpl-linkbtn {
+  border: 0;
+  background: none;
+  padding: 0;
+  font: inherit;
+  font-size: .8rem;
+  color: var(--sms-danger);
+  cursor: pointer;
+  &:hover { text-decoration: underline; }
+}
+
+.tpl-color {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+
+  input[type='color'] {
+    width: 2.6rem;
+    height: 2.3rem;
+    padding: 2px;
+    border: 1px solid var(--sms-border);
+    border-radius: .4rem;
+    background: var(--sms-surface);
+    cursor: pointer;
+  }
+  input[pInputText] { width: 8rem; font-family: ui-monospace, monospace; }
+}
+
+.tpl-check {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  label { font-size: .875rem; color: var(--sms-text); cursor: pointer; }
+}
+
+.tpl-pdf { width: 100%; height: calc(90vh - 7rem); border: 0; background: var(--sms-surface-2); }
+
+.tpl-subject { font-family: inherit; }
+
+.tpl-test {
+  display: flex;
+  gap: .5rem;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  input { flex: 1 1 220px; }
+}
+
+.tpl-preview-subject { font-weight: 700; color: var(--sms-text); margin: 0 0 .6rem; overflow-wrap: anywhere; }
+.tpl-preview-body {
+  border: 1px solid var(--sms-border-soft);
+  border-radius: .5rem;
+  padding: .9rem 1rem;
+  background: var(--sms-surface);
+  color: var(--sms-text);
+  font-size: .875rem;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.sf-pill { margin-left: .3rem; vertical-align: middle; }

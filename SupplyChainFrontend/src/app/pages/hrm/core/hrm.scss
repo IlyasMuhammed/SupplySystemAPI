@@ -21,7 +21,8 @@
 .hrm-actions { display: flex; flex-wrap: wrap; gap: 0.15rem; justify-content: flex-end; }
 .hrm-pager { display: flex; gap: 0.5rem; align-items: center; justify-content: flex-end; padding: 0.5rem 0.75rem; color: var(--sms-text-muted); font-size: 0.85rem; border-top: 1px solid var(--sms-border-soft); }
 .hrm-stack-gap { display: grid; gap: 0.75rem; }
-.hrm-masked { font-family: var(--sms-mono, monospace); letter-spacing: 0.04em; }
+/* REV49B-14: --sms-mono is not a theme token; the same stack the other mono cells use. */
+.hrm-masked { font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace); letter-spacing: 0.04em; }
 .hrm-reveal { display: inline-flex; align-items: center; gap: 0.35rem; flex-wrap: wrap; }
 .hrm-full { grid-column: 1 / -1; }
 .hrm-w100 { width: 100%; }

@@ -23,6 +23,10 @@
               [routerLink]="[quotationsRoute, q.uuid, 'edit']" data-testid="action-edit"></p-button>
     <p-button *ngIf="canCopy" label="Copy" icon="pi pi-copy" [text]="true" [loading]="isCopying"
               pTooltip="A new draft with the same lines" (onClick)="copy()" data-testid="action-copy"></p-button>
+    <p-button *ngIf="canDownloadPdf" label="Download PDF" icon="pi pi-file-pdf" [text]="true" [loading]="isDownloadingPdf"
+              (onClick)="downloadPdf()" data-testid="action-pdf"></p-button>
+    <p-button *ngIf="canEmail" label="Email to customer" icon="pi pi-envelope" [text]="true"
+              (onClick)="emailVisible = true" data-testid="action-email"></p-button>
   </div>
 
   <!-- ── Dynamic header (§10.3) ──────────────────────────────────────────────────────── -->
@@ -226,6 +230,11 @@
     </section>
   </div>
 </sf-page>
+
+  <!-- A50 D-26 — email the quotation PDF to the customer -->
+  <app-document-email-dialog *ngIf="canEmail" [(visible)]="emailVisible" kind="Quotation" [uuid]="quotation?.uuid"
+                             [documentLabel]="'quotation ' + (quotation?.quotationNumber ?? '')" partyLabel="customer"
+                             (sent)="onEmailSent($event)" (failed)="onEmailFailed($event)"></app-document-email-dialog>
 
   <!-- ── Line editor (A32-PC-12) ─────────────────────────────────────────────── -->
   <p-dialog [header]="editingLine ? 'Edit line ' + editingLine.lineNumber : 'Add line'" [(visible)]="lineDialogVisible"

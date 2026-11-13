@@ -174,18 +174,23 @@ internal sealed class HrmApprovalGateway : IHrmApprovalGateway
     {
         var org = caller.OrganizationId;
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        // REV49-1: nobody decides their own document, whoever submitted it. The employee's own user is never the approver.
+        int? subject = null;
         if (employeeId is { } id)
         {
+            subject = await _db.Employees.IgnoreQueryFilters().AsNoTracking()
+                .Where(e => e.OrganizationId == org && e.Id == id).Select(e => e.UserId).FirstOrDefaultAsync(ct);
             var record = await _db.EmploymentRecords.IgnoreQueryFilters().AsNoTracking()
                 .Where(r => r.OrganizationId == org && r.EmployeeId == id && r.EffectiveFrom <= today && (r.EffectiveTo == null || r.EffectiveTo >= today))
                 .Select(r => new { Manager = r.ManagerEmployee!.UserId, Head = r.Department!.HeadEmployee!.UserId, HeadId = r.Department.HeadEmployeeId })
                 .FirstOrDefaultAsync(ct);
-            if (record?.Manager is { } manager && manager != caller.UserId) return manager;
-            if (record?.Head is { } head && head != caller.UserId && record.HeadId != id) return head;
+            if (record?.Manager is { } manager && manager != caller.UserId && manager != subject) return manager;
+            if (record?.Head is { } head && head != caller.UserId && head != subject && record.HeadId != id) return head;
         }
         if (_users is null) return null;
-        var holders = await _users.SearchAsync(org, null, 200, ct);
-        return holders.Where(u => u.IsActive && u.UserId != caller.UserId && u.Permissions.Contains(fallbackPermission))
+        // REV49-7: the directory filters by permission across the whole organization, so a holder past the first 200 users is found.
+        var holders = await _users.FindByPermissionAsync(org, fallbackPermission, 10, ct);
+        return holders.Where(u => u.IsActive && u.UserId != caller.UserId && u.UserId != subject && u.Permissions.Contains(fallbackPermission))
             .OrderBy(u => u.UserId).Select(u => (int?)u.UserId).FirstOrDefault();
     }
 }

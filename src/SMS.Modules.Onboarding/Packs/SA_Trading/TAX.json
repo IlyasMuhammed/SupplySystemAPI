@@ -1,0 +1,33 @@
+{
+  "verified": false,
+  "verificationNote": "Rates are indicative (ZATCA, 2026). They have not been verified — check them with your tax adviser before use.",
+  "taxCodes": [
+    {
+      "code": "VAT15",
+      "name": "VAT 15%",
+      "description": "Standard-rated supplies.",
+      "rate": 15,
+      "usage": "SALES",
+      "type": "Output",
+      "isDefault": true
+    },
+    {
+      "code": "VAT0",
+      "name": "Zero-Rated 0%",
+      "description": "Zero-rated supplies (exports, certain goods and services).",
+      "rate": 0,
+      "usage": "BOTH",
+      "type": "ZeroRated",
+      "isDefault": false
+    },
+    {
+      "code": "INVAT15",
+      "name": "Input VAT 15%",
+      "description": "Recoverable VAT on purchases.",
+      "rate": 15,
+      "usage": "PURCHASE",
+      "type": "Input",
+      "isDefault": true
+    }
+  ]
+}

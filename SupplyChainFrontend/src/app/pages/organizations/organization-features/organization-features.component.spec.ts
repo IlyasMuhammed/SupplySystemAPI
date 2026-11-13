@@ -77,6 +77,58 @@ describe('OrganizationFeaturesComponent — licence semantics (A37 §1.2)', () =
       expect(fixture.componentInstance.groupedFeatures).toBe(before);
     });
 
+    describe('finding a feature', () => {
+      const cmp = () => fixture.componentInstance;
+      const keys = () => cmp().visibleGroups.map(g => g.key);
+
+      it('hides coming-soon entries until asked, and counts what is licensed per group', () => {
+        expect(keys()).not.toContain('MODULE_POS');
+        expect(q('count-MODULE_INVENTORY')!.textContent).toContain('2 of 3 licensed');
+        (q('toggle-coming-soon') as HTMLButtonElement).click();
+        expect(keys()).toContain('MODULE_POS');
+      });
+
+      it('starts collapsed, so the sub-features of a group are not rendered until it is opened', () => {
+        expect(q('row-FEATURE_BOM_MANAGEMENT')).toBeNull();
+        cmp().toggleGroup('MODULE_INVENTORY');
+        fixture.detectChanges();
+        expect(q('row-FEATURE_BOM_MANAGEMENT')).not.toBeNull();
+      });
+
+      it('a search finds a feature by name or code and opens the group it is in', () => {
+        cmp().search = 'bom';
+        cmp().applyFilter();
+        fixture.detectChanges();
+        expect(keys()).toEqual(['MODULE_INVENTORY']);
+        expect(q('row-FEATURE_BOM_MANAGEMENT')).not.toBeNull();
+        expect(q('row-FEATURE_MASTER_LEDGERS')).toBeNull();
+
+        cmp().search = 'FEATURE_QUALITY';
+        cmp().applyFilter();
+        expect(keys()).toEqual(['MODULE_MANUFACTURING']);
+      });
+
+      it('the Not licensed filter lists only unlicensed entries', () => {
+        cmp().setStatus('off');
+        fixture.detectChanges();
+        expect(cmp().visibleGroups.flatMap(g => g.shown.map(r => r.f.featureCode))).toEqual(['FEATURE_MASTER_LEDGERS']);
+      });
+
+      it('says so when nothing matches', () => {
+        cmp().search = 'zzzz';
+        cmp().applyFilter();
+        fixture.detectChanges();
+        expect(q('no-features')!.textContent).toContain('Nothing matches');
+      });
+
+      it('Expand all opens every group', () => {
+        cmp().setAllGroups(true);
+        expect(cmp().visibleGroups.every(g => g.open)).toBeTrue();
+        cmp().setAllGroups(false);
+        expect(cmp().visibleGroups.some(g => g.open)).toBeFalse();
+      });
+    });
+
     it('a tick sets the licence and re-reads the statuses', () => {
       const cmp = fixture.componentInstance;
       const qi = cmp.features.find(x => x.featureCode === 'FEATURE_QUALITY_INSPECTION')!;

@@ -1,0 +1,105 @@
+{
+  "groups": [
+    {
+      "name": "Weight",
+      "units": [
+        {
+          "code": "KG",
+          "name": "Kilogram",
+          "isBase": true
+        },
+        {
+          "code": "G",
+          "name": "Gram",
+          "conversionFactor": 0.001
+        },
+        {
+          "code": "LB",
+          "name": "Pound",
+          "conversionFactor": 0.453592
+        },
+        {
+          "code": "TON",
+          "name": "Metric Ton",
+          "conversionFactor": 1000
+        }
+      ]
+    },
+    {
+      "name": "Count",
+      "units": [
+        {
+          "code": "PCS",
+          "name": "Piece",
+          "isBase": true
+        },
+        {
+          "code": "DOZ",
+          "name": "Dozen",
+          "conversionFactor": 12
+        },
+        {
+          "code": "BOX",
+          "name": "Box",
+          "conversionFactor": 1
+        },
+        {
+          "code": "CTN",
+          "name": "Carton",
+          "conversionFactor": 1
+        },
+        {
+          "code": "PLT",
+          "name": "Pallet",
+          "conversionFactor": 1
+        }
+      ]
+    },
+    {
+      "name": "Volume",
+      "units": [
+        {
+          "code": "L",
+          "name": "Liter",
+          "isBase": true
+        },
+        {
+          "code": "ML",
+          "name": "Millilitre",
+          "conversionFactor": 0.001
+        },
+        {
+          "code": "GAL",
+          "name": "Gallon (US)",
+          "conversionFactor": 3.78541
+        }
+      ]
+    },
+    {
+      "name": "Length",
+      "units": [
+        {
+          "code": "M",
+          "name": "Meter",
+          "isBase": true
+        },
+        {
+          "code": "CM",
+          "name": "Centimetre",
+          "conversionFactor": 0.01
+        },
+        {
+          "code": "MM",
+          "name": "Millimetre",
+          "conversionFactor": 0.001
+        },
+        {
+          "code": "FT",
+          "name": "Foot",
+          "conversionFactor": 0.3048
+        }
+      ]
+    }
+  ],
+  "notes": "BOX, CTN and PLT factors are 1: set them per product. Conversion factors are stored, not applied (R-1)."
+}

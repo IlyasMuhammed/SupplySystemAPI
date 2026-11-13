@@ -51,7 +51,7 @@
           <tr data-testid="customer-row">
             <td><a class="sf-mono" [routerLink]="['/portal/pages/customers', c.uuid]"><strong>{{ c.code }}</strong></a></td>
             <td>
-              {{ c.name }}
+              {{ c.name }} <app-demo-badge entityType="Customer" [entityRef]="c.uuid"></app-demo-badge>
               <span *ngIf="c.isSystem" class="sf-pill in" pTooltip="Seeded for counter sales; cannot be deactivated">System</span>
             </td>
             <td>{{ typeLabel(c.customerType) }}</td>

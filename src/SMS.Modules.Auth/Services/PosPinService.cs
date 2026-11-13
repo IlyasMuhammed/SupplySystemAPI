@@ -124,6 +124,26 @@ internal sealed partial class PosPinService : IPosPinService
         return await ToInfoAsync(organizationId, users, ct);
     }
 
+    public async Task<IReadOnlyList<PosUserInfo>> FindUsersByPermissionAsync(Guid organizationId, string permission, int limit, CancellationToken ct = default)
+    {
+        const int page = 200;
+        var found = new List<PosUserInfo>();
+        var after = 0;
+        limit = Math.Clamp(limit, 1, MaxSearch);
+        while (found.Count < limit)
+        {
+            var users = await OrgUsers(organizationId).Where(u => u.IsActive && u.UserID > after).OrderBy(u => u.UserID).Take(page).ToListAsync(ct);
+            if (users.Count == 0) break;
+            after = users[^1].UserID;
+            var perms = await PermissionsByUserAsync(organizationId, users, ct);
+            foreach (var u in users)
+                if (perms[u.UserID].Contains(permission) && found.Count < limit)
+                    found.Add(new PosUserInfo(u.UserID, DisplayName(u), u.Email, string.Empty, u.IsActive, u.PosPinHash != null, perms[u.UserID]));
+            if (users.Count < page) break;
+        }
+        return found;
+    }
+
     /// <summary>
     /// The same access + refresh pair, and the same recorded session, as a password sign-in. Refuses a deleted or
     /// inactive user, an inactive organization and a platform super admin (a 4–6 digit PIN must not unlock platform

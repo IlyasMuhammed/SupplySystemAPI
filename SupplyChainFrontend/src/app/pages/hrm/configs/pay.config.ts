@@ -20,7 +20,7 @@ export const COMPONENTS: RecordsConfig = {
     { key: 'isActive', label: 'Status', kind: 'pill', value: r => r.isActive ? 'Active' : 'Inactive' }
   ],
   form: { noun: 'Component', createPerm: CONFIG, editPerm: CONFIG, wide: true, fields: [
-    { key: 'code', label: 'Code', required: true, maxLength: 30, visible: v => !v['isSystem'] }, { key: 'name', label: 'Name', required: true, maxLength: 100 },
+    { key: 'code', label: 'Code', required: true, maxLength: 20, visible: v => !v['isSystem'] }, { key: 'name', label: 'Name', required: true, maxLength: 100 },
     { key: 'type', label: 'Type', type: 'select', options: ENUMS.componentType, required: true, def: 'Earning', visible: v => !v['isSystem'] },
     { key: 'calcMethod', label: 'Method', type: 'select', options: ENUMS.calcMethod, required: true, def: 'Fixed' },
     { key: 'defaultValue', label: 'Default value', type: 'number', visible: v => v['calcMethod'] !== 'Formula' },
@@ -29,7 +29,7 @@ export const COMPONENTS: RecordsConfig = {
     { key: 'postingRole', label: 'Posting role', maxLength: 60 }, { key: 'expenseRole', label: 'Expense role', maxLength: 60 },
     { key: 'sortOrder', label: 'Sort order', type: 'number', step: 1, def: 100 }, { key: 'isTaxable', label: 'Taxable', type: 'bool' }, { key: 'inGross', label: 'Counts in gross', type: 'bool', def: true }
   ] },
-  active: { perm: CONFIG }
+  active: { perm: CONFIG, clientSide: true }
 };
 
 const verifyActions = (base: string) => [
@@ -47,7 +47,7 @@ export const TAX_TABLES: RecordsConfig = {
     { key: 'slabs', label: 'Slabs', value: r => (r.slabs ?? []).length }, { key: 'isVerified', label: 'Review', kind: 'pill', value: r => r.isVerified ? 'Reviewed' : 'Not reviewed', sub: r => r.isVerified ? (r.verifiedByName ? `by ${r.verifiedByName}` : '') : 'UNVERIFIED' }
   ],
   form: { noun: 'Tax table', createPerm: CONFIG, editPerm: CONFIG, wide: true, fields: [
-    { key: 'code', label: 'Code', required: true, maxLength: 30 }, { key: 'name', label: 'Name', required: true, maxLength: 150 }, { key: 'countryCode', label: 'Country code', required: true, maxLength: 2, def: 'PK' },
+    { key: 'code', label: 'Code', required: true, maxLength: 30 }, { key: 'name', label: 'Name', required: true, maxLength: 100 }, { key: 'countryCode', label: 'Country code', required: true, maxLength: 2, def: 'PK' },
     { key: 'effectiveFrom', label: 'Effective from', type: 'date', required: true }, { key: 'effectiveTo', label: 'Effective to', type: 'date' }, { key: 'sourceNote', label: 'Source', type: 'textarea', maxLength: 500 },
     { key: 'slabs', label: 'Slabs', type: 'rows', required: true, rows: [
       { key: 'fromAmount', label: 'From', type: 'number', required: true, min: 0 }, { key: 'toAmount', label: 'To', type: 'number', min: 0 }, { key: 'fixedAmount', label: 'Fixed', type: 'number', required: true, min: 0, def: 0 }, { key: 'ratePercent', label: 'Rate %', type: 'number', required: true, min: 0, max: 100, def: 0 }
@@ -65,7 +65,7 @@ export const STATUTORY_RATES: RecordsConfig = {
     { key: 'isVerified', label: 'Review', kind: 'pill', value: r => r.isVerified ? 'Reviewed' : 'Not reviewed', sub: r => r.isVerified ? '' : 'UNVERIFIED' }
   ],
   form: { noun: 'Statutory rate', createPerm: CONFIG, editPerm: CONFIG, wide: true, fields: [
-    { key: 'rateType', label: 'Type', type: 'select', options: ENUMS.statutoryType, required: true }, { key: 'name', label: 'Name', required: true, maxLength: 150 }, { key: 'countryCode', label: 'Country code', required: true, maxLength: 2, def: 'PK' },
+    { key: 'rateType', label: 'Type', type: 'select', options: ENUMS.statutoryType, required: true }, { key: 'name', label: 'Name', required: true, maxLength: 100 }, { key: 'countryCode', label: 'Country code', required: true, maxLength: 2, def: 'PK' },
     { key: 'employeePercent', label: 'Employee %', type: 'number', required: true, min: 0, max: 100, def: 0 }, { key: 'employerPercent', label: 'Employer %', type: 'number', required: true, min: 0, max: 100, def: 0 },
     { key: 'wageCeiling', label: 'Wage ceiling', type: 'number', min: 0 }, { key: 'fixedBasis', label: 'Fixed basis', type: 'number', min: 0 },
     { key: 'effectiveFrom', label: 'Effective from', type: 'date', required: true }, { key: 'effectiveTo', label: 'Effective to', type: 'date' }, { key: 'sourceNote', label: 'Source', type: 'textarea', maxLength: 500 }

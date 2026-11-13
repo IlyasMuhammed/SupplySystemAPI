@@ -42,7 +42,7 @@ internal sealed class JournalEntryPoster : IJournalEntryPoster
         if (connection is null || !connection.IsUsable()) return GatewayResult.NotConnected();
 
         var payloads = await _builder.BuildAsync(connection.OrganizationId, transaction, ct);
-        return await SendAsync(payloads, transaction.SourceDocumentId.ToString(), ct);
+        return await SendAsync(payloads, JournalEntryKeys.Root(transaction.SourceDocumentId, transaction.DocumentType), ct);
     }
 
     public async Task<GatewayResult?> ReverseAsync(VoidRequest request, CancellationToken ct = default)
@@ -50,7 +50,8 @@ internal sealed class JournalEntryPoster : IJournalEntryPoster
         var connection = await _connections.GetCurrentAsync(ct);
         if (connection is null) return GatewayResult.NotConnected();
 
-        var root = request.SourceDocumentId.ToString();
+        // QA49C-1: only this document type's entries; a run's reversal never picks up its payment's, nor the reverse.
+        var root = JournalEntryKeys.Root(request.SourceDocumentId, request.DocumentType);
         var prefix = root + ":batch";
         var maps = await _db.EntityMaps.AsNoTracking()
             .Where(m => m.ConnectionId == connection.Id && m.Kind == SyncKind.JournalEntry

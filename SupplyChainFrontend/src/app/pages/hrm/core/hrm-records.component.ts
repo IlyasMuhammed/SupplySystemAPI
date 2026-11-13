@@ -18,7 +18,7 @@ import { HrmDialogComponent } from './hrm-dialog.component';
 import { Field, HrmFormComponent, cleanBody, formDefaults, formProblem, lookupsOf, markFilesSaved } from './hrm-form.component';
 import { HrmLookups, LookupKey } from './hrm-lookups.service';
 import { HrmPdfViewerComponent } from './hrm-pdf-viewer.component';
-import { Opt, hrmError, hrmErrorAsync, hrmLabel, hrmTone, money } from './hrm.shared';
+import { Opt, hrmError, hrmErrorAsync, hrmLabel, hrmTone, money, utcInstant } from './hrm.shared';
 
 export type ColumnKind = 'text' | 'mono' | 'money' | 'num' | 'date' | 'datetime' | 'pill' | 'bool';
 
@@ -102,6 +102,8 @@ export interface RecordsConfig {
   notice?: string;
   listPath: string;
   listParams?: Params;
+  /** The list is POSTed to `path` (filters as the body) whenever one of these filters is filled, so the value stays out of the URL. */
+  bodySearch?: { path: string; keys: string[] };
   /** Without these the list is not asked for (a route open to several codes). */
   columns: Column[];
   filters?: Filter[];
@@ -130,7 +132,8 @@ export interface RecordsConfig {
     icon?: string;
   };
   /** PATCH {uuid}/active with this permission. */
-  active?: { perm: string[]; path?: (r: any) => string };
+  /** `clientSide`: the list route has no `includeInactive` and answers every row, so inactive rows are hidden here (REV49B-11). */
+  active?: { perm: string[]; path?: (r: any) => string; clientSide?: boolean };
   remove?: { perm: string[]; path?: (r: any) => string; when?: (r: any) => boolean; confirm?: (r: any) => string };
   actions?: RowAction[];
   commands?: Command[];
@@ -206,6 +209,7 @@ export class HrmRecordsComponent implements OnInit {
   busyRow: string | null = null;
 
   readonly hrmLabel = hrmLabel;
+  readonly utc = utcInstant;
   readonly hrmTone = hrmTone;
 
   ngOnInit(): void {
@@ -238,13 +242,17 @@ export class HrmRecordsComponent implements OnInit {
   load(): void {
     const params: Params = { ...this.cfg.listParams, ...this.q, page: this.page };
     if (this.cfg.chips && this.chip) params[this.cfg.chips.key] = this.chip;
-    if (this.cfg.active && this.includeInactive) params['includeInactive'] = true;
+    if (this.cfg.active && !this.cfg.active.clientSide && this.includeInactive) params['includeInactive'] = true;
     this.loading = !this.rows.length;
     this.loadError = '';
-    this.api.get<any>(this.cfg.listPath, params).subscribe({
-      next: res => {
+    // REV49-12: a sensitive filter (the exact CNIC) goes in a POST body, never in the URL.
+    const viaBody = !!this.cfg.bodySearch && this.cfg.bodySearch.keys.some(k => !!params[k]);
+    const request$ = viaBody ? this.api.post<any>(this.cfg.bodySearch!.path, params) : this.api.get<any>(this.cfg.listPath, params);
+    request$.subscribe({
+      next: (res: any) => {
         this.loading = false;
         this.rows = rowsOf(res);
+        if (this.cfg.active?.clientSide && !this.includeInactive) this.rows = this.rows.filter(r => r?.isActive !== false);
         const p = res as Page<any>;
         this.total = Array.isArray(res) ? this.rows.length : (p?.totalRecords ?? this.rows.length);
         this.totalPages = Array.isArray(res) ? 1 : (p?.totalPages ?? 1);

@@ -816,6 +816,14 @@ internal sealed class PayrollRunService : HrmServiceBase, IPayrollRunService
     {
         var reference = HrmValidate.Name(request.Reference, 100, "Payment reference");
         var account = HrmValidate.OneOf(request.PaidFromAccount ?? HrmPaymentAccounts.Bank, HrmPaymentAccounts.All, "paidFromAccount");
+        // REV49-10: as Finalize does, refuse a payment date in a closed GL period before the run is marked Paid (it used to fail later, in the posting).
+        if (_periods is not null)
+        {
+            var current = await Runs(caller.OrganizationId).AsNoTracking().FirstOrDefaultAsync(r => r.Uuid == uuid, ct) ?? throw new NotFoundException("Payroll run", uuid);
+            var glActive = (await _readiness.CheckAsync(caller.OrganizationId, current.Id, ct)).InternalGlActive;
+            if (glActive && !await _periods.IsPostingAllowedAsync(caller.OrganizationId, request.PaidOn, ct))
+                throw HrmErrors.Conflict("PAYROLL_PERIOD_CLOSED", $"The period of {request.PaidOn:yyyy-MM-dd} is closed. Choose a payment date in an open period.");
+        }
         PayrollRun? run = null;
         PayrollPosting? posting = null;
         await Db.InTransactionAsync(async () =>

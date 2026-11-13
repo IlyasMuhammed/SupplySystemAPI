@@ -84,6 +84,30 @@ public class SaleQuotationsController : ControllerBase
     public async Task<IActionResult> Send(Guid uuid) =>
         Done(await _service.SendAsync(uuid, User.GetUserId()), "Quotation sent.");
 
+    /// <summary>A50 (D-25) — the quotation as a PDF, with the org's Quotation template when it has one.</summary>
+    [HttpGet("{uuid:guid}/pdf")]
+    [RequirePermission(PermissionCodes.SALE_QUOTATION_VIEW)]
+    public async Task<IActionResult> DownloadPdf(Guid uuid, [FromServices] SMS.Modules.Demand.Services.Documents.SaleQuotationDocumentService documents)
+    {
+        var (content, fileName) = await documents.GeneratePdfAsync(uuid);
+        return File(content, "application/pdf", fileName);
+    }
+
+    /// <summary>
+    /// A50 (D-26) — emails the quotation PDF to the customer (their email on file unless <c>to</c> is given) with the org's
+    /// QuotationSent template. It does not mark the quotation SENT: that stays the Send action.
+    /// </summary>
+    [HttpPost("{uuid:guid}/email")]
+    [RequirePermission(PermissionCodes.SALE_QUOTATION_SEND)]
+    public async Task<IActionResult> Email(
+        Guid uuid, [FromBody] SMS.Shared.Onboarding.DocumentEmailRequest? req,
+        [FromServices] SMS.Modules.Demand.Services.Documents.SalesDocumentEmailService emails, CancellationToken ct)
+    {
+        var result = await emails.SendQuotationAsync(uuid, req, ct);
+        return Ok(ApiResponse<SMS.Shared.Onboarding.DocumentEmailResult>.Ok(result,
+            result.Sent ? "Quotation emailed." : "The quotation could not be emailed to every recipient."));
+    }
+
     [HttpPatch("{uuid:guid}/lines/{lineUuid:guid}/customer-response")]
     [RequirePermission(PermissionCodes.SALE_QUOTATION_EDIT)]
     public async Task<IActionResult> RecordCustomerResponse(Guid uuid, Guid lineUuid, [FromBody] RecordCustomerResponseRequest req) =>

@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "sms://onboarding/schemas/FISCAL.json",
+  "title": "FISCAL",
+  "description": "Fiscal year shape (Accounting A42 fiscal years). The seeder creates the fiscal year that contains today, starting on day 1 of startMonth, with 12 monthly periods.",
+  "type": "object",
+  "properties": {
+    "startMonth": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 12
+    },
+    "periodType": {
+      "enum": [
+        "Monthly"
+      ]
+    },
+    "dateFormat": {
+      "enum": [
+        "DD/MM/YYYY",
+        "MM/DD/YYYY",
+        "YYYY-MM-DD"
+      ]
+    },
+    "yearNamePattern": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 50
+    },
+    "displayName": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 200
+    },
+    "notes": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 2000
+    }
+  },
+  "required": [
+    "startMonth",
+    "periodType"
+  ],
+  "additionalProperties": false
+}

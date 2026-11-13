@@ -118,7 +118,9 @@ internal static class TenancyFeatureCatalog
         new("MODULE_POS",             "Point of Sale",            CategoryModule, "Counter sales at store terminals: shifts and cash, PIN sign-in, receipts, returns and offline selling.", false, 135, Icon: "pi pi-shopping-bag"),
         // A40 D-9 — data import: core, always on (the wizard itself); opening balances are a Standard/Enterprise sub-feature.
         new(ModuleCodes.DataImport,   "Data Import",              CategoryModule, "Importing master data and opening balances from Excel/CSV files, templates and the migration wizard.", true, 137, IsAlwaysOn: true, Icon: "pi pi-upload"),
-        new("MODULE_PROJECTS",       "Projects",                 CategoryModule, "Project planning, budgets and time tracking.",                          false, 140, IsAvailable: false, Icon: "pi pi-folder"),
+        // A50 D-9 — tenant onboarding: core, always on (setup wizard, default data, templates, sample data, checklist); no licence step.
+        new(ModuleCodes.Onboarding,   "Onboarding",               CategoryModule, "Setup wizard, default data, document and email templates, sample data and the onboarding checklist.", true, 138, IsAlwaysOn: true, Icon: "pi pi-flag"),
+        new("MODULE_PROJECTS",       "Projects",                CategoryModule, "Project planning, budgets and time tracking.",                          false, 140, IsAvailable: false, Icon: "pi pi-folder"),
         // A41 D-6 — built: leads, pipeline, opportunities, activities and campaigns.
         new(ModuleCodes.Crm,          "CRM",                      CategoryModule, "Leads, opportunities, sales pipeline, activities and campaigns.",       false, 145, Icon: "pi pi-comments"),
         // A49 D-5 — built: licensed by hand (LicensedByHandOnly); no dependencies, so an HR-only organization can run it (profile P3).

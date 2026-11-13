@@ -22,7 +22,7 @@ export function subtreeOf(n: DeptNode): Set<string> {
 }
 
 const FIELDS: Field[] = [
-  { key: 'code', label: 'Code', required: true, maxLength: 20 }, { key: 'name', label: 'Name', required: true, maxLength: 150 },
+  { key: 'code', label: 'Code', required: true, maxLength: 20 }, { key: 'name', label: 'Name', required: true, maxLength: 100 },
   { key: 'parentUuid', label: 'Parent', type: 'lookup', lookup: 'departments' }, { key: 'headEmployeeUuid', label: 'Head', type: 'lookup', lookup: 'employees' },
   { key: 'branchUuid', label: 'Branch', type: 'lookup', lookup: 'branches' }, { key: 'costCenterUuid', label: 'Cost center', type: 'lookup', lookup: 'costCenters' }
 ];

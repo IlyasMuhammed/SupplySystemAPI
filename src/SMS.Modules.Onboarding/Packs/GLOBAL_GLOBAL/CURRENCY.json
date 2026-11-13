@@ -1,0 +1,10 @@
+{
+  "base": {
+    "code": "USD",
+    "name": "US Dollar",
+    "symbol": "$",
+    "decimals": 2
+  },
+  "additional": [],
+  "notes": "USD only. The base is set to USD only while the organization has no documents (D-14)."
+}

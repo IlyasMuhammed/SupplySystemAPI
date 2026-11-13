@@ -61,6 +61,10 @@ public static class HrmModuleExtensions
         services.AddScoped<IEmployeeBankAccountService, EmployeeBankAccountService>();
         services.AddScoped<IModuleImpactProvider, HrmImpactProvider>();
 
+        // A50 D-30 / D-90 — the setup wizard's HRM category and the checklist's HRM steps (Onboarding enumerates every registration).
+        services.AddScoped<SMS.Shared.Onboarding.ISetupCategorySeeder, Onboarding.HrmSetupSeeder>();
+        services.AddScoped<SMS.Shared.Onboarding.IOnboardingSignal, Onboarding.HrmOnboardingSignal>();
+
         // One file per agent (docs/hrm/API-CONTRACT.md §13): each implements its partial method in Registration/HrmRegistration.<Agent>.cs.
         HrmRegistration.AddAll(services);
     }

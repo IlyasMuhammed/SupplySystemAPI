@@ -1,0 +1,150 @@
+<p-toast></p-toast>
+<p-confirmDialog [style]="{ width: '440px' }" [breakpoints]="{ '640px': '92vw' }"></p-confirmDialog>
+
+@if (loading) {
+  <div class="sf-empty" data-testid="editor-loading"><i class="pi pi-spin pi-spinner"></i> Loading template…</div>
+} @else if (notFound) {
+  <div class="sf-empty" data-testid="editor-not-found">
+    <i class="pi pi-inbox" style="font-size:2rem"></i>
+    <h2>Template not found</h2>
+    <p>It may have been removed, or the link may be wrong.</p>
+    <p-button label="Back to document templates" icon="pi pi-arrow-left" [text]="true" [routerLink]="listRoute"></p-button>
+  </div>
+} @else if (loadError) {
+  <div class="sf-empty tpl-err" data-testid="editor-error">
+    <i class="pi pi-exclamation-circle"></i> {{ loadError }}
+    <div><p-button label="Try again" icon="pi pi-refresh" [text]="true" (onClick)="load()"></p-button></div>
+  </div>
+} @else if (template) {
+<sf-page [crumbs]="['Settings', 'Document templates', template.name]">
+  <div sfCmd class="sf-cmd" role="toolbar" aria-label="Commands">
+    <p-button label="Save" icon="pi pi-check" [loading]="saving" [disabled]="!canSave" (onClick)="save()" data-testid="save"></p-button>
+    <p-button label="Preview PDF" icon="pi pi-eye" [text]="true" [loading]="previewLoading" (onClick)="preview()" data-testid="preview"></p-button>
+    @if (!template.isDefault) {
+      <p-button label="Set as default" icon="pi pi-star" [text]="true" [disabled]="busy || !isActive" (onClick)="setDefault()" data-testid="set-default"></p-button>
+    }
+    <p-button label="Clone" icon="pi pi-copy" [text]="true" [disabled]="busy" (onClick)="clone()" data-testid="clone"></p-button>
+    <span class="sf-sep"></span>
+    <p-button label="Reset to default" icon="pi pi-replay" [text]="true" severity="danger" [disabled]="busy" (onClick)="confirmReset()" data-testid="reset"></p-button>
+  </div>
+
+  <header class="sf-hdr sf-compact">
+    <div>
+      <div class="sf-kicker">{{ typeLabel }} template</div>
+      <h1>{{ template.name }}
+        @if (template.isDefault) { <span class="sf-pill ok">Default</span> }
+        @if (template.isSeeded) { <span class="sf-pill in">Seeded</span> } @else { <span class="sf-pill">Custom</span> }
+        @if (dirty) { <span class="sf-pill wn" data-testid="dirty">Unsaved</span> }
+      </h1>
+      <div class="sf-meta">Used on every {{ typeLabel.toLowerCase() }} PDF when it is the default.</div>
+    </div>
+  </header>
+
+  <div class="sf-body tpl-layout">
+    <div class="tpl-main">
+      <section class="sf-card">
+        <div class="sf-ch"><h2>Branding</h2></div>
+        <div class="sf-fields tpl-fields">
+          <div class="sf-fld tpl-span">
+            <label for="tpl-name">Name</label>
+            <input pInputText id="tpl-name" [(ngModel)]="name" (ngModelChange)="touch()" maxlength="200" class="w-full" data-testid="name" />
+            @if (!name.trim()) { <small class="tpl-errtxt">A name is required.</small> }
+          </div>
+
+          <div class="sf-fld tpl-span">
+            <label>Logo</label>
+            <div class="tpl-drop" [class.over]="dragOver" (dragover)="onDragOver($event)" (dragleave)="onDragLeave()" (drop)="onDrop($event)"
+                 data-testid="logo-drop">
+              <div class="tpl-logo">
+                @if (logoSrc) { <img [src]="logoSrc" alt="Logo preview" data-testid="logo-preview" /> }
+                @else { <i class="pi pi-image" aria-hidden="true"></i> }
+              </div>
+              <div class="tpl-drop-text">
+                <span>Drag a picture here, or</span>
+                <label class="tpl-upload" for="tpl-logo-file"><i class="pi pi-upload"></i> {{ logoSrc ? 'Replace' : 'Choose a file' }}</label>
+                <input id="tpl-logo-file" type="file" accept="image/*" hidden (change)="onLogoInput($event)" data-testid="logo-input" />
+                @if (logoSrc) { <button type="button" class="tpl-linkbtn" (click)="removeLogo()" data-testid="logo-remove">Remove</button> }
+                <small class="sf-mu">PNG or JPG, up to 2 MB.</small>
+                @if (uploadingLogo) { <small class="sf-mu"><i class="pi pi-spin pi-spinner"></i> Uploading…</small> }
+              </div>
+            </div>
+          </div>
+
+          <div class="sf-fld">
+            <label for="tpl-color">Primary colour</label>
+            <div class="tpl-color">
+              <input type="color" id="tpl-color" [ngModel]="colorValid && primaryColor ? primaryColor : '#4A42CC'"
+                     (ngModelChange)="onColorText($event)" aria-label="Pick the primary colour" data-testid="color-picker" />
+              <input pInputText [ngModel]="primaryColor" (ngModelChange)="onColorText($event)" maxlength="7" placeholder="#4A42CC"
+                     aria-label="Primary colour hex code" data-testid="color-text" />
+            </div>
+            @if (!colorValid) { <small class="tpl-errtxt" data-testid="color-error">Use a hex colour such as #1F6FEB.</small> }
+          </div>
+
+          <div class="sf-fld">
+            <label>Status</label>
+            <div class="tpl-check">
+              <p-checkbox [(ngModel)]="isActive" (ngModelChange)="touch()" [binary]="true" inputId="tpl-active" [disabled]="template.isDefault"></p-checkbox>
+              <label for="tpl-active">Active</label>
+            </div>
+            @if (template.isDefault) { <small class="sf-mu">The default template cannot be deactivated.</small> }
+          </div>
+        </div>
+      </section>
+
+      @for (s of sections; track s.key) {
+        <section class="sf-card" [attr.data-testid]="'sec-' + s.key">
+          <div class="sf-ch">
+            <h2>{{ s.label }}</h2>
+            @if (target === s.key) { <span class="sf-pill in">Placeholders go here</span> }
+          </div>
+          <p class="tpl-hint">{{ s.hint }}</p>
+          <app-html-field [value]="$any(this)[s.key]" (valueChange)="setHtml(s.key, $event)" (focused)="target = s.key"
+                          [label]="s.label" [minHeight]="s.min" [active]="target === s.key" [testId]="'html-' + s.key"></app-html-field>
+        </section>
+      }
+
+      <section class="sf-card">
+        <div class="sf-ch"><h2>Bank details</h2></div>
+        <div class="tpl-check">
+          <p-checkbox [(ngModel)]="showBankDetails" (ngModelChange)="touch()" [binary]="true" inputId="tpl-bank"></p-checkbox>
+          <label for="tpl-bank">Print bank details on this document</label>
+        </div>
+        <textarea pTextarea [(ngModel)]="bankDetailsText" (ngModelChange)="touch()" rows="5" maxlength="2000" class="w-full"
+                  [disabled]="!showBankDetails" data-testid="bank-text"
+                  placeholder="Bank, branch, account title, account number, IBAN, SWIFT, one per line"></textarea>
+        <small class="sf-mu">{{ bankDetailsText.length }} / 2000</small>
+      </section>
+
+      <section class="sf-card">
+        <div class="sf-ch"><h2>Terms and conditions</h2></div>
+        <textarea pTextarea [(ngModel)]="termsAndConditions" (ngModelChange)="touch()" rows="6" maxlength="4000" class="w-full"
+                  data-testid="terms-text" placeholder="E.g. Goods once sold will not be taken back. Payment due within 30 days."></textarea>
+        <small class="sf-mu">{{ termsAndConditions.length }} / 4000</small>
+      </section>
+    </div>
+
+    <aside class="tpl-side">
+      <app-placeholder-panel [placeholders]="placeholders" [loading]="placeholdersLoading" [error]="placeholdersError"
+                             [target]="'the ' + targetLabel" (insert)="insertPlaceholder($event)"></app-placeholder-panel>
+    </aside>
+  </div>
+
+  <div class="sf-fbar">
+    <span class="sf-mu sf-sm">{{ dirty ? 'You have unsaved changes.' : 'All changes saved.' }} Preview shows your edits before you save.</span>
+    <span class="sf-end">
+      <p-button label="Back" [text]="true" [routerLink]="listRoute"></p-button>
+      <p-button label="Save" icon="pi pi-check" [loading]="saving" [disabled]="!canSave" (onClick)="save()"></p-button>
+    </span>
+  </div>
+</sf-page>
+}
+
+<p-dialog [visible]="previewVisible" (visibleChange)="$event ? null : closePreview()" [modal]="true" header="Preview with sample data"
+          styleClass="sdlg" [style]="{ width: '900px', height: '90vh' }" [breakpoints]="{ '960px': '96vw' }" [maximizable]="true">
+  @if (previewLoading) {
+    <div class="sf-empty"><i class="pi pi-spin pi-spinner"></i> Rendering the PDF…</div>
+  } @else if (previewUrl) {
+    <iframe class="tpl-pdf" [src]="previewUrl" title="Template preview" data-testid="preview-frame"></iframe>
+  }
+</p-dialog>

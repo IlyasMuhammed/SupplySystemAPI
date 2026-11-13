@@ -134,6 +134,19 @@ describe('HrmRecordsComponent (A49 engine)', () => {
     expect(n.q('cmd-new')).not.toBeNull();
   });
 
+  it('REV49-12: an exact CNIC is POSTed in the body and never put in the URL', async () => {
+    const m = await mount(SELF.EMPLOYEES, ['HRM_EMPLOYEE_VIEW', 'HRM_EMPLOYEE_SENSITIVE_VIEW']);
+    m.flush('hrm/employees', page([]));
+    drain(m.http); m.detect();
+    (m.c as any).q['cnic'] = '35202-1234567-3';
+    m.c.load();
+    const req = m.http.expectOne(r => r.method === 'POST' && r.url === `${API}hrm/employees/search`);
+    expect(req.request.body.cnic).toBe('35202-1234567-3');
+    expect(req.request.urlWithParams).not.toContain('35202');
+    req.flush({ success: true, result: page([]) });
+    drain(m.http);
+  });
+
   it('reject needs a reason and posts it (131)', async () => {
     const m = await mount(ATT.OVERTIME, ['HRM_OVERTIME_APPROVE']);
     m.http.expectOne(r => r.url === `${API}hrm/overtime` && r.params.get('status') === 'Pending').flush({ success: true, result: [{ uuid: 'o1', employeeName: 'Ali', status: 'Pending', minutes: 90 }] });

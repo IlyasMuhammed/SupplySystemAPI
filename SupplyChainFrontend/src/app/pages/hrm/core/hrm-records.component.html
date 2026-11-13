@@ -56,7 +56,7 @@
                   <ng-container [ngSwitch]="c.kind">
                     <span *ngSwitchCase="'pill'" class="sf-pill" [ngClass]="hrmTone($any(cell(c, r)))">{{ text(c, r) }}</span>
                     <span *ngSwitchCase="'date'">{{ cell(c, r) ? ($any(cell(c, r)) | date:'dd MMM yyyy') : '—' }}</span>
-                    <span *ngSwitchCase="'datetime'">{{ cell(c, r) ? ($any(cell(c, r)) | date:'dd MMM yyyy, HH:mm') : '—' }}</span>
+                    <span *ngSwitchCase="'datetime'">{{ cell(c, r) ? (utc($any(cell(c, r))) | date:'dd MMM yyyy, HH:mm') : '—' }}</span>
                     <ng-container *ngSwitchDefault>
                       <a *ngIf="c.link; else plain" [routerLink]="c.link(r)" [class.sf-mono]="c.kind === 'mono'">{{ text(c, r) }}</a>
                       <ng-template #plain><span [class.sf-mono]="c.kind === 'mono'" [class.sf-mu]="text(c, r) === 'Hidden'">{{ text(c, r) }}</span></ng-template>

@@ -36,6 +36,8 @@ public static class ModuleCodes
     public const string GeneralLedger  = AccountingCodes.FeatureGeneralLedger;
     /// <summary>A49 — Human resources (sub-features in <see cref="HrmFeatureCodes"/>). In no plan: licensed by hand, enabled through the wizard.</summary>
     public const string Hrm            = "MODULE_HRM";
+    /// <summary>A50 — Tenant onboarding: setup wizard, default data, templates, sample data, checklist (core, always on — D-9).</summary>
+    public const string Onboarding     = "MODULE_ONBOARDING";
 
     // Sub-features that are enforced on real endpoints (API-CONTRACT §1.3).
     public const string BomManagement      = "FEATURE_BOM_MANAGEMENT";
@@ -89,6 +91,9 @@ public static class ModuleCodeMap
         ("HRM_", ModuleCodes.Hrm),
         // A40 D-9
         ("IMPORT_", ModuleCodes.DataImport),
+        // A50 D-8
+        ("SETUP_WIZARD_", ModuleCodes.Onboarding), ("DOC_TEMPLATE_", ModuleCodes.Onboarding), ("EMAIL_TEMPLATE_", ModuleCodes.Onboarding),
+        ("SAMPLE_DATA_", ModuleCodes.Onboarding), ("ONBOARDING_", ModuleCodes.Onboarding),
         // A41 D-3
         ("CRM_", ModuleCodes.Crm),
         // A42 D-14

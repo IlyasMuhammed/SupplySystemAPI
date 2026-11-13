@@ -17,6 +17,8 @@ import {
 import { AuthService }                         from '../service/auth.service';
 import { LayoutService }                       from '../../layout/service/layout.service';
 import { FLOW }                                from '../../shared/flow';
+import { SetupIncompleteBannerComponent }      from '../onboarding/setup-banner/setup-incomplete-banner.component';
+import { OnboardingChecklistWidgetComponent }  from '../onboarding/checklist/onboarding-checklist-widget.component';
 
 interface StatusBand {
     label: string;
@@ -94,7 +96,7 @@ const BANDS = {
 @Component({
     selector: 'app-dashboard',
     standalone: true,
-    imports: [CommonModule, RouterModule, ChartModule, TagModule, ButtonModule, SkeletonModule, ...FLOW],
+    imports: [CommonModule, RouterModule, ChartModule, TagModule, ButtonModule, SkeletonModule, ...FLOW, SetupIncompleteBannerComponent, OnboardingChecklistWidgetComponent],
     template: `
 <sf-page [crumbs]="['Home']">
   <!-- ── Command bar ───────────────────────────────────────────────────────── -->
@@ -106,6 +108,10 @@ const BANDS = {
   </div>
 
   <div class="sf-body">
+    <!-- A50 task 318 — "Setup incomplete" banner (FE-A50) -->
+    <app-setup-incomplete-banner></app-setup-incomplete-banner>
+    <!-- A50 tasks 313–317 — getting-started checklist, only while not dismissed and not complete (FE-B50) -->
+    <app-onboarding-checklist-widget></app-onboarding-checklist-widget>
     <!-- ── Greeting ─────────────────────────────────────────────────────────── -->
     <div class="sf-lr-head">
       <div>

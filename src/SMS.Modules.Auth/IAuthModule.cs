@@ -49,6 +49,10 @@ public static class AuthModuleExtensions
         services.AddScoped<IPosPinService, PosPinService>();
         // A41 D-5 — organization users for the CRM (assignment pickers, owner names).
         services.AddScoped<IOrgUserDirectory, OrgUserDirectory>();
+        // A50 D-20 — the setup wizard's ROLES category (Onboarding enumerates every ISetupCategorySeeder).
+        services.AddScoped<SMS.Shared.Onboarding.ISetupCategorySeeder, Onboarding.RoleSetupSeeder>();
+        // A50 D-28 — INVITE_TEAM: a second internal user.
+        services.AddScoped<SMS.Shared.Onboarding.IOnboardingSignal, Onboarding.AuthOnboardingSignal>();
         services.AddScoped<SessionCleanupJob>();
         services.AddScoped<AuthDataSeeder>();
         services.AddScoped<IAuthorizationHandler, PermissionAuthorizationHandler>();

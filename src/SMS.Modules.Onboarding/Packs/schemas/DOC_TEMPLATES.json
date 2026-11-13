@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "sms://onboarding/schemas/DOC_TEMPLATES.json",
+  "title": "DOC_TEMPLATES",
+  "description": "Default document templates (onboarding.DocumentTemplates, D-25). Natural key = templateType. {Placeholders} per docs/onboarding/TEMPLATE-PLACEHOLDERS.md (TPL).",
+  "type": "object",
+  "properties": {
+    "templates": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "templateType": {
+            "enum": [
+              "SalesInvoice",
+              "Quotation",
+              "PurchaseOrder",
+              "DeliveryNote",
+              "PaymentReceipt",
+              "CustomerStatement"
+            ]
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "headerHtml": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "bodyHtml": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "footerHtml": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "primaryColor": {
+            "type": "string",
+            "pattern": "^#[0-9A-Fa-f]{6}$"
+          },
+          "showBankDetails": {
+            "type": "boolean"
+          },
+          "bankDetailsText": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "termsAndConditions": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "isDefault": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "templateType",
+          "name"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 1
+    },
+    "displayName": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 200
+    },
+    "notes": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 2000
+    }
+  },
+  "required": [
+    "templates"
+  ],
+  "additionalProperties": false
+}

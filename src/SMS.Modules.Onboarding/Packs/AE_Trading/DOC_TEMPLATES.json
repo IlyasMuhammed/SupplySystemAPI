@@ -1,0 +1,77 @@
+{
+  "templates": [
+    {
+      "templateType": "SalesInvoice",
+      "name": "Standard Sales Invoice",
+      "headerHtml": "<div style=\"font-size:18px;font-weight:bold;\">{CompanyName}</div><div style=\"font-size:10px;color:#555555;\">{CompanyAddress}</div><div style=\"font-size:10px;color:#555555;\">Tel: {CompanyPhone} &middot; {CompanyEmail}</div><div style=\"font-size:10px;color:#555555;\">Tax ID: {CompanyTaxId}</div>",
+      "bodyHtml": null,
+      "footerHtml": "<div style=\"font-family:Arial,Helvetica,sans-serif;font-size:9px;color:#777777;text-align:center;border-top:1px solid #DDDDDD;padding-top:4px;\">Thank you for your business. This is a computer-generated invoice.<br/>{CompanyName} &middot; {CompanyAddress} &middot; {CompanyPhone} &middot; {CompanyEmail}</div>",
+      "primaryColor": "#1F4E79",
+      "showBankDetails": true,
+      "bankDetailsText": null,
+      "termsAndConditions": "Payment is due by the due date shown on this invoice. Please quote the invoice number with your payment. Goods remain the property of the seller until paid in full.",
+      "isDefault": true
+    },
+    {
+      "templateType": "Quotation",
+      "name": "Standard Quotation",
+      "headerHtml": "<div style=\"font-size:18px;font-weight:bold;\">{CompanyName}</div><div style=\"font-size:10px;color:#555555;\">{CompanyAddress}</div><div style=\"font-size:10px;color:#555555;\">Tel: {CompanyPhone} &middot; {CompanyEmail}</div><div style=\"font-size:10px;color:#555555;\">Tax ID: {CompanyTaxId}</div>",
+      "bodyHtml": null,
+      "footerHtml": "<div style=\"font-family:Arial,Helvetica,sans-serif;font-size:9px;color:#777777;text-align:center;border-top:1px solid #DDDDDD;padding-top:4px;\">We look forward to your order.<br/>{CompanyName} &middot; {CompanyAddress} &middot; {CompanyPhone} &middot; {CompanyEmail}</div>",
+      "primaryColor": "#1F4E79",
+      "showBankDetails": false,
+      "bankDetailsText": null,
+      "termsAndConditions": "Prices are valid until the date shown. Delivery times are estimates and are confirmed on order. Taxes are charged at the rate applicable on the invoice date.",
+      "isDefault": true
+    },
+    {
+      "templateType": "PurchaseOrder",
+      "name": "Standard Purchase Order",
+      "headerHtml": "<div style=\"font-size:18px;font-weight:bold;\">{CompanyName}</div><div style=\"font-size:10px;color:#555555;\">{CompanyAddress}</div><div style=\"font-size:10px;color:#555555;\">Tel: {CompanyPhone} &middot; {CompanyEmail}</div><div style=\"font-size:10px;color:#555555;\">Tax ID: {CompanyTaxId}</div>",
+      "bodyHtml": null,
+      "footerHtml": "<div style=\"font-family:Arial,Helvetica,sans-serif;font-size:9px;color:#777777;text-align:center;border-top:1px solid #DDDDDD;padding-top:4px;\">Please quote the PO number on every delivery note and invoice.<br/>{CompanyName} &middot; {CompanyAddress} &middot; {CompanyPhone} &middot; {CompanyEmail}</div>",
+      "primaryColor": "#1F4E79",
+      "showBankDetails": false,
+      "bankDetailsText": null,
+      "termsAndConditions": "Deliver the goods as specified by the delivery date. Goods that do not match the order may be rejected. Invoices without a PO number may be delayed.",
+      "isDefault": true
+    },
+    {
+      "templateType": "DeliveryNote",
+      "name": "Standard Delivery Note",
+      "headerHtml": "<div style=\"font-size:18px;font-weight:bold;\">{CompanyName}</div><div style=\"font-size:10px;color:#555555;\">{CompanyAddress}</div><div style=\"font-size:10px;color:#555555;\">Tel: {CompanyPhone} &middot; {CompanyEmail}</div><div style=\"font-size:10px;color:#555555;\">Tax ID: {CompanyTaxId}</div>",
+      "bodyHtml": null,
+      "footerHtml": "<div style=\"font-family:Arial,Helvetica,sans-serif;font-size:9px;color:#777777;text-align:center;border-top:1px solid #DDDDDD;padding-top:4px;\">Received the above goods in good order and condition.<br/>{CompanyName} &middot; {CompanyAddress} &middot; {CompanyPhone} &middot; {CompanyEmail}</div>",
+      "primaryColor": "#1F4E79",
+      "showBankDetails": false,
+      "bankDetailsText": null,
+      "termsAndConditions": "Please check the goods on delivery and report any shortage or damage within 48 hours.",
+      "isDefault": true
+    },
+    {
+      "templateType": "PaymentReceipt",
+      "name": "Standard Payment Receipt",
+      "headerHtml": "<div style=\"font-size:18px;font-weight:bold;\">{CompanyName}</div><div style=\"font-size:10px;color:#555555;\">{CompanyAddress}</div><div style=\"font-size:10px;color:#555555;\">Tel: {CompanyPhone} &middot; {CompanyEmail}</div><div style=\"font-size:10px;color:#555555;\">Tax ID: {CompanyTaxId}</div>",
+      "bodyHtml": null,
+      "footerHtml": "<div style=\"font-family:Arial,Helvetica,sans-serif;font-size:9px;color:#777777;text-align:center;border-top:1px solid #DDDDDD;padding-top:4px;\">Thank you for your payment.<br/>{CompanyName} &middot; {CompanyAddress} &middot; {CompanyPhone} &middot; {CompanyEmail}</div>",
+      "primaryColor": "#1F4E79",
+      "showBankDetails": false,
+      "bankDetailsText": null,
+      "termsAndConditions": "This receipt is valid subject to realisation of cheques and bank transfers.",
+      "isDefault": true
+    },
+    {
+      "templateType": "CustomerStatement",
+      "name": "Standard Customer Statement",
+      "headerHtml": "<div style=\"font-size:18px;font-weight:bold;\">{CompanyName}</div><div style=\"font-size:10px;color:#555555;\">{CompanyAddress}</div><div style=\"font-size:10px;color:#555555;\">Tel: {CompanyPhone} &middot; {CompanyEmail}</div><div style=\"font-size:10px;color:#555555;\">Tax ID: {CompanyTaxId}</div>",
+      "bodyHtml": null,
+      "footerHtml": "<div style=\"font-family:Arial,Helvetica,sans-serif;font-size:9px;color:#777777;text-align:center;border-top:1px solid #DDDDDD;padding-top:4px;\">Please report any discrepancy within 15 days of the statement date.<br/>{CompanyName} &middot; {CompanyAddress} &middot; {CompanyPhone} &middot; {CompanyEmail}</div>",
+      "primaryColor": "#1F4E79",
+      "showBankDetails": true,
+      "bankDetailsText": null,
+      "termsAndConditions": "Balances not disputed within 15 days are taken as confirmed.",
+      "isDefault": true
+    }
+  ],
+  "notes": "bodyHtml null = the built-in layout with this branding (D-25). Bank details are left empty for the admin to fill in (task 250)."
+}

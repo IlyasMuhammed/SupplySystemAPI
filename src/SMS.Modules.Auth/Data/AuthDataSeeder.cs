@@ -402,6 +402,14 @@ internal sealed class AuthDataSeeder
         ("View Statutory Remittances",    PermissionCodes.HRM_REMITTANCE_VIEW,     "See tax, EOBI and provident fund due and paid"),
         ("Manage Statutory Remittances",  PermissionCodes.HRM_REMITTANCE_MANAGE,   "Record payments of tax, EOBI and provident fund to the authorities"),
         ("View HR Reports",               PermissionCodes.HRM_REPORTS_VIEW,        "See HR and payroll reports"),
+        ("Email Payslips in Bulk",        PermissionCodes.HRM_PAYSLIP_EMAIL,       "Email every payslip of a finalized payroll run to its employees (A50 D-98)"),
+
+        // A50 D-8 — tenant onboarding (System Admin and Org Admin hold them through PermissionCodes.All).
+        ("Run Setup Wizard",              PermissionCodes.SETUP_WIZARD_RUN,        "Run the organization setup wizard, see the default data dashboard and reset seeded categories"),
+        ("Manage Document Templates",     PermissionCodes.DOC_TEMPLATE_MANAGE,     "Change the PDF templates and branding of invoices, quotations, purchase orders and other documents"),
+        ("Manage Email Templates",        PermissionCodes.EMAIL_TEMPLATE_MANAGE,   "Change the organization's email templates and send test emails"),
+        ("Manage Sample Data",            PermissionCodes.SAMPLE_DATA_MANAGE,      "Load and remove sample (demo) customers, products and orders"),
+        ("View Onboarding Checklist",     PermissionCodes.ONBOARDING_VIEW,         "See and tick off the organization's onboarding checklist"),
     ];
 
     /// <summary>A49 G-22 — seed labels of the HR built-in roles (resolved by code like the rest).</summary>
@@ -431,7 +439,9 @@ internal sealed class AuthDataSeeder
         ("FINANCE_MANAGER", [PermissionCodes.HRM_SETTINGS_MANAGE, PermissionCodes.HRM_ACCOUNT_MAPPING_VIEW, PermissionCodes.HRM_ACCOUNT_MAPPING_EDIT,
                              PermissionCodes.HRM_PAYROLL_VIEW, PermissionCodes.HRM_REPORTS_VIEW, PermissionCodes.HRM_REMITTANCE_VIEW,
                              PermissionCodes.HRM_REMITTANCE_MANAGE, PermissionCodes.HRM_EXPENSE_VIEW, PermissionCodes.HRM_EXPENSE_PAY,
-                             PermissionCodes.HRM_ORG_VIEW]),
+                             PermissionCodes.HRM_ORG_VIEW,
+                             // A50 D-97: the level-2 approver of the seeded expense rule must be able to approve through the HRM route.
+                             PermissionCodes.HRM_EXPENSE_APPROVE]),
         ("AUDITOR",         [PermissionCodes.HRM_PAYROLL_VIEW, PermissionCodes.HRM_REPORTS_VIEW, PermissionCodes.HRM_ACCOUNT_MAPPING_VIEW,
                              PermissionCodes.HRM_ORG_VIEW, PermissionCodes.HRM_EMPLOYEE_VIEW, PermissionCodes.HRM_SCOPE_ALL]),
     ];

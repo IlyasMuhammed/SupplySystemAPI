@@ -143,9 +143,25 @@ internal sealed class TenancyRepository : ITenancyRepository
                 .Where(t => t.Plan.ToLower() == req.Plan.ToLower())
                 .ToDictionaryAsync(t => t.FeatureDefinitionId, t => t.IsEnabledByDefault);
 
-            foreach (var feature in features)
+            // The modules the super admin ticked at creation (plus what they depend on); null keeps the plan's defaults.
+            var chosen = req.ModuleCodes is null ? null : ExpandWithDependencies(req.ModuleCodes);
+            var licensedCodes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            // Modules before their sub-features, so a sub-feature sees whether its module was licensed.
+            foreach (var feature in features.OrderBy(f => f.ParentModuleCode is null ? 0 : 1))
             {
                 templates.TryGetValue(feature.Id, out var isEnabledByDefault);
+                if (chosen is not null)
+                {
+                    // Core entries (master data, user management, workflow) are never switched off. Everything else is
+                    // licensed only inside a chosen module, and a sub-feature still follows its plan default.
+                    var inChosenModule = feature.ParentModuleCode is null
+                        ? chosen.Contains(feature.FeatureCode)
+                        : licensedCodes.Contains(feature.ParentModuleCode);
+                    isEnabledByDefault = feature.IsAvailable
+                        && (feature.IsCore || (inChosenModule && (feature.ParentModuleCode is null || isEnabledByDefault)));
+                    if (isEnabledByDefault) licensedCodes.Add(feature.FeatureCode);
+                }
                 // A37 D-4 — the plan is the licence; MOD-08 — BOM management from the plan is the system's.
                 _db.OrganizationFeatures.Add(new OrganizationFeature
                 {
@@ -190,6 +206,20 @@ internal sealed class TenancyRepository : ITenancyRepository
         });
 
         return result;
+    }
+
+    /// <summary>The ticked modules plus everything they depend on (e.g. Manufacturing needs Inventory), repeated until stable.</summary>
+    private static HashSet<string> ExpandWithDependencies(IEnumerable<string> codes)
+    {
+        var set = new HashSet<string>(codes, StringComparer.OrdinalIgnoreCase);
+        bool changed;
+        do
+        {
+            changed = false;
+            foreach (var (dependent, requiredBy) in TenancyFeatureCatalog.Dependencies)
+                if (set.Contains(dependent) && set.Add(requiredBy)) changed = true;
+        } while (changed);
+        return set;
     }
 
     public async Task<bool> UpdateOrganizationAsync(Guid id, UpdateOrganizationRequest req, int modifiedBy)
@@ -286,7 +316,8 @@ internal sealed class TenancyRepository : ITenancyRepository
                 Category     = f.Category,
                 Description  = f.Description,
                 IsCore       = f.IsCore,
-                DisplayOrder = f.DisplayOrder
+                DisplayOrder = f.DisplayOrder,
+                IsAvailable  = f.IsAvailable
             })
             .ToListAsync();
     }

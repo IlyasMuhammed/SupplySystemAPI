@@ -1,0 +1,54 @@
+{
+  "templates": [
+    {
+      "templateType": "InvoiceSent",
+      "name": "Invoice sent to customer",
+      "subjectTemplate": "Invoice {InvoiceNumber} from {CompanyName}",
+      "isDefault": true,
+      "bodyHtml": "<div style=\"font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#222222;line-height:1.5;max-width:600px;\"><p>Dear {CustomerName},</p><p>Please find attached invoice <strong>{InvoiceNumber}</strong>.</p><table style=\"border-collapse:collapse;margin:12px 0;\"><tr><td style=\"padding:4px 16px 4px 0;color:#555555;\">Invoice date</td><td style=\"padding:4px 0;\"><strong>{InvoiceDate}</strong></td></tr><tr><td style=\"padding:4px 16px 4px 0;color:#555555;\">Amount</td><td style=\"padding:4px 0;\"><strong>{CurrencyCode} {TotalAmount}</strong></td></tr><tr><td style=\"padding:4px 16px 4px 0;color:#555555;\">Due date</td><td style=\"padding:4px 0;\"><strong>{DueDate}</strong></td></tr></table><p>{Message}</p><p>If you have any questions about this invoice, just reply to this email.</p><p style=\"margin-top:24px;\">Kind regards,<br/><strong>{CompanyName}</strong><br/><span style=\"color:#777777;font-size:12px;\">{CompanyEmail} &middot; {CompanyPhone}</span></p></div>"
+    },
+    {
+      "templateType": "QuotationSent",
+      "name": "Quotation sent to customer",
+      "subjectTemplate": "Quotation {QuotationNumber} from {CompanyName}",
+      "isDefault": true,
+      "bodyHtml": "<div style=\"font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#222222;line-height:1.5;max-width:600px;\"><p>Dear {CustomerName},</p><p>Thank you for your inquiry. Please find attached our quotation <strong>{QuotationNumber}</strong>.</p><table style=\"border-collapse:collapse;margin:12px 0;\"><tr><td style=\"padding:4px 16px 4px 0;color:#555555;\">Quotation date</td><td style=\"padding:4px 0;\"><strong>{QuotationDate}</strong></td></tr><tr><td style=\"padding:4px 16px 4px 0;color:#555555;\">Amount</td><td style=\"padding:4px 0;\"><strong>{CurrencyCode} {TotalAmount}</strong></td></tr><tr><td style=\"padding:4px 16px 4px 0;color:#555555;\">Valid until</td><td style=\"padding:4px 0;\"><strong>{ValidUntil}</strong></td></tr></table><p>{Message}</p><p>To go ahead, simply reply to this email and we will confirm your order.</p><p style=\"margin-top:24px;\">Kind regards,<br/><strong>{CompanyName}</strong><br/><span style=\"color:#777777;font-size:12px;\">{CompanyEmail} &middot; {CompanyPhone}</span></p></div>"
+    },
+    {
+      "templateType": "POToSupplier",
+      "name": "Purchase order sent to supplier",
+      "subjectTemplate": "Purchase Order {PoNumber} from {CompanyName}",
+      "isDefault": true,
+      "bodyHtml": "<div style=\"font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#222222;line-height:1.5;max-width:600px;\"><p>Dear {SupplierName},</p><p>Please find attached purchase order <strong>{PoNumber}</strong>.</p><table style=\"border-collapse:collapse;margin:12px 0;\"><tr><td style=\"padding:4px 16px 4px 0;color:#555555;\">Order date</td><td style=\"padding:4px 0;\"><strong>{PoDate}</strong></td></tr><tr><td style=\"padding:4px 16px 4px 0;color:#555555;\">Amount</td><td style=\"padding:4px 0;\"><strong>{CurrencyCode} {TotalAmount}</strong></td></tr><tr><td style=\"padding:4px 16px 4px 0;color:#555555;\">Required delivery</td><td style=\"padding:4px 0;\"><strong>{DeliveryDate}</strong></td></tr></table><p>{Message}</p><p>Please confirm receipt of this order and the expected delivery date, and quote the PO number on your delivery note and invoice.</p><p style=\"margin-top:24px;\">Kind regards,<br/><strong>{CompanyName}</strong><br/><span style=\"color:#777777;font-size:12px;\">{CompanyEmail} &middot; {CompanyPhone}</span></p></div>"
+    },
+    {
+      "templateType": "PaymentReminder",
+      "name": "Payment reminder",
+      "subjectTemplate": "Payment reminder: invoice {InvoiceNumber} is overdue",
+      "isDefault": true,
+      "bodyHtml": "<div style=\"font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#222222;line-height:1.5;max-width:600px;\"><p>Dear {CustomerName},</p><p>Our records show that the following invoice is now <strong>{DaysOverdue} days</strong> past its due date.</p><table style=\"border-collapse:collapse;margin:12px 0;\"><tr><td style=\"padding:4px 16px 4px 0;color:#555555;\">Invoice</td><td style=\"padding:4px 0;\"><strong>{InvoiceNumber}</strong></td></tr><tr><td style=\"padding:4px 16px 4px 0;color:#555555;\">Due date</td><td style=\"padding:4px 0;\"><strong>{DueDate}</strong></td></tr><tr><td style=\"padding:4px 16px 4px 0;color:#555555;\">Amount due</td><td style=\"padding:4px 0;\"><strong>{CurrencyCode} {AmountDue}</strong></td></tr></table><p>If you have already paid, please ignore this reminder and accept our thanks. Otherwise, we would be grateful for payment at your earliest convenience.</p><p style=\"margin-top:24px;\">Kind regards,<br/><strong>{CompanyName}</strong><br/><span style=\"color:#777777;font-size:12px;\">{CompanyEmail} &middot; {CompanyPhone}</span></p></div>"
+    },
+    {
+      "templateType": "PaymentReceived",
+      "name": "Payment received",
+      "subjectTemplate": "Payment received — thank you ({PaymentNumber})",
+      "isDefault": true,
+      "bodyHtml": "<div style=\"font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#222222;line-height:1.5;max-width:600px;\"><p>Dear {CustomerName},</p><p>We have received your payment. Thank you.</p><table style=\"border-collapse:collapse;margin:12px 0;\"><tr><td style=\"padding:4px 16px 4px 0;color:#555555;\">Receipt</td><td style=\"padding:4px 0;\"><strong>{PaymentNumber}</strong></td></tr><tr><td style=\"padding:4px 16px 4px 0;color:#555555;\">Date</td><td style=\"padding:4px 0;\"><strong>{PaymentDate}</strong></td></tr><tr><td style=\"padding:4px 16px 4px 0;color:#555555;\">Amount</td><td style=\"padding:4px 0;\"><strong>{CurrencyCode} {AmountPaid}</strong></td></tr><tr><td style=\"padding:4px 16px 4px 0;color:#555555;\">Applied to</td><td style=\"padding:4px 0;\"><strong>{InvoiceNumber}</strong></td></tr></table><p>Your receipt is attached for your records.</p><p style=\"margin-top:24px;\">Kind regards,<br/><strong>{CompanyName}</strong><br/><span style=\"color:#777777;font-size:12px;\">{CompanyEmail} &middot; {CompanyPhone}</span></p></div>"
+    },
+    {
+      "templateType": "WelcomeEmail",
+      "name": "Welcome to the team",
+      "subjectTemplate": "Welcome to {OrganizationName}",
+      "isDefault": true,
+      "bodyHtml": "<div style=\"font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#222222;line-height:1.5;max-width:600px;\"><p>Hello {FirstName},</p><p>You have been invited to join <strong>{OrganizationName}</strong>.</p><p style=\"margin:20px 0;\"><a href=\"{AcceptInviteUrl}\" style=\"background:#1F4E79;color:#FFFFFF;padding:10px 18px;text-decoration:none;border-radius:4px;\">Accept your invitation</a></p><p>Your user name is <strong>{UserName}</strong>. After accepting, sign in at <a href=\"{LoginUrl}\">{LoginUrl}</a>.</p><p>The invitation link expires in 7 days.</p><p style=\"margin-top:24px;\">Kind regards,<br/><strong>{CompanyName}</strong><br/><span style=\"color:#777777;font-size:12px;\">{CompanyEmail} &middot; {CompanyPhone}</span></p></div>"
+    },
+    {
+      "templateType": "PayslipSent",
+      "name": "Payslip sent to employee",
+      "subjectTemplate": "Your payslip for {PayPeriod}",
+      "isDefault": true,
+      "bodyHtml": "<div style=\"font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#222222;line-height:1.5;max-width:600px;\"><p>Dear {EmployeeName},</p><p>Your payslip for <strong>{PayPeriod}</strong> is attached.</p><table style=\"border-collapse:collapse;margin:12px 0;\"><tr><td style=\"padding:4px 16px 4px 0;color:#555555;\">Net pay</td><td style=\"padding:4px 0;\"><strong>{CurrencyCode} {NetPay}</strong></td></tr></table><p>Please contact HR if anything on your payslip looks wrong.</p><p style=\"margin-top:24px;\">Kind regards,<br/><strong>{CompanyName}</strong><br/><span style=\"color:#777777;font-size:12px;\">{CompanyEmail} &middot; {CompanyPhone}</span></p></div>"
+    }
+  ],
+  "notes": "Placeholders per docs/onboarding/TEMPLATE-PLACEHOLDERS.md (TPL). PayslipSent is sent by HRM (D-93)."
+}

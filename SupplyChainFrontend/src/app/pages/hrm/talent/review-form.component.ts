@@ -165,10 +165,20 @@ export class ReviewFormComponent implements OnInit {
     }));
   }
 
+  /**
+   * REV49B-7: `acknowledge` takes no body, and an acknowledged review is locked. So the employee's comments go first through
+   * `PUT reviews/{uuid}` (open to the employee while Submitted), then the acknowledge. A refused save stops before acknowledging.
+   */
   acknowledge(): void {
-    this.api.post(`hrm/reviews/${this.uuid}/acknowledge`, { employeeComments: this.r.employeeComments ?? null }).subscribe({
-      next: () => this.load(),
-      error: err => { this.error = hrmError(err, 'The review could not be acknowledged.'); }
+    this.busy = true;
+    this.error = '';
+    const fail = (fallback: string) => (err: unknown) => { this.busy = false; this.error = hrmError(err, fallback); };
+    this.api.put(`hrm/reviews/${this.uuid}`, { employeeComments: this.r.employeeComments ?? null }).subscribe({
+      next: () => this.api.post(`hrm/reviews/${this.uuid}/acknowledge`).subscribe({
+        next: () => { this.busy = false; this.messages.add({ severity: 'success', summary: 'Acknowledged', detail: 'The review is acknowledged.', life: 3000 }); this.load(); },
+        error: fail('The review could not be acknowledged.')
+      }),
+      error: fail('Your comments could not be saved, so the review was not acknowledged.')
     });
   }
 }

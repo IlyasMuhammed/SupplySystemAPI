@@ -52,6 +52,9 @@ public static class AccountingModuleExtensions
 
         // A44 — financial posting gateway, entity sync gateway, internal GL target, posting log — Posting/PostingRegistration.cs.
         services.AddAccountingPostingServices();
+
+        // A50 — onboarding setup seeders (COA, FISCAL) and the GL opening balance import target (Onboarding/OnboardingRegistration.cs).
+        Onboarding.OnboardingRegistration.AddAccountingOnboarding(services);
     }
 
     /// <summary>

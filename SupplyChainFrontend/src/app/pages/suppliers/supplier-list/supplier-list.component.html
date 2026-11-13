@@ -68,7 +68,7 @@
 
         <ng-template pTemplate="body" let-supplier>
           <tr>
-            <td><a [routerLink]="['/portal/pages/suppliers/supplier-detail', supplier.uuid]"><strong>{{ supplier.supplierName }}</strong></a></td>
+            <td><a [routerLink]="['/portal/pages/suppliers/supplier-detail', supplier.uuid]"><strong>{{ supplier.supplierName }}</strong></a> <app-demo-badge entityType="Vendor" [entityRef]="supplier.uuid"></app-demo-badge></td>
             <td><span class="sf-mono sf-mu">{{ supplier.supplierCode || '—' }}</span></td>
             <td>
               <p-tag [value]="supplier.status || 'UNKNOWN'"

@@ -46,6 +46,8 @@ public static class WorkflowEngineModuleExtensions
         services.AddScoped<IWorkflowActionService, WorkflowActionService>();
         services.AddScoped<ITimelineService, TimelineService>();
         services.AddScoped<IAttachmentService, AttachmentService>();
+        // A50 TPL (D-25) — document template logos read in-process by the PDF renderers.
+        services.AddScoped<SMS.Shared.Onboarding.IDocumentAssetReader, DocumentAssetReader>();
         services.AddScoped<IWorkflowHistoryService, WorkflowHistoryService>();
         services.AddScoped<IWorkflowInboxService, WorkflowInboxService>();
         services.AddScoped<IWorkflowConfigService, WorkflowConfigService>();
@@ -68,6 +70,8 @@ public static class WorkflowEngineModuleExtensions
         // workflows at creation time (MT-006) without a project reference to WorkflowEngine.
         services.AddScoped<WorkflowDefinitionSeeder>();
         services.AddScoped<IWorkflowSeedingService>(sp => sp.GetRequiredService<WorkflowDefinitionSeeder>());
+        // A50 D-18 — the setup wizard's APPROVAL_RULES category (Onboarding enumerates every ISetupCategorySeeder).
+        services.AddScoped<SMS.Shared.Onboarding.ISetupCategorySeeder, Onboarding.ApprovalSetupSeeder>();
 
         return services;
     }

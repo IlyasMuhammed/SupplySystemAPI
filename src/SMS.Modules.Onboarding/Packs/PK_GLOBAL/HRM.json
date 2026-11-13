@@ -1,0 +1,53 @@
+{
+  "verified": false,
+  "verificationNote": "UNVERIFIED seed, not professional advice. The tax slabs are from memory of the public 2025-26 schedule; have a qualified payroll consultant confirm them against the current Finance Act / notification. Payroll cannot be finalized until someone with the HRM statutory-verify permission has marked them verified in HR.",
+  "leaveTypes": [
+    { "code": "ANNUAL",    "name": "Annual Leave",    "entitlementDays": 14, "isPaid": true,  "carryForwardCap": 14,   "attachmentAfterDays": null, "genderRestriction": null, "accrualMethod": "Annual", "effectiveFrom": "2026-01-01" },
+    { "code": "SICK",      "name": "Sick Leave",      "entitlementDays": 10, "isPaid": true,  "carryForwardCap": null, "attachmentAfterDays": 2,    "genderRestriction": null, "accrualMethod": "Annual", "effectiveFrom": "2026-01-01" },
+    { "code": "CASUAL",    "name": "Casual Leave",    "entitlementDays": 10, "isPaid": true,  "carryForwardCap": null, "attachmentAfterDays": null, "genderRestriction": null, "accrualMethod": "Annual", "effectiveFrom": "2026-01-01" },
+    { "code": "MATERNITY", "name": "Maternity Leave", "entitlementDays": 90, "isPaid": true,  "carryForwardCap": null, "attachmentAfterDays": 1,    "genderRestriction": "F",  "accrualMethod": "Annual", "effectiveFrom": "2026-01-01" },
+    { "code": "PATERNITY", "name": "Paternity Leave", "entitlementDays": 30, "isPaid": true,  "carryForwardCap": null, "attachmentAfterDays": 1,    "genderRestriction": "M",  "accrualMethod": "Annual", "effectiveFrom": "2026-01-01" },
+    { "code": "UNPAID",    "name": "Unpaid Leave",    "entitlementDays": 0,  "isPaid": false, "carryForwardCap": null, "attachmentAfterDays": null, "genderRestriction": null, "accrualMethod": "None",   "effectiveFrom": "2026-01-01" }
+  ],
+  "salaryComponents": [
+    { "code": "BASIC",    "name": "Basic salary",                "type": "Earning",              "isTaxable": true,  "inGross": true,  "calcMethod": "Fixed",   "postingRole": "DEFAULT_SALARY_EXPENSE",          "expenseRole": null,                              "formula": null,                  "sortOrder": 10 },
+    { "code": "HRENT",    "name": "House rent",                  "type": "Earning",              "isTaxable": true,  "inGross": true,  "calcMethod": "Fixed",   "postingRole": "DEFAULT_SALARY_EXPENSE",          "expenseRole": null,                              "formula": null,                  "sortOrder": 20 },
+    { "code": "UTIL",     "name": "Utilities",                   "type": "Earning",              "isTaxable": true,  "inGross": true,  "calcMethod": "Fixed",   "postingRole": "DEFAULT_SALARY_EXPENSE",          "expenseRole": null,                              "formula": null,                  "sortOrder": 30 },
+    { "code": "CONV",     "name": "Conveyance / allowances",     "type": "Earning",              "isTaxable": true,  "inGross": true,  "calcMethod": "Fixed",   "postingRole": "DEFAULT_SALARY_EXPENSE",          "expenseRole": null,                              "formula": null,                  "sortOrder": 40 },
+    { "code": "OT",       "name": "Overtime",                    "type": "Earning",              "isTaxable": true,  "inGross": true,  "calcMethod": "Fixed",   "postingRole": "DEFAULT_OVERTIME_EXPENSE",        "expenseRole": null,                              "formula": null,                  "sortOrder": 50 },
+    { "code": "BONUS",    "name": "Bonus",                       "type": "Earning",              "isTaxable": true,  "inGross": true,  "calcMethod": "Fixed",   "postingRole": "DEFAULT_BONUS_EXPENSE",           "expenseRole": null,                              "formula": null,                  "sortOrder": 60 },
+    { "code": "ARREARS",  "name": "Arrears",                     "type": "Earning",              "isTaxable": true,  "inGross": true,  "calcMethod": "Fixed",   "postingRole": "DEFAULT_SALARY_EXPENSE",          "expenseRole": null,                              "formula": null,                  "sortOrder": 70 },
+    { "code": "EXPREIMB", "name": "Expense reimbursement",       "type": "Earning",              "isTaxable": false, "inGross": false, "calcMethod": "Fixed",   "postingRole": "DEFAULT_EXPENSE_CLAIM_PAYABLE",   "expenseRole": null,                              "formula": null,                  "sortOrder": 80 },
+    { "code": "ITAX",     "name": "Income tax withheld",         "type": "Deduction",            "isTaxable": false, "inGross": false, "calcMethod": "Formula", "postingRole": "DEFAULT_EMPLOYEE_TAX_PAYABLE",    "expenseRole": null,                              "formula": "SLAB(TAXABLE_INCOME)", "sortOrder": 90 },
+    { "code": "EOBI_EE",  "name": "EOBI (employee)",             "type": "Deduction",            "isTaxable": false, "inGross": false, "calcMethod": "Fixed",   "postingRole": "DEFAULT_EOBI_PAYABLE",            "expenseRole": null,                              "formula": null,                  "sortOrder": 100 },
+    { "code": "EOBI_ER",  "name": "EOBI (employer)",             "type": "EmployerContribution", "isTaxable": false, "inGross": false, "calcMethod": "Fixed",   "postingRole": "DEFAULT_EOBI_PAYABLE",            "expenseRole": "DEFAULT_EMPLOYER_CONTRIB_EXPENSE", "formula": null,                  "sortOrder": 110 },
+    { "code": "PF_EE",    "name": "Provident fund (employee)",   "type": "Deduction",            "isTaxable": false, "inGross": false, "calcMethod": "Fixed",   "postingRole": "DEFAULT_PF_PAYABLE",              "expenseRole": null,                              "formula": null,                  "sortOrder": 120 },
+    { "code": "PF_ER",    "name": "Provident fund (employer)",   "type": "EmployerContribution", "isTaxable": false, "inGross": false, "calcMethod": "Fixed",   "postingRole": "DEFAULT_PF_PAYABLE",              "expenseRole": "DEFAULT_EMPLOYER_CONTRIB_EXPENSE", "formula": null,                  "sortOrder": 130 },
+    { "code": "SS_EE",    "name": "Social security (employee)",  "type": "Deduction",            "isTaxable": false, "inGross": false, "calcMethod": "Fixed",   "postingRole": "DEFAULT_SOCIAL_SECURITY_PAYABLE", "expenseRole": null,                              "formula": null,                  "sortOrder": 140 },
+    { "code": "SS_ER",    "name": "Social security (employer)",  "type": "EmployerContribution", "isTaxable": false, "inGross": false, "calcMethod": "Fixed",   "postingRole": "DEFAULT_SOCIAL_SECURITY_PAYABLE", "expenseRole": "DEFAULT_EMPLOYER_CONTRIB_EXPENSE", "formula": null,                  "sortOrder": 150 },
+    { "code": "LOAN",     "name": "Loan recovery",               "type": "Deduction",            "isTaxable": false, "inGross": false, "calcMethod": "Fixed",   "postingRole": "DEFAULT_EMPLOYEE_LOAN_RECEIVABLE", "expenseRole": null,                             "formula": null,                  "sortOrder": 160 },
+    { "code": "ADV",      "name": "Advance recovery",            "type": "Deduction",            "isTaxable": false, "inGross": false, "calcMethod": "Fixed",   "postingRole": "DEFAULT_EMPLOYEE_ADVANCE",        "expenseRole": null,                              "formula": null,                  "sortOrder": 170 },
+    { "code": "OTHDED",   "name": "Other deductions",            "type": "Deduction",            "isTaxable": false, "inGross": false, "calcMethod": "Fixed",   "postingRole": "DEFAULT_OTHER_DEDUCTION_PAYABLE", "expenseRole": null,                              "formula": null,                  "sortOrder": 180 },
+    { "code": "NET",      "name": "Net pay",                     "type": "Result",               "isTaxable": false, "inGross": false, "calcMethod": "Fixed",   "postingRole": "DEFAULT_SALARY_PAYABLE",          "expenseRole": null,                              "formula": null,                  "sortOrder": 190 }
+  ],
+  "taxSlabTables": [
+    {
+      "code": "PK-SALARIED-2026",
+      "name": "Pakistan salaried income tax 2025-26 (UNVERIFIED)",
+      "countryCode": "PK",
+      "effectiveFrom": "2025-07-01",
+      "effectiveTo": "2026-06-30",
+      "sourceNote": "UNVERIFIED seed, not professional advice. Have a qualified payroll consultant confirm against the current Finance Act / notification before use.",
+      "slabs": [
+        { "from": 0,       "to": 600000,  "fixedAmount": 0,      "ratePercent": 0 },
+        { "from": 600000,  "to": 1200000, "fixedAmount": 0,      "ratePercent": 1 },
+        { "from": 1200000, "to": 2200000, "fixedAmount": 6000,   "ratePercent": 11 },
+        { "from": 2200000, "to": 3200000, "fixedAmount": 116000, "ratePercent": 23 },
+        { "from": 3200000, "to": 4100000, "fixedAmount": 346000, "ratePercent": 30 },
+        { "from": 4100000, "to": null,    "fixedAmount": 616000, "ratePercent": 35 }
+      ]
+    }
+  ],
+  "displayName": "Pakistan HR defaults (leave types, salary components, tax slabs)",
+  "notes": "Mirrors the HRM module's own first-use seed (HrmSeedData) — a test keeps the two in step. Tax slabs are UNVERIFIED and stay so: seeding never marks anything verified (A49 G-21). HRM statutory rates (EOBI, provident fund, social security, gratuity) are seeded by HRM itself on first use, also unverified."
+}

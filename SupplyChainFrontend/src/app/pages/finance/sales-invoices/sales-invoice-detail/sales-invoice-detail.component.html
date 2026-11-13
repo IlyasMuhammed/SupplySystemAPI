@@ -24,6 +24,8 @@
               data-testid="action-record-payment"></p-button>
     <p-button label="View PDF" icon="pi pi-file-pdf" [text]="true"
               (onClick)="pdfVisible = true" data-testid="action-pdf"></p-button>
+    <p-button *ngIf="canEmail" label="Email to customer" icon="pi pi-envelope" [text]="true"
+              (onClick)="emailVisible = true" data-testid="action-email"></p-button>
     <p-button *ngIf="canFilePdf" label="File PDF copy" icon="pi pi-paperclip" [text]="true"
               [disabled]="isFiling" [loading]="isFiling" (onClick)="filePdf()" data-testid="action-file-pdf"></p-button>
     <p-button *ngIf="canEdit" label="Edit" icon="pi pi-pencil" [text]="true"
@@ -276,6 +278,11 @@
 
 <app-sales-invoice-pdf-dialog [(visible)]="pdfVisible" [invoiceUuid]="invoice?.uuid ?? null"
                               [invoiceNumber]="invoice?.invoiceNumber ?? ''"></app-sales-invoice-pdf-dialog>
+
+<!-- A50 D-26 — email the invoice PDF to the customer -->
+<app-document-email-dialog *ngIf="canEmail" [(visible)]="emailVisible" kind="SalesInvoice" [uuid]="invoice?.uuid"
+                           [documentLabel]="'invoice ' + (invoice?.invoiceNumber ?? '')" partyLabel="customer"
+                           (sent)="onEmailSent($event)" (failed)="onEmailFailed($event)"></app-document-email-dialog>
 
 <!-- ── Edit ──────────────────────────────────────────────────────────────────── -->
 <p-dialog header="Edit this draft" [(visible)]="editVisible" [modal]="true"

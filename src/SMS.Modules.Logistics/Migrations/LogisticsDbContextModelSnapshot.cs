@@ -2213,6 +2213,55 @@ namespace SMS.Modules.Logistics.Migrations
                     b.ToTable("delivery_proof_files", "logistics");
                 });
 
+            modelBuilder.Entity("SMS.Modules.Logistics.Domain.DocumentNumberFormat", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("DefaultPrefix")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<string>("DocumentType")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<bool>("IsApplied")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("ModifiedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Pattern")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("Prefix")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrganizationId", "DefaultPrefix");
+
+                    b.HasIndex("OrganizationId", "DocumentType")
+                        .IsUnique();
+
+                    b.ToTable("document_number_formats", "logistics");
+                });
+
             modelBuilder.Entity("SMS.Modules.Logistics.Domain.DocumentNumberSequence", b =>
                 {
                     b.Property<int>("Id")

@@ -25,12 +25,14 @@ import { FLOW } from '../../../shared/flow';
 const SORT_FIELDS: readonly CustomerSortField[] = ['code', 'name', 'customerType', 'creditLimit', 'balance', 'status'];
 
 /** A37 §15.3 — the Customer Master list (API-CONTRACT §5). */
+import { DemoBadgeComponent } from '../../../shared/components/demo-badge/demo-badge.component';
+
 @Component({
   selector: 'app-customer-list',
   standalone: true,
   imports: [
     CommonModule, RouterModule, FormsModule, TableModule, ButtonModule, InputTextModule, InputIconModule, IconFieldModule,
-    TagModule, TooltipModule, ToastModule, DropdownModule, CustomerFormDialogComponent, ...FLOW
+    TagModule, TooltipModule, ToastModule, DropdownModule, CustomerFormDialogComponent, DemoBadgeComponent, ...FLOW
   ],
   templateUrl: './customer-list.component.html',
   providers: [MessageService]

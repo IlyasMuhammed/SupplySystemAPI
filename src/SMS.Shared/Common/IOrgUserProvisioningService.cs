@@ -39,6 +39,26 @@ public interface IOrgUserProvisioningService
     // (a password chosen): pointing a new invite at another address would hand that account to it. Throws
     // BadRequestException for an unknown user, a set-up account, an invalid address or one already in use.
     Task<OrgUserSummary> ReinviteUserAsync(Guid organizationId, int userId, string? newEmail, string organizationName);
+
+    // A50 D-22 — the setup wizard's Step 7: an inactive user with a 7-day invite token and the same invite e-mail as the
+    // org-admin invite (accept-invite sets the password). Never throws for data problems: an e-mail already in use is
+    // reported as EXISTS and that account is left unchanged; a bad address or a role the organization cannot assign is
+    // INVALID. Own SaveChanges (no shared transaction).
+    Task<OrgUserInviteResult> InviteUserAsync(OrgUserInviteRequest request, CancellationToken ct = default);
+}
+
+/// <summary>A50 D-22. <paramref name="FirstName"/> null = the e-mail's local part.</summary>
+public sealed record OrgUserInviteRequest(
+    Guid OrganizationId, string Email, string? FirstName, string? LastName, int RoleId, string OrganizationName, int InvitedBy);
+
+/// <summary>A50 D-22. <see cref="Outcome"/> is one of <see cref="OrgUserInviteOutcomes"/>.</summary>
+public sealed record OrgUserInviteResult(string Email, string Outcome, int? UserId, string? Message);
+
+public static class OrgUserInviteOutcomes
+{
+    public const string Invited = "INVITED";
+    public const string Exists  = "EXISTS";
+    public const string Invalid = "INVALID";
 }
 
 public sealed record CreateOrgAdminUserRequest(

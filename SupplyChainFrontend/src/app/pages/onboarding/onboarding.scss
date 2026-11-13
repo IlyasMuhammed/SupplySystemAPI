@@ -1,0 +1,170 @@
+// A50 — onboarding pages (setup wizard, Default Data, Setup Defaults). Tokens only (--sms-*), light and dark.
+
+.ob-note {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-start;
+  padding: 0.6rem 0.8rem;
+  border-radius: var(--sms-radius-sm);
+  background: var(--sms-primary-soft);
+  color: var(--sms-text);
+  margin-bottom: 0.75rem;
+  &.er { background: var(--sms-danger-soft); color: var(--sms-danger); }
+  &.wn { background: var(--sms-warn-soft); color: var(--sms-warn); }
+  &.ok { background: var(--sms-ok-soft); color: var(--sms-ok); }
+  a { color: var(--sms-primary-text); }
+  ul { margin: 0.25rem 0 0; padding-left: 1.1rem; }
+  .grow { flex: 1; }
+}
+
+.ob-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; max-width: 100%; }
+.ob-num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ob-mu { color: var(--sms-text-muted); }
+.ob-sm { font-size: 0.85rem; }
+.ob-row { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+.ob-grow { flex: 1 1 auto; min-width: 0; }
+
+// ── Wizard stepper ──
+.ob-steps {
+  display: flex;
+  gap: 0.35rem;
+  overflow-x: auto;
+  padding-bottom: 0.15rem;
+  button {
+    flex: 1 0 7.5rem;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.1rem;
+    padding: 0.45rem 0.65rem;
+    border: 1px solid var(--sms-border);
+    border-radius: var(--sms-radius-sm);
+    background: var(--sms-surface-2);
+    color: var(--sms-text-muted);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    b { font-size: 0.82rem; color: var(--sms-text); white-space: nowrap; }
+    span { font-size: 0.72rem; }
+    &.on { border-color: var(--sms-primary); background: var(--sms-primary-soft); b { color: var(--sms-primary-text); } }
+    &.done b { color: var(--sms-ok); }
+    &:disabled { cursor: default; opacity: 0.55; }
+  }
+}
+
+// ── Cards of choices (modules, zones) ──
+.ob-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+  gap: 0.6rem;
+}
+.ob-choice {
+  display: flex;
+  gap: 0.6rem;
+  align-items: flex-start;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid var(--sms-border);
+  border-radius: var(--sms-radius);
+  background: var(--sms-surface);
+  .t { font-weight: 600; color: var(--sms-text); }
+  .d { font-size: 0.82rem; color: var(--sms-text-muted); }
+  &.on { border-color: var(--sms-primary-soft-border); background: var(--sms-primary-soft); }
+  &.off { opacity: 0.7; }
+}
+
+// ── COA tree ──
+.ob-tree {
+  .ob-node { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem; min-width: 0; }
+  .ob-code { font-family: var(--font-mono, monospace); color: var(--sms-text-muted); font-size: 0.85rem; }
+  .ob-name { color: var(--sms-text); }
+  .ob-grp .ob-name { font-weight: 600; }
+  .ob-badge {
+    font-size: 0.68rem;
+    padding: 0.05rem 0.4rem;
+    border-radius: 999px;
+    background: var(--sms-violet-soft);
+    color: var(--sms-violet);
+    white-space: nowrap;
+  }
+  .ob-acts { display: inline-flex; gap: 0.1rem; margin-left: auto; }
+  input.ob-in { min-width: 8rem; max-width: 18rem; }
+  :host ::ng-deep & .p-tree { padding: 0; border: 0; background: transparent; }
+}
+
+// ── Review tiles ──
+.ob-review {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
+  gap: 0.6rem;
+  .ob-rv {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    padding: 0.7rem 0.85rem;
+    border: 1px solid var(--sms-border);
+    border-radius: var(--sms-radius);
+    background: var(--sms-surface);
+    .l { font-size: 0.78rem; color: var(--sms-text-muted); }
+    .v { font-size: 1.35rem; font-weight: 700; color: var(--sms-text); font-variant-numeric: tabular-nums; }
+    .s { font-size: 0.75rem; color: var(--sms-text-faint); }
+    &.off { opacity: 0.6; }
+  }
+}
+
+.ob-links {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
+  gap: 0.5rem;
+  a {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    padding: 0.65rem 0.8rem;
+    border: 1px solid var(--sms-border);
+    border-radius: var(--sms-radius-sm);
+    background: var(--sms-surface);
+    color: var(--sms-primary-text);
+    text-decoration: none;
+    &:hover { background: var(--sms-row-hover); }
+  }
+}
+
+.ob-json {
+  width: 100%;
+  min-height: 22rem;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.82rem;
+  background: var(--sms-input-bg);
+  color: var(--sms-text);
+  border: 1px solid var(--sms-border);
+  border-radius: var(--sms-radius-sm);
+  padding: 0.6rem;
+}
+
+.ob-radio {
+  display: flex;
+  gap: 0.6rem;
+  align-items: flex-start;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--sms-border);
+  border-radius: var(--sms-radius-sm);
+  margin-bottom: 0.5rem;
+  cursor: pointer;
+  .t { font-weight: 600; }
+  .d { font-size: 0.82rem; color: var(--sms-text-muted); }
+  &.on { border-color: var(--sms-primary); background: var(--sms-primary-soft); }
+}
+
+.ob-matrix {
+  th, td { padding: 0.3rem 0.45rem; border-bottom: 1px solid var(--sms-border-soft); }
+  th { background: var(--sms-surface-2); font-size: 0.75rem; text-align: center; white-space: nowrap; }
+  td.c { text-align: center; }
+  td.p { font-family: var(--font-mono, monospace); font-size: 0.78rem; white-space: nowrap; }
+  tr.grp td { background: var(--sms-surface-2); font-weight: 600; font-size: 0.8rem; }
+  border-collapse: collapse;
+}
+
+@media (max-width: 640px) {
+  .ob-hide-sm { display: none; }
+  .ob-steps button { flex-basis: 6rem; }
+}

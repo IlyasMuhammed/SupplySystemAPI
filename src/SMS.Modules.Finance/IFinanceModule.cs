@@ -87,6 +87,13 @@ public static class FinanceModuleExtensions
         services.AddScoped<ISalesInvoiceService, SalesInvoiceService>();
         services.AddScoped<ISalesInvoiceDocumentService, SalesInvoiceDocumentService>();
         services.AddScoped<ISalesInvoiceDocumentArchive, SalesInvoiceDocumentArchive>();
+        // A50 (TPL, D-25/D-26) — document branding, templated bodies and email templates come from Onboarding; a host
+        // without it gets these Null ones (= the pre-A50 PDFs and built-in email text). Onboarding's own registrations win.
+        services.TryAddScoped<SMS.Shared.Onboarding.IDocumentBrandingProvider, SMS.Shared.Onboarding.NullDocumentBrandingProvider>();
+        services.TryAddSingleton<SMS.Shared.Onboarding.ITemplatedDocumentRenderer, SMS.Shared.Onboarding.NullTemplatedDocumentRenderer>();
+        services.TryAddScoped<SMS.Shared.Onboarding.IEmailTemplateRenderer, SMS.Shared.Onboarding.NullEmailTemplateRenderer>();
+        services.AddScoped<CustomerPaymentReceiptService>();
+        services.AddScoped<SalesInvoiceEmailService>();
         services.AddScoped<ICustomerPaymentService, CustomerPaymentService>();
         // A38 (FIN, D-8/D-9/D-10) — POS counter sales, returns and voids. It reuses the two services' internals (the issue
         // bookings, allocation, payment reversal), so they are registered as themselves too (same scoped context).
@@ -155,6 +162,10 @@ public static class FinanceModuleExtensions
         services.AddScoped<IImportTarget, Import.TaxCodeImportTarget>();
         services.AddScoped<IImportTarget, Import.CustomerOpeningBalanceImportTarget>();
         services.AddScoped<IImportTarget, Import.SupplierOpeningBalanceImportTarget>();
+        // A50 (SEED-FIN, D-13..D-15) — tenant onboarding setup seeders for currencies, tax codes and payment terms.
+        services.AddScoped<SMS.Shared.Onboarding.ISetupCategorySeeder, Onboarding.CurrencySetupSeeder>();
+        services.AddScoped<SMS.Shared.Onboarding.ISetupCategorySeeder, Onboarding.TaxSetupSeeder>();
+        services.AddScoped<SMS.Shared.Onboarding.ISetupCategorySeeder, Onboarding.PaymentTermsSetupSeeder>();
         // A42 D-12 (FIN) — A40 sub-ledger opening totals for the GL setup wizard (Accounting reads them, info only).
         services.AddScoped<IOpeningSubledgerTotals>(sp => new OpeningSubledgerTotalsService(
             sp.GetRequiredService<FinanceDbContext>(), sp.GetService<ICurrencyService>(), sp.GetService<IOrgCurrencyLookup>(),

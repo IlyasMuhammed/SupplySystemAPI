@@ -96,6 +96,23 @@ public class PurchaseOrdersController : ControllerBase
         return File(bytes, "application/pdf", $"PO-{uuid}.pdf");
     }
 
+    /// <summary>
+    /// A50 (D-26) — emails the PO PDF to the supplier (their email on file unless <c>to</c> is given) with the org's POToSupplier
+    /// template. Emailing a supplier is an action, so it takes PO_CREATE / PO_EDIT / PO_APPROVE, not PO_VIEW.
+    /// </summary>
+    [HttpPost("{uuid:guid}/email")]
+    [RequirePermission(PermissionCodes.PO_CREATE, PermissionCodes.PO_EDIT, PermissionCodes.PO_APPROVE)]
+    public async Task<IActionResult> EmailToSupplier(
+        Guid uuid, [FromBody] SMS.Shared.Onboarding.DocumentEmailRequest? req,
+        [FromServices] SMS.Modules.Demand.Services.Documents.SalesDocumentEmailService emails, CancellationToken ct)
+    {
+        var result = await emails.SendPurchaseOrderAsync(uuid, req, ct);
+        await _audit.LogAsync(User.GetUserId(), null, "Demand", "EMAIL", "PurchaseOrder", uuid, Ip,
+            notes: $"Emailed to {string.Join(", ", result.SentTo.Concat(result.Cc))}" + (result.Sent ? "" : " (some sends failed)"));
+        return Ok(ApiResponse<SMS.Shared.Onboarding.DocumentEmailResult>.Ok(result,
+            result.Sent ? "Purchase order emailed." : "The purchase order could not be emailed to every recipient."));
+    }
+
     [HttpPatch("{uuid:guid}")]
     public async Task<IActionResult> UpdatePurchaseOrder(Guid uuid, [FromBody] PatchPoRequest req)
     {

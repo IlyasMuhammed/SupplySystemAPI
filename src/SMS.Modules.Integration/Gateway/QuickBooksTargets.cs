@@ -139,7 +139,7 @@ internal sealed class QuickBooksPostingTarget : IFinancialPostingTarget
         try
         {
             var result = await _services.GetRequiredService<IJournalEntryPoster>().PostAsync(transaction, ct);
-            return await TranslateAsync(SyncKind.JournalEntry, transaction.SourceDocumentId.ToString(), result, ct);
+            return await TranslateAsync(SyncKind.JournalEntry, JournalEntryKeys.Root(transaction.SourceDocumentId, transaction.DocumentType), result, ct);
         }
         catch (JournalEntryBuildException ex)
         {
@@ -153,7 +153,7 @@ internal sealed class QuickBooksPostingTarget : IFinancialPostingTarget
         var result = await _services.GetRequiredService<IJournalEntryPoster>().ReverseAsync(request, ct);
         if (result is null)
             return TargetResult.Skipped(TargetCode, "NEVER_SYNCED: nothing of this document is in QuickBooks.");
-        return await TranslateAsync(SyncKind.JournalEntry, request.SourceDocumentId + ":void", result, ct, isUndo: true);
+        return await TranslateAsync(SyncKind.JournalEntry, JournalEntryKeys.Root(request.SourceDocumentId, request.DocumentType) + ":void", result, ct, isUndo: true);
     }
 
     /// <summary>Property key: reason to flag the document for the accountant once QuickBooks has it (D-23 mixed tenders).</summary>

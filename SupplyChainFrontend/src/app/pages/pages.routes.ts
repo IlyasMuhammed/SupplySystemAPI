@@ -514,6 +514,13 @@ export default [
     // docs/quickbooks/APP-CREDENTIALS.md D-7 — the platform's Intuit app keys (the API also demands a real super admin).
     { path: 'system/quickbooks-app', component: QuickBooksAppSettingsComponent,
       canActivate: [permissionGuard(P.PLATFORM_SUPER_ADMIN)] },
+    // A50 — System Administration › Setup Defaults (docs/onboarding/API-CONTRACT.md D-CORE, super admin).
+    { path: 'system/setup-defaults', canActivate: [permissionGuard(P.PLATFORM_SUPER_ADMIN)],
+      loadComponent: () => import('./system/setup-defaults/setup-defaults-list.component').then(m => m.SetupDefaultsListComponent) },
+    { path: 'system/setup-defaults/:uuid', canActivate: [permissionGuard(P.PLATFORM_SUPER_ADMIN)],
+      loadComponent: () => import('./system/setup-defaults/setup-default-editor.component').then(m => m.SetupDefaultEditorComponent) },
+    // A50 — Settings › Organization: setup wizard, default data (FE-A50) + templates / sample data (FE-B50). Lazy.
+    { path: 'onboarding', loadChildren: () => import('./onboarding/onboarding.routes') },
 
     // ── Inventory — Products ──────────────────────────────────────────────────
     { path: 'inventory/products', component: ProductListComponent,

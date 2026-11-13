@@ -1,0 +1,65 @@
+{
+  "rules": [
+    {
+      "documentType": "PurchaseOrder",
+      "interfaceCode": "PO",
+      "levels": [
+        {
+          "level": 1,
+          "minAmount": 0,
+          "maxAmount": 9999.99,
+          "approverRole": "PROCUREMENT_MANAGER",
+          "label": "Procurement manager approval",
+          "slaHours": 48
+        },
+        {
+          "level": 2,
+          "minAmount": 10000,
+          "maxAmount": 49999.99,
+          "approverRole": "FINANCE_MANAGER",
+          "label": "Finance manager approval",
+          "slaHours": 72
+        },
+        {
+          "level": 3,
+          "minAmount": 50000,
+          "maxAmount": 199999.99,
+          "approverRole": "GENERAL_MANAGER",
+          "label": "General manager approval",
+          "slaHours": 48
+        },
+        {
+          "level": 4,
+          "minAmount": 200000,
+          "maxAmount": null,
+          "approverRole": "BOARD_MEMBER",
+          "label": "Executive / board approval",
+          "slaHours": 72
+        }
+      ]
+    },
+    {
+      "documentType": "ExpenseClaim",
+      "interfaceCode": "EXPENSE_CLAIM",
+      "levels": [
+        {
+          "level": 1,
+          "minAmount": 0,
+          "maxAmount": 10000,
+          "approverRole": "HR_MANAGER",
+          "label": "Department head",
+          "slaHours": 48
+        },
+        {
+          "level": 2,
+          "minAmount": 10000.01,
+          "maxAmount": null,
+          "approverRole": "FINANCE_MANAGER",
+          "label": "Finance approval",
+          "slaHours": 72
+        }
+      ]
+    }
+  ],
+  "notes": "The tiers the WorkflowEngine already seeds for every organization (10k / 50k / 200k, in the base currency). ExpenseClaim (D-91): level 1 is the HRM approver (line manager, else department head), level 2 is the finance manager for claims above 10,000."
+}

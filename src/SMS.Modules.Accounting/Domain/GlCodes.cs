@@ -200,7 +200,17 @@ public static class ReconcileTypes
 /// <summary>A47 — journal engine limits.</summary>
 public static class JournalLimits
 {
+    /// <summary>A person's entry (manual journal, import, the UI).</summary>
     public const int MaxLines = 500;
+    /// <summary>
+    /// QA49C-2: an entry a source module writes through the posting gateway (or its reversal): generated, balanced and one per
+    /// source document, so it is never split here. A payroll is one line per role × cost center and passes 500 at about 170 cost
+    /// centers. A sanity ceiling only; QuickBooks' own cap is handled by its builder's split (G-16).
+    /// </summary>
+    public const int MaxSourceLines = 20_000;
+
+    public static int MaxLinesFor(bool isManual, string? sourceModule) =>
+        !isManual && !string.IsNullOrWhiteSpace(sourceModule) ? MaxSourceLines : MaxLines;
     public const int MaxCodeLength = 10, MaxPrefixLength = 10, MaxTypeNameLength = 100;
     /// <summary>BR-JE-001 — |Σ debit − Σ credit| must stay below this (CK_JournalEntries_Balanced).</summary>
     public const decimal BalanceTolerance = 0.01m;

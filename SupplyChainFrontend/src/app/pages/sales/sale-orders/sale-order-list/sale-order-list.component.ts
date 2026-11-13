@@ -36,13 +36,15 @@ export const SALE_ORDER_STATUS_SEVERITY: Record<string, Severity> = {
 
 export { formatCode };
 
+import { DemoBadgeComponent } from '../../../../shared/components/demo-badge/demo-badge.component';
+
 @Component({
   selector: 'app-sale-order-list',
   standalone: true,
   imports: [
     CommonModule, RouterModule, FormsModule,
     TableModule, ButtonModule, InputTextModule, InputIconModule, IconFieldModule,
-    TagModule, TooltipModule, ToastModule, DropdownModule, ...FLOW
+    TagModule, TooltipModule, ToastModule, DropdownModule, DemoBadgeComponent, ...FLOW
   ],
   templateUrl: './sale-order-list.component.html',
   styleUrls: ['./sale-order-list.component.scss'],

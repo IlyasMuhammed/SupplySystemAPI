@@ -20,4 +20,15 @@ export const hrmFeatureGuard = (...codes: string[]): CanActivateFn => (): boolea
   return tenant.loadCurrent().pipe(map(() => decide()), catchError(() => of(router.createUrlTree(['/portal/access-denied']))));
 };
 
+/** Any one of these features on (the controller's `[RequiresFeature(a, b)]`, e.g. shifts and holidays: attendance or leave). */
+export const hrmAnyFeatureGuard = (...codes: string[]): CanActivateFn => (): boolean | UrlTree | Observable<boolean | UrlTree> => {
+  const tenant = inject(TenantService);
+  const modules = inject(ModuleService, { optional: true });
+  const router = inject(Router);
+  const on = (code: string) => (modules ? modules.isFeatureEnabled(code) : tenant.hasFeature(code));
+  const decide = () => (tenant.isSuperAdmin() || codes.some(on)) ? true : router.createUrlTree(['/portal/access-denied']);
+  if (tenant.tenant()) return decide();
+  return tenant.loadCurrent().pipe(map(() => decide()), catchError(() => of(router.createUrlTree(['/portal/access-denied']))));
+};
+
 export const hrmModuleGuard = hrmFeatureGuard(MODULE_HRM);

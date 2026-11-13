@@ -59,7 +59,7 @@
 
         <ng-template pTemplate="body" let-o>
           <tr>
-            <td><a class="sf-mono" [routerLink]="['/portal/pages/sales/orders', o.uuid]"><strong>{{ o.soNumber }}</strong></a></td>
+            <td><a class="sf-mono" [routerLink]="['/portal/pages/sales/orders', o.uuid]"><strong>{{ o.soNumber }}</strong></a> <app-demo-badge entityType="SaleOrder" [entityRef]="o.uuid"></app-demo-badge></td>
             <td data-testid="customer">{{ customerName(o) }}</td>
             <td>{{ o.orderDate | date:'dd MMM yyyy' }}</td>
             <td>{{ o.expectedDeliveryDate ? (o.expectedDeliveryDate | date:'dd MMM yyyy') : '—' }}</td>

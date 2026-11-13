@@ -117,8 +117,9 @@ internal sealed class SalaryComponentService : HrmServiceBase, ISalaryComponentS
     {
         var org = caller.OrganizationId;
         var row = await FindAsync(org, uuid, ct) ?? throw new NotFoundException("Salary component", uuid);
-        var code = HrmValidate.Code(request.Code);
-        var type = HrmValidate.OneOf(request.Type, SalaryComponentTypes.All, "type");
+        // REV49-2: the editor hides a system component's code and type (they cannot change), so it sends them as null: null keeps them.
+        var code = row.IsSystem && string.IsNullOrWhiteSpace(request.Code) ? row.Code : HrmValidate.Code(request.Code);
+        var type = row.IsSystem && string.IsNullOrWhiteSpace(request.Type) ? row.Type : HrmValidate.OneOf(request.Type, SalaryComponentTypes.All, "type");
         if (row.IsSystem && (code != row.Code || type != row.Type))
             throw HrmErrors.Conflict("COMPONENT_SYSTEM_LOCKED", "A system component's code and type cannot change.");
         if (code != row.Code)

@@ -1,7 +1,7 @@
 import { TestBed, discardPeriodicTasks, fakeAsync, flush, tick } from '@angular/core/testing';
 import { Router } from '@angular/router';
 
-import { PayrollWizardComponent, postingProblem, stepFor } from './payroll-wizard.component';
+import { PayrollWizardComponent, postingNote, postingProblem, postingTargetText, stepFor } from './payroll-wizard.component';
 import { ReadinessPanelComponent } from './readiness-panel.component';
 import { API, Mounted, mountHrm, page, until } from '../core/hrm.testing';
 
@@ -36,6 +36,15 @@ describe('PayrollWizardComponent (A49 tasks 279–284, 286)', () => {
     expect(['Draft', 'Calculated', 'UnderReview', 'Approved', 'Finalized', 'Posted', 'Paid'].map(stepFor)).toEqual([2, 3, 4, 5, 6, 6, 6]);
     expect(postingProblem([{ status: 'Failed' }])).toBeTrue();
     expect(postingProblem([{ status: 'NoTarget' }, { status: 'Posted' }])).toBeFalse();
+  });
+
+  it('REV49B-1: posting target and note come from targetResultsJson / lastError', () => {
+    expect(postingTargetText({ targetResultsJson: null })).toBe('—');
+    expect(postingTargetText({ targetResultsJson: 'not json' })).toBe('—');
+    expect(postingTargetText({ targetResultsJson: '[{"target":"QBO","status":"Held"}]' })).toBe('QBO: Held');
+    expect(postingNote({ lastError: null, targetResultsJson: '[{"target":"QBO","status":"Failed","error":"Bad class"}]' })).toBe('Bad class');
+    expect(postingNote({ lastError: 'Top', targetResultsJson: '[{"error":"Bad class"}]' })).toBe('Top');
+    expect(postingNote({})).toBeNull();
   });
 
   it('step 1: checks the period, creates, and the URL becomes the run (279)', async () => {
@@ -195,9 +204,13 @@ describe('PayrollWizardComponent (A49 tasks 279–284, 286)', () => {
   });
 
   it('retry only when a posting failed and allowed; no pay from Finalized with a live target', async () => {
-    const m = await open('Finalized', ALL, { allowedActions: ['bank-file', 'reverse', 'payslips', 'retry-posting'], postings: [{ kind: 'PayrollRun', status: 'Failed' }], postingNote: 'QuickBooks is down' });
+    const m = await open('Finalized', ALL, { allowedActions: ['bank-file', 'reverse', 'payslips', 'retry-posting'], postings: [{ kind: 'PayrollRun', status: 'Failed', lastError: 'QuickBooks is down',
+      targetResultsJson: JSON.stringify([{ target: 'GL', status: 'Posted', internalId: 'J1', externalId: null, error: null }, { target: 'QBO', status: 'Failed', internalId: null, externalId: null, error: 'Timeout' }]) }] });
     lines(m, []);
     expect(m.text('posting-problem')).toContain('QuickBooks is down');
+    // REV49B-1: the table reads the server's lastError / targetResultsJson.
+    expect(m.text('postings')).toContain('GL: Posted, QBO: Failed');
+    expect(m.text('postings')).toContain('QuickBooks is down');
     expect(m.q('pay')).toBeNull();
     click(m, 'retry');
     m.expectReq('hrm/payroll-runs/r1/retry-posting', 'POST').flush({ success: true, result: run('Posted') });
@@ -235,6 +248,16 @@ describe('PayrollWizardComponent (A49 tasks 279–284, 286)', () => {
     lines(m, []);
     for (const id of ['pay', 'bank-file', 'reverse', 'payslips', 'retry']) expect(m.q(id)).withContext(id).toBeNull();
     expect(m.q('journal')).not.toBeNull();
+  });
+
+  it('REV49B-13: each unverified item links to its own page (tax table or statutory rate)', async () => {
+    const m = await mountHrm(ReadinessPanelComponent, { perms: ALL });
+    m.c.runUuid = 'r1';
+    m.c.ngOnChanges();
+    m.flush('hrm/payroll-runs/r1/posting-readiness', { ...READY, isReady: false, unverifiedStatutory: [{ kind: 'TaxTable', name: 'PK 2026' }, { kind: 'StatutoryRate', name: 'EOBI' }] });
+    expect(m.q('review-TaxTable')!.getAttribute('href')).toContain('/salary/tax-tables');
+    expect(m.q('review-StatutoryRate')!.getAttribute('href')).toContain('/salary/statutory-rates');
+    expect(m.text('unverified')).toContain('Tax table: PK 2026');
   });
 
   it('readiness panel shows a load refusal, not a blank', async () => {

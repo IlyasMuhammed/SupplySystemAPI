@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using SMS.Modules.Auth.Data;
 using SMS.Modules.Auth.Domain;
+using SMS.Shared.Authorization;
 using SMS.Shared.Common;
 using SMS.Shared.Exceptions;
 
@@ -128,6 +129,69 @@ internal sealed class OrgUserProvisioningService : IOrgUserProvisioningService
         var roleName = await _db.Roles.Where(r => r.RoleID == user.RoleID).Select(r => r.Name).FirstOrDefaultAsync() ?? string.Empty;
         return new OrgUserSummary(user.UserID, user.FirstName, user.LastName, user.Email, user.RoleID, roleName, user.IsActive,
             true, user.InviteTokenExpiresAt);
+    }
+
+    // A50 D-22 — the setup wizard's invites. Same account shape and e-mail as CreateOrgAdminUserAsync (inactive, 7-day
+    // token, accept-invite sets the password), but with the wizard's role and no shared transaction. Reports instead of
+    // throwing, so one bad row never stops the others.
+    public async Task<OrgUserInviteResult> InviteUserAsync(OrgUserInviteRequest request, CancellationToken ct = default)
+    {
+        var email = (request.Email ?? string.Empty).Trim().ToLowerInvariant();
+        if (email.Length == 0 || email.Length > 150
+            || !System.Net.Mail.MailAddress.TryCreate(email, out var parsed) || parsed.Address != email)
+            return new OrgUserInviteResult(request.Email ?? string.Empty, OrgUserInviteOutcomes.Invalid, null,
+                $"'{request.Email?.Trim()}' is not a valid e-mail address.");
+
+        // Any organization's account: an e-mail signs in to exactly one account (the login looks it up globally).
+        var existing = await _db.UserAccounts.IgnoreQueryFilters()
+            .Where(u => u.Email == email && !u.IsDelete).Select(u => new { u.UserID, u.OrganizationId }).FirstOrDefaultAsync(ct);
+        if (existing is not null)
+            return new OrgUserInviteResult(email, OrgUserInviteOutcomes.Exists,
+                existing.OrganizationId == request.OrganizationId ? existing.UserID : null,
+                existing.OrganizationId == request.OrganizationId
+                    ? "This person already has an account in this organization; it was left unchanged."
+                    : "An account with this e-mail already exists; it was left unchanged.");
+
+        // The role must be one this organization may hand out: a global role (never the super admin's platform reach)
+        // or one of its own custom roles.
+        var role = await _db.Roles.IgnoreQueryFilters().AsNoTracking()
+            .FirstOrDefaultAsync(r => r.RoleID == request.RoleId, ct);
+        if (role is null || !role.IsActive || !(role.IsGlobal || role.OrganizationId == request.OrganizationId))
+            return new OrgUserInviteResult(email, OrgUserInviteOutcomes.Invalid, null, $"Role {request.RoleId} cannot be assigned in this organization.");
+        var grantsPlatform = await (
+            from rp in _db.RolePermissions.IgnoreQueryFilters()
+            join p in _db.Permissions on rp.PermissionID equals p.PermissionID
+            where rp.RoleID == role.RoleID && rp.IsAllowed && p.Code == PermissionCodes.PLATFORM_SUPER_ADMIN
+            select rp.RolePermissionID).AnyAsync(ct);
+        if (grantsPlatform)
+            return new OrgUserInviteResult(email, OrgUserInviteOutcomes.Invalid, null, $"Role '{role.Name}' is a platform role and cannot be assigned by an invite.");
+
+        var firstName = string.IsNullOrWhiteSpace(request.FirstName) ? email.Split('@')[0] : request.FirstName.Trim();
+        var token = Guid.NewGuid().ToString("N");
+        var user = new UserAccount
+        {
+            FirstName            = firstName.Length > 100 ? firstName[..100] : firstName,
+            LastName             = string.IsNullOrWhiteSpace(request.LastName) ? null : request.LastName.Trim(),
+            Email                = email,
+            RoleID               = role.RoleID,
+            OrganizationId       = request.OrganizationId,
+            IsActive             = false, // activated once the invite is accepted
+            IsDelete             = false,
+            CreatedBy            = request.InvitedBy,
+            CreatedDate          = DateTime.UtcNow,
+            InviteToken          = token,
+            InviteTokenExpiresAt = DateTime.UtcNow.AddDays(7)
+        };
+        user.Password = _hasher.HashPassword(user, Guid.NewGuid().ToString());
+        _db.UserAccounts.Add(user);
+        await _db.SaveChangesAsync(ct);
+
+        var to = user.Email;
+        var name = user.FirstName;
+        var orgName = request.OrganizationName;
+        BackgroundJob.Enqueue(() => _emailService.SendOrgAdminInviteEmail(to, name, orgName, token));
+
+        return new OrgUserInviteResult(email, OrgUserInviteOutcomes.Invited, user.UserID, null);
     }
 
     public async Task ReassignOrgAdminAsync(Guid organizationId, int newAdminUserId)

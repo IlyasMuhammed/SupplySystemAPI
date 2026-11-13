@@ -8,11 +8,14 @@ import { HrmApi } from '../core/hrm.api';
 import { HrmLookups } from '../core/hrm-lookups.service';
 import { Opt, hrmError } from '../core/hrm.shared';
 
-/** `{ total, submitted, acknowledged }` → percent submitted or further (a whole number). */
+/**
+ * `{ total, submitted, acknowledged }` → percent past Draft (a whole number). The server's `submitted` already counts the
+ * acknowledged ones (`ReviewCompletion.Submitted`: status != Draft), so it is not added twice (REV49B-3).
+ */
 export function completionPercent(c: { total?: number; submitted?: number; acknowledged?: number } | null | undefined): number {
   const total = Number(c?.total ?? 0);
   if (!total) return 0;
-  return Math.round((Math.min(total, Number(c?.submitted ?? 0) + Number(c?.acknowledged ?? 0)) / total) * 100);
+  return Math.round((Math.min(total, Number(c?.submitted ?? 0)) / total) * 100);
 }
 
 /** The answer's distribution: `{ "4": 3 }` or `[{ rating, count }]`, both read, sorted by rating. */
@@ -42,7 +45,7 @@ export function distributionRows(d: unknown): { rating: string; count: number; p
       <div class="sf-grid sf-tiles">
         <div class="sf-tile"><span class="l">Completion</span><span class="v" data-testid="pct">{{ percent }}%</span></div>
         <div class="sf-tile"><span class="l">Reviews</span><span class="v">{{ data.completion?.total ?? 0 }}</span></div>
-        <div class="sf-tile"><span class="l">Submitted</span><span class="v">{{ data.completion?.submitted ?? 0 }}</span></div>
+        <div class="sf-tile"><span class="l">Submitted or later</span><span class="v">{{ data.completion?.submitted ?? 0 }}</span></div>
         <div class="sf-tile"><span class="l">Acknowledged</span><span class="v">{{ data.completion?.acknowledged ?? 0 }}</span></div>
       </div>
       <section class="sf-card"><div class="sf-ch"><h2>Rating distribution</h2></div>

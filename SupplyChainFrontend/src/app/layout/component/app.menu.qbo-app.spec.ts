@@ -1,4 +1,4 @@
-import { signal } from '@angular/core';
+﻿import { signal } from '@angular/core';
 import { Routes } from '@angular/router';
 import { AppMenu } from './app.menu';
 import { CurrentTenant } from '../../pages/service/tenant.service';
@@ -21,8 +21,8 @@ const tenant = (isSuperAdmin: boolean): CurrentTenant => ({
     roleName: 'Admin', permissions: []
 });
 
-/** docs/quickbooks/APP-CREDENTIALS.md — System Administration › QuickBooks App: super admins only. */
-describe('AppMenu — QuickBooks App (platform keys)', () => {
+/** docs/quickbooks/APP-CREDENTIALS.md â€” System Administration â€º QuickBooks App: super admins only. */
+describe('AppMenu â€” QuickBooks App (platform keys)', () => {
     let tenantService: FakeTenantService;
     let authService: FakeAuthService;
     let menu: AppMenu;
@@ -37,7 +37,7 @@ describe('AppMenu — QuickBooks App (platform keys)', () => {
 
     it('is under System Administration for a super admin', () => {
         tenantService.tenant.set(tenant(true));
-        expect(group()!.items!.map((i: any) => i.label)).toEqual(['Organizations', 'QuickBooks App']);
+        expect(group()!.items!.map((i: any) => i.label)).toEqual(['Organizations', 'QuickBooks App', 'Setup Defaults']);
         expect(group()!.items![1].routerLink).toEqual(['/portal/pages/system/quickbooks-app']);
     });
 

@@ -31,12 +31,30 @@ internal sealed class SalaryAssignmentService : HrmServiceBase, ISalaryAssignmen
     private readonly IHrmScopeService _scope;
     private readonly IHrmApprovalGateway _approvals;
     private readonly SalaryDecisions _decisions;
+    private readonly SMS.WorkflowEngine.Services.IWorkflowActionService? _workflow;
 
-    public SalaryAssignmentService(HrmDbContext db, IHrmScopeService scope, IHrmApprovalGateway approvals, SalaryDecisions decisions) : base(db)
+    public SalaryAssignmentService(HrmDbContext db, IHrmScopeService scope, IHrmApprovalGateway approvals, SalaryDecisions decisions,
+        SMS.WorkflowEngine.Services.IWorkflowActionService? workflow = null) : base(db)
     {
         _scope = scope;
         _approvals = approvals;
         _decisions = decisions;
+        _workflow = workflow;
+    }
+
+    /// <summary>
+    /// REV49-3: a decision on the salary screen does not pass through the engine, so the SALARY_CHANGE approval it opened at submit
+    /// would stay pending in the approver's inbox for ever. It is closed here; the handler ignores the callback (the row is no longer pending).
+    /// Best effort: the decision is already saved, and an engine refusal (already closed) changes nothing.
+    /// </summary>
+    private async Task CloseApprovalAsync(SalaryAssignment row, HrmCaller caller, string reason)
+    {
+        if (_workflow is null || row.ApprovalUuid is not { } approval || caller.UserId <= 0) return;
+        try
+        {
+            await _workflow.CancelAsync(new SMS.WorkflowEngine.Models.CancelCommand { ApprovalUUID = approval, CancelledBy = caller.UserId, CancellationReason = reason });
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException) { }
     }
 
     private IQueryable<SalaryAssignment> Query(Guid org) => Db.SalaryAssignments.IgnoreQueryFilters()
@@ -119,11 +137,14 @@ internal sealed class SalaryAssignmentService : HrmServiceBase, ISalaryAssignmen
         var row = await RequireAsync(caller, uuid, ct);
         if (row.ApprovalStatus != SalaryAssignmentStatuses.Draft) throw HrmErrors.Conflict("SALARY_NOT_DRAFT", "Only a draft can be submitted.");
         var reference = $"SAL-{row.Employee!.EmployeeNumber}-{row.EffectiveFrom:yyyyMMdd}";
-        var approval = await _approvals.SubmitAsync(caller, HrmWorkflowCodes.SalaryChange, row.Uuid, reference, row.EmployeeId, PermissionCodes.HRM_SALARY_APPROVE, null, ct);
+        // Once the engine holds the approval, linking it to the row must not be cancelled by a disconnecting caller (it would leave an approval
+        // nobody can tie to the assignment, and a Draft that can be submitted again). So the submit and the save run to the end.
+        var finish = CancellationToken.None;
+        var approval = await _approvals.SubmitAsync(caller, HrmWorkflowCodes.SalaryChange, row.Uuid, reference, row.EmployeeId, PermissionCodes.HRM_SALARY_APPROVE, null, finish);
         row.ApprovalUuid = approval;
         row.ApprovalStatus = SalaryAssignmentStatuses.PendingApproval;
         Stamp(row, caller);
-        await SaveAsync(ct, "This salary assignment");
+        await SaveAsync(finish, "This salary assignment");
         return Map(row);
     }
 
@@ -134,6 +155,7 @@ internal sealed class SalaryAssignmentService : HrmServiceBase, ISalaryAssignmen
         if (await _scope.OwnEmployeeIdAsync(caller, ct) == row.EmployeeId) throw new ForbiddenException("You cannot approve your own salary.");
         if (row.ApprovalStatus != SalaryAssignmentStatuses.PendingApproval) throw HrmErrors.Conflict("SALARY_NOT_PENDING", "Only a salary change waiting for approval can be approved.");
         await _decisions.ApproveAsync(row, caller, ct);
+        await CloseApprovalAsync(row, caller, "Approved on the salary screen.");
         return Map(row);
     }
 
@@ -145,6 +167,7 @@ internal sealed class SalaryAssignmentService : HrmServiceBase, ISalaryAssignmen
         if (!string.IsNullOrWhiteSpace(note)) row.ChangeReason = HrmValidate.Optional($"{row.ChangeReason} Rejected: {note}".Trim(), 500, "Reason");
         Stamp(row, caller);
         await SaveAsync(ct, "This salary assignment");
+        await CloseApprovalAsync(row, caller, "Rejected on the salary screen.");
         return Map(row);
     }
 

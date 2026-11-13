@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "sms://onboarding/schemas/EMAIL_TEMPLATES.json",
+  "title": "EMAIL_TEMPLATES",
+  "description": "Default email templates (onboarding.EmailTemplates, D-26). Natural key = templateType. {Token} placeholders, HTML-encoded on render; unknown tokens left as typed.",
+  "type": "object",
+  "properties": {
+    "templates": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "templateType": {
+            "enum": [
+              "InvoiceSent",
+              "QuotationSent",
+              "POToSupplier",
+              "PaymentReminder",
+              "PaymentReceived",
+              "WelcomeEmail",
+              "PayslipSent"
+            ]
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "subjectTemplate": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
+          },
+          "bodyHtml": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100000
+          },
+          "isDefault": {
+            "type": "boolean"
+          },
+          "afterA49": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "templateType",
+          "name",
+          "subjectTemplate",
+          "bodyHtml"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 1
+    },
+    "displayName": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 200
+    },
+    "notes": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 2000
+    }
+  },
+  "required": [
+    "templates"
+  ],
+  "additionalProperties": false
+}

@@ -80,6 +80,9 @@ public static class SuppliersModuleExtensions
         services.AddScoped<IImportTarget, SMS.Modules.Suppliers.Import.CustomerImportTarget>();
         services.AddScoped<IImportTarget, SMS.Modules.Suppliers.Import.SupplierImportTarget>();
         services.AddScoped<IImportTarget, SMS.Modules.Suppliers.Import.SupplierContactImportTarget>();
+        // A50 D-27/D-28 — demo customers and vendors, and the ADD_CUSTOMER / ADD_SUPPLIER checklist signal.
+        services.AddScoped<SMS.Shared.Onboarding.ISampleDataContributor, Onboarding.SuppliersSampleDataContributor>();
+        services.AddScoped<SMS.Shared.Onboarding.IOnboardingSignal, Onboarding.SuppliersOnboardingSignal>();
 
         // Replaces Warehouse's NullGrnEventPublisher registration — must run AFTER AddWarehouseModule()
         // in Program.cs for this override to win (last registration for a given service type wins).

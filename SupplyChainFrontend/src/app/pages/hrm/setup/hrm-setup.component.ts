@@ -19,7 +19,7 @@ import { ENUMS, hrmError, hrmErrorCode, hrmLabel } from '../core/hrm.shared';
 export interface SetupStatus { licensed: boolean; enabled: boolean; payrollCostCenter?: { uuid: string; code: string; name: string } | null; mode?: string | null; costCenters: { uuid: string; code: string; name: string; isActive?: boolean }[]; }
 
 const NEW_CC_FIELDS: Field[] = [
-  { key: 'code', label: 'Code', required: true, maxLength: 20 }, { key: 'name', label: 'Name', required: true, maxLength: 150 }
+  { key: 'code', label: 'Code', required: true, maxLength: 20 }, { key: 'name', label: 'Name', required: true, maxLength: 100 }
 ];
 
 /**

@@ -115,6 +115,8 @@ public static class LogisticsModuleExtensions
         // A41 lead conversion seeds the new customer's address book with the lead's address (contract in SMS.Shared).
         services.AddScoped<ICrmShippingAddressGateway, CrmShippingAddressGateway>();
         services.AddScoped<IDocumentNumberGenerator, DocumentNumberGenerator>();
+        // A50 D-19 — the setup wizard's DOC_NUMBERING category (Onboarding enumerates every ISetupCategorySeeder).
+        services.AddScoped<SMS.Shared.Onboarding.ISetupCategorySeeder, Onboarding.NumberingSetupSeeder>();
         services.AddScoped<IDeliveryService,    DeliveryService>();
         services.AddScoped<ISaleOrderDeliveryService, SaleOrderDeliveryService>();
         // A29-P7-04 — what Finance reads to bill a delivery. Contract in SMS.Shared, so Finance
@@ -145,6 +147,11 @@ public static class LogisticsModuleExtensions
         services.AddScoped<IPackageRepository,  PackageRepository>();
         services.AddScoped<IPackageService,     PackageService>();
         services.AddScoped<IDeliveryDocumentService, DeliveryDocumentService>();
+        // A50 (TPL, D-25) — the DeliveryNote template comes from Onboarding; without it these keep the pre-A50 packing list.
+        Microsoft.Extensions.DependencyInjection.Extensions.ServiceCollectionDescriptorExtensions.TryAddScoped<
+            SMS.Shared.Onboarding.IDocumentBrandingProvider, SMS.Shared.Onboarding.NullDocumentBrandingProvider>(services);
+        Microsoft.Extensions.DependencyInjection.Extensions.ServiceCollectionDescriptorExtensions.TryAddSingleton<
+            SMS.Shared.Onboarding.ITemplatedDocumentRenderer, SMS.Shared.Onboarding.NullTemplatedDocumentRenderer>(services);
         // A29-P7-09 — the gate pass kept on file as an attachment on the delivery.
         services.AddScoped<IGatePassArchive, GatePassArchive>();
 

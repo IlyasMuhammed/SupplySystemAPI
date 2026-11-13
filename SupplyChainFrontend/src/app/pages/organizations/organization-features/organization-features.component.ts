@@ -11,7 +11,7 @@ import { ConfirmDialogModule } from 'primeng/confirmdialog';
 import { TooltipModule } from 'primeng/tooltip';
 import { MessageService, ConfirmationService } from 'primeng/api';
 import {
-  OrganizationsService, OrganizationDetailModel, OrganizationFeatureModel, OrganizationFeatureHistoryEntry
+  OrganizationsService, OrganizationDetailModel, OrganizationFeatureModel, OrganizationFeatureHistoryEntry, planLabel
 } from '../../../services/organizations.service';
 import { moduleName } from '../../../services/module.models';
 
@@ -30,6 +30,14 @@ export interface FeatureGroupVm {
   title: string;
   module: FeatureRowVm | null;
   items: FeatureRowVm[];
+}
+
+/** A group as the page shows it: the rows that pass the search/filters, and how many of the group's items are licensed. */
+export interface FeatureGroupView extends FeatureGroupVm {
+  shown: FeatureRowVm[];
+  onCount: number;
+  total: number;
+  open: boolean;
 }
 
 export interface FeatureHistoryRow {
@@ -113,6 +121,7 @@ export class OrganizationFeaturesComponent implements OnInit {
         this.isLoading = false;
         this.features = res.result ?? [];
         this.groupedFeatures = OrganizationFeaturesComponent.group(this.features);
+        this.applyFilter();
       },
       error: () => {
         this.isLoading = false;
@@ -127,6 +136,64 @@ export class OrganizationFeaturesComponent implements OnInit {
    * and the page looped until the browser tab ran out of memory ("Aw, Snap!").
    */
   groupedFeatures: FeatureGroupVm[] = [];
+
+  // ── Finding a feature on a long screen ────────────────────────────────────
+  search = '';
+  statusFilter: 'all' | 'on' | 'off' = 'all';
+  showComingSoon = false;
+  /** What the page renders: groupedFeatures narrowed by the search and filters. Rebuilt by applyFilter(), never a getter (see above). */
+  visibleGroups: FeatureGroupView[] = [];
+  private openGroups = new Set<string>();
+
+  /** A row passes when it matches the search text and the status filter; "coming soon" rows only when asked for. */
+  private rowMatches(r: FeatureRowVm): boolean {
+    if (r.comingSoon && !this.showComingSoon) return false;
+    if (this.statusFilter === 'on' && !r.f.isEnabled) return false;
+    if (this.statusFilter === 'off' && r.f.isEnabled) return false;
+    const q = this.search.trim().toLowerCase();
+    return !q || `${r.f.featureName} ${r.f.featureCode} ${r.f.description ?? ''}`.toLowerCase().includes(q);
+  }
+
+  applyFilter() {
+    const searching = !!this.search.trim();
+    const filtering = searching || this.statusFilter !== 'all';
+    this.visibleGroups = this.groupedFeatures.flatMap(g => {
+      const rows = [...(g.module ? [g.module] : []), ...g.items].filter(r => !r.comingSoon || this.showComingSoon);
+      const shown = g.items.filter(r => this.rowMatches(r));
+      const moduleMatches = !!g.module && this.rowMatches(g.module);
+      if (!shown.length && !moduleMatches) return [];
+      return [{
+        ...g,
+        shown,
+        onCount: rows.filter(r => r.f.isEnabled).length,
+        total: rows.length,
+        // A search or filter opens the groups it found something in, so the hit is visible without clicking.
+        open: filtering || this.openGroups.has(g.key)
+      }];
+    });
+  }
+
+  toggleGroup(key: string) {
+    if (this.openGroups.has(key)) this.openGroups.delete(key); else this.openGroups.add(key);
+    this.applyFilter();
+  }
+
+  setAllGroups(open: boolean) {
+    this.openGroups = open ? new Set(this.groupedFeatures.map(g => g.key)) : new Set();
+    this.applyFilter();
+  }
+
+  setStatus(filter: 'all' | 'on' | 'off') {
+    this.statusFilter = filter;
+    this.applyFilter();
+  }
+
+  clearSearch() {
+    this.search = '';
+    this.applyFilter();
+  }
+
+  trackView = (_: number, g: FeatureGroupView) => g.key;
 
   /**
    * A37 — modules in display order, each followed by its own screens/features (parentModuleCode). Rows whose parent is
@@ -266,7 +333,7 @@ export class OrganizationFeaturesComponent implements OnInit {
 
   confirmApplyPlanTemplate() {
     this.confirmationService.confirm({
-      message: `Reset all feature toggles to the defaults for the <strong>${this.org?.plan}</strong> plan? Any manual overrides will be lost.`,
+      message: `Reset all feature toggles to the defaults for the <strong>${planLabel(this.org?.plan)}</strong> plan? Any manual overrides will be lost.`,
       header: 'Reset to Plan Defaults',
       icon: 'pi pi-exclamation-triangle',
       acceptLabel: 'Reset',
@@ -290,6 +357,8 @@ export class OrganizationFeaturesComponent implements OnInit {
       }
     });
   }
+
+  readonly planLabel = planLabel;
 
   planSeverity(plan?: string): 'success' | 'info' | 'warn' {
     switch (plan) {

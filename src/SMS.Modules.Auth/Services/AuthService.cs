@@ -32,6 +32,9 @@ internal sealed class AuthService : IAuthService
     // permission reads as enabled.
     private readonly ITenantSnapshotProvider? _snapshots;
     private readonly ITenantContext? _tenant;
+    // A50 D-26 — after accept-invite (the welcome e-mail). None registered = nothing happens.
+    private readonly IEnumerable<IUserInviteAcceptedHandler> _inviteAcceptedHandlers;
+    private readonly Microsoft.Extensions.Logging.ILogger<AuthService>? _logger;
 
     /// <param name="resetThrottle">
     /// The app-wide reset-code throttle (a singleton — AddAuthModule registers it). Optional so a host or a
@@ -47,8 +50,12 @@ internal sealed class AuthService : IAuthService
         ISuperAdminService superAdminService,
         PasswordResetThrottle? resetThrottle = null,
         ITenantSnapshotProvider? snapshots = null,
-        ITenantContext? tenant = null)
+        ITenantContext? tenant = null,
+        IEnumerable<IUserInviteAcceptedHandler>? inviteAcceptedHandlers = null,
+        Microsoft.Extensions.Logging.ILogger<AuthService>? logger = null)
     {
+        _inviteAcceptedHandlers = inviteAcceptedHandlers ?? [];
+        _logger = logger;
         _snapshots = snapshots;
         _tenant = tenant;
         _repo = repo;
@@ -479,6 +486,25 @@ internal sealed class AuthService : IAuthService
         user.InviteTokenExpiresAt = null;
         user.UpdateDate           = DateTime.UtcNow;
         await _repo.SaveAsync(user);
+
+        // A50 D-26 — the hook point for the welcome e-mail, after the account is saved. A handler's failure never
+        // undoes or fails the accept: the user has a working account either way.
+        var handlers = _inviteAcceptedHandlers.ToList();
+        if (handlers.Count == 0) return;
+        var roleName = await _repo.GetRoleNameAsync(user.RoleID) ?? string.Empty;
+        var loginUrl = string.IsNullOrWhiteSpace(_settings.BaseUrl) ? null : $"{_settings.BaseUrl.TrimEnd('/')}/auth/login";
+        var context = new InviteAcceptedContext(user.OrganizationId, user.UserID, user.Email, user.FirstName, user.LastName, roleName,
+            OrganizationName: null, LoginUrl: loginUrl);
+        foreach (var handler in handlers)
+        {
+            try { await handler.OnInviteAcceptedAsync(context); }
+            catch (Exception ex)
+            {
+                if (_logger is not null)
+                    Microsoft.Extensions.Logging.LoggerExtensions.LogWarning(_logger, ex,
+                        "Invite-accepted handler {Handler} failed for user {UserId}.", handler.GetType().Name, user.UserID);
+            }
+        }
     }
 
     // ── Current user profile ──────────────────────────────────────────────────

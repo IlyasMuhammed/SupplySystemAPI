@@ -37,7 +37,7 @@ export interface Readiness {
       <div *ngIf="r.currencyMismatch" class="gl-note er" data-testid="currency"><i class="pi pi-exclamation-triangle"></i><div>The organization works in {{ r.currencyMismatch.orgCurrency }} but QuickBooks is in {{ r.currencyMismatch.qboCurrency }}. A run cannot post across currencies.</div></div>
     </div></div>
     <div class="hrm-check" *ngIf="r.unverifiedStatutory?.length" data-testid="unverified"><i class="pi pi-times-circle"></i><div><b>Statutory data not reviewed.</b> These values were seeded and need a qualified payroll consultant before payroll can be finalized.
-      <ul><li *ngFor="let u of r.unverifiedStatutory">{{ u.kind }}: {{ u.name }}. <a [routerLink]="statutoryRoute">Review</a></li></ul></div></div>
+      <ul><li *ngFor="let u of r.unverifiedStatutory">{{ kindLabel(u.kind) }}: {{ u.name }}. <a [routerLink]="reviewRoute(u.kind)" [attr.data-testid]="'review-' + u.kind">Review</a></li></ul></div></div>
   </ng-container>
 </section>`
 })
@@ -51,6 +51,11 @@ export class ReadinessPanelComponent implements OnChanges {
   readonly qboRoute = '/portal/pages/integrations/quickbooks';
   readonly mapRoute = `${HRM_ROUTE}/settings/cost-center-mapping`;
   readonly statutoryRoute = `${HRM_ROUTE}/salary/statutory-rates`;
+  readonly taxTablesRoute = `${HRM_ROUTE}/salary/tax-tables`;
+
+  /** REV49B-13: the server names the kind (`TaxTable` or `StatutoryRate`, PayrollRunService.UnverifiedAsync); each has its own page. */
+  reviewRoute(kind: string): string { return kind === 'TaxTable' ? this.taxTablesRoute : this.statutoryRoute; }
+  kindLabel(kind: string): string { return kind === 'TaxTable' ? 'Tax table' : kind === 'StatutoryRate' ? 'Statutory rate' : kind; }
 
   r: Readiness | null = null;
   loading = false;

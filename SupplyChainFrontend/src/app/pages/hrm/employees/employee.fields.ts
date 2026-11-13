@@ -8,10 +8,11 @@ const addressFields = (prefix: string, title: string): Field[] => [
 ];
 
 export const PERSONAL_FIELDS: Field[] = [
-  { key: 'firstName', label: 'First name', required: true, maxLength: 100 }, { key: 'lastName', label: 'Last name', maxLength: 100 }, { key: 'fatherOrHusbandName', label: 'Father / husband name', maxLength: 150 },
+  { key: 'firstName', label: 'First name', required: true, maxLength: 60 }, { key: 'lastName', label: 'Last name', required: true, maxLength: 60 }, { key: 'fatherOrHusbandName', label: 'Father / husband name', maxLength: 150 },
   { key: 'dateOfBirth', label: 'Date of birth', type: 'date' }, { key: 'gender', label: 'Gender', type: 'select', options: ENUMS.gender }, { key: 'maritalStatus', label: 'Marital status', type: 'select', options: ENUMS.marital }, { key: 'nationality', label: 'Nationality', maxLength: 60 },
   { key: 'workEmail', label: 'Work email', maxLength: 200 }, { key: 'personalEmail', label: 'Personal email', maxLength: 200 }, { key: 'phone', label: 'Phone', maxLength: 30 }, { key: 'mobile', label: 'Mobile', maxLength: 30 },
   { key: 'joinDate', label: 'Join date', type: 'date' },
+  { key: 'userId', label: 'Login user', type: 'lookup', lookup: 'users', hint: 'Links this person to a login, so My HR (leave, payslips, attendance) works for that user. One login per employee.' },
   ...addressFields('current', 'Current address'), ...addressFields('permanent', 'Permanent address'),
   { key: 'emergencyContacts', label: 'Emergency contacts', type: 'rows', rows: [{ key: 'name', label: 'Name', required: true, maxLength: 150 }, { key: 'relation', label: 'Relation', maxLength: 50 }, { key: 'phone', label: 'Phone', maxLength: 30 }] },
   { key: 'notes', label: 'Notes', type: 'textarea', maxLength: 2000 }
@@ -75,7 +76,7 @@ export function formToEmployee(v: Record<string, any>, previous?: any): Record<s
   return {
     firstName: v['firstName'], lastName: v['lastName'], fatherOrHusbandName: v['fatherOrHusbandName'], dateOfBirth: v['dateOfBirth'], gender: v['gender'], maritalStatus: v['maritalStatus'], nationality: v['nationality'],
     personalEmail: v['personalEmail'], workEmail: v['workEmail'], phone: v['phone'], mobile: v['mobile'], currentAddress: a('current', previous?.currentAddress), permanentAddress: a('permanent', previous?.permanentAddress),
-    emergencyContacts: v['emergencyContacts'], photoAttachmentUuid: previous?.photoAttachmentUuid ?? null, userId: previous?.userId ?? null, joinDate: v['joinDate'], leaveDate: previous?.leaveDate ?? null, departureReason: previous?.departureReason ?? null, notes: v['notes'],
+    emergencyContacts: v['emergencyContacts'], photoAttachmentUuid: previous?.photoAttachmentUuid ?? null, userId: v['userId'] !== undefined ? (v['userId'] ?? null) : (previous?.userId ?? null), joinDate: v['joinDate'], leaveDate: previous?.leaveDate ?? null, departureReason: previous?.departureReason ?? null, notes: v['notes'],
     sourceCandidateUuid: previous?.sourceCandidateUuid ?? null,
     // §3 — null keeps the stored value; the form cannot show these, so empty never clears by accident.
     cnic: v['cnic'] || null, ntn: v['ntn'] || null

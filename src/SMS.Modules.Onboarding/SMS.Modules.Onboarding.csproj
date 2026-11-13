@@ -1,0 +1,50 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>SMS.Modules.Onboarding</RootNamespace>
+    <AssemblyName>SMS.Modules.Onboarding</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Hangfire.Core" Version="1.8.14" />
+    <!-- A50 D-25 (TPL) — template preview PDFs and the generic HTML body renderer (same versions as Demand). -->
+    <PackageReference Include="QuestPDF" Version="2026.7.1" />
+    <PackageReference Include="AngleSharp" Version="1.10.1" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="9.0.2" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.2">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <!-- A50 D-2 — Onboarding orchestrates; it reaches the modules that own the data only through SMS.Shared seams (Onboarding/OnboardingContracts.cs). -->
+  <ItemGroup>
+    <ProjectReference Include="..\SMS.Shared\SMS.Shared.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <!-- A50 D-4 — the initial template packs (authored by DATA): Packs/{CC}_{INDUSTRY}/{CATEGORY}.json and Packs/schemas/{CATEGORY}.json,
+       read by the startup pack seeder and the payload validator. Logical name = "Onboarding.Packs/<relative path>". -->
+  <ItemGroup>
+    <EmbeddedResource Include="Packs\**\*.json" LogicalName="Onboarding.Packs/%(RecursiveDir)%(Filename)%(Extension)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
+      <_Parameter1>SMS.Modules.Onboarding.Tests</_Parameter1>
+    </AssemblyAttribute>
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
+      <_Parameter1>SMS.Integration.Tests</_Parameter1>
+    </AssemblyAttribute>
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
+      <_Parameter1>DynamicProxyGenAssembly2</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
+
+</Project>

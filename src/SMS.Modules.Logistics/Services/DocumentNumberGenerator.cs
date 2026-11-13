@@ -56,6 +56,10 @@ internal sealed class DocumentNumberGenerator : IDocumentNumberGenerator
         var year  = (utcNow ?? DateTime.UtcNow).Year;
         var owner = organizationId ?? _tenant.OrganizationId;
 
+        // A50 D-19 — the organization's own prefix for this document (setup wizard DOC_NUMBERING). Year and padding stay;
+        // the mapped prefix has its own counter, so a switch can never reissue a number.
+        prefix = await MapPrefixAsync(prefix, owner, ct);
+
         for (var attempt = 1; attempt <= MaxAttempts; attempt++)
         {
             try
@@ -76,6 +80,21 @@ internal sealed class DocumentNumberGenerator : IDocumentNumberGenerator
         throw new InvalidOperationException(
             $"Could not reserve a '{prefix}' number after {MaxAttempts} attempts. The " +
             $"{nameof(DocumentNumberSequence)} counter is under sustained contention or is failing to save.");
+    }
+
+    // Per scope: a request that issues many numbers (a PO split, a batch) asks once per prefix.
+    private readonly Dictionary<(Guid Org, string Prefix), string> _mapped = new();
+
+    private async Task<string> MapPrefixAsync(string defaultPrefix, Guid owner, CancellationToken ct)
+    {
+        if (_mapped.TryGetValue((owner, defaultPrefix), out var cached)) return cached;
+        // Explicit OrganizationId, filter off — same reason as ReserveAsync below.
+        var own = await _db.DocumentNumberFormats.IgnoreQueryFilters().AsNoTracking()
+            .Where(f => f.OrganizationId == owner && f.DefaultPrefix == defaultPrefix && f.IsApplied)
+            .Select(f => f.Prefix).FirstOrDefaultAsync(ct);
+        var result = string.IsNullOrWhiteSpace(own) ? defaultPrefix : own.Trim().ToUpperInvariant();
+        _mapped[(owner, defaultPrefix)] = result;
+        return result;
     }
 
     private async Task<int> ReserveAsync(string prefix, int year, Guid owner, CancellationToken ct)

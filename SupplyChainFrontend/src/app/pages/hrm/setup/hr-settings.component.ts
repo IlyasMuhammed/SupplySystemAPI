@@ -21,7 +21,6 @@ const SETTINGS_FIELDS: Field[] = [
   { key: 'payrollCostCenterMode', label: 'Posting mode', type: 'select', options: ENUMS.costMode, required: true, hint: 'A change applies to future runs only.' },
   { key: 'postDatePolicy', label: 'Posting date', type: 'select', options: ENUMS.postDatePolicy, required: true },
   { key: 'employeeNumberPrefix', label: 'Employee number prefix', maxLength: 10, required: true },
-  { key: 'countryCode', label: 'Country code', maxLength: 2, required: true },
   { key: 'workingDaysDivisor', label: 'Working-days divisor', type: 'number', min: 1, max: 31, step: 1, hint: 'Empty uses the calendar days of the month.' },
   { key: 'defaultExpenseSettlement', label: 'Expense reimbursement default', type: 'select', options: ENUMS.settlementMethod, required: true },
   { key: 'defaultReceiptThreshold', label: 'Receipt needed above', type: 'number', min: 0 }
@@ -44,13 +43,18 @@ const SETTINGS_FIELDS: Field[] = [
     <div class="sf-lr-head"><div><h1>HR settings</h1><div class="sf-sub">One organization is one employer and one payroll legal entity.</div></div></div>
     <div class="gl-note er" *ngIf="error" role="alert" data-testid="error"><i class="pi pi-exclamation-triangle"></i><div>{{ error }}</div></div>
 
-    <section class="sf-card" *ngIf="values && canEdit"><hrm-form [fields]="fields" [values]="values" [lookups]="lookups" idPrefix="set"></hrm-form></section>
+    <section class="sf-card" *ngIf="values && canEdit">
+      <!-- REV49B-2: HrmSettingsUpdate has no CountryCode (set at enablement), so it is shown, not edited. -->
+      <div class="sf-kv" style="margin-bottom:0.75rem" data-testid="country"><span>Country</span><span>{{ values['countryCode'] || '—' }}</span></div>
+      <hrm-form [fields]="fields" [values]="values" [lookups]="lookups" idPrefix="set"></hrm-form>
+    </section>
     <section class="sf-card" *ngIf="values && !canEdit" data-testid="readonly">
       <div class="sf-kv">
         <span>Payroll cost center</span><span>{{ values['payrollCostCenterName'] || '—' }} {{ values['payrollCostCenterCode'] ? '(' + values['payrollCostCenterCode'] + ')' : '' }}</span>
         <span>Posting mode</span><span>{{ hrmLabel(values['payrollCostCenterMode']) }}</span>
         <span>Posting date</span><span>{{ hrmLabel(values['postDatePolicy']) }}</span>
         <span>Employee number prefix</span><span>{{ values['employeeNumberPrefix'] }}</span>
+        <span>Country</span><span>{{ values['countryCode'] || '—' }}</span>
       </div>
     </section>
 

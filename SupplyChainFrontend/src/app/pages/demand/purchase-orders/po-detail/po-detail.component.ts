@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -27,6 +27,9 @@ import { fromDateOnly } from '../../../../shared/date-only';
 import { MoneyService } from '../../../../services/money.service';
 import { MoneyPipe } from '../../../../shared/money/money.pipe';
 import { FLOW, FlowSection, FlowStage, flowStagesFrom } from '../../../../shared/flow';
+import { AuthService } from '../../../service/auth.service';
+import { DocumentEmailDialogComponent, emailSentToast } from '../../../../shared/components/document-email-dialog/document-email-dialog.component';
+import { DocumentEmailResult } from '../../../../services/onboarding-templates.service';
 
 @Component({
   selector: 'app-po-detail',
@@ -36,7 +39,7 @@ import { FLOW, FlowSection, FlowStage, flowStagesFrom } from '../../../../shared
     ButtonModule, TagModule, ToastModule,
     TableModule, DividerModule, TooltipModule,
     ConfirmDialogModule, DialogModule, TextareaModule, DropdownModule, TimelinePanelComponent,
-    AttachmentListComponent, DocCurrencyPanelComponent, MoneyPipe,
+    AttachmentListComponent, DocCurrencyPanelComponent, MoneyPipe, DocumentEmailDialogComponent,
     ...FLOW
   ],
   templateUrl: './po-detail.component.html',
@@ -76,6 +79,17 @@ export class PoDetailComponent implements OnInit, OnDestroy {
   isRejecting  = false;
   isSending    = false;
   isDownloadingPdf = false;
+
+  // ── A50 D-26 — Email to supplier (any of PO_CREATE / PO_EDIT / PO_APPROVE; an approved or later PO) ──
+  private readonly auth = inject(AuthService);
+  emailVisible = false;
+  get canEmail(): boolean {
+    const po = this.po;
+    if (!po || ['DRAFT', 'PENDING_APPROVAL', 'REJECTED', 'CANCELLED'].includes(po.status)) return false;
+    return ['PO_CREATE', 'PO_EDIT', 'PO_APPROVE'].some(c => this.auth.hasPermission(c));
+  }
+  onEmailSent(r: DocumentEmailResult | null): void { this.messageService.add({ ...emailSentToast(r), life: 6000 }); }
+  onEmailFailed(message: string): void { this.messageService.add({ severity: 'error', summary: 'Not sent', detail: message, life: 8000 }); }
 
   showRejectDialog = false;
   rejectReason     = '';

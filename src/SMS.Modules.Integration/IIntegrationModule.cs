@@ -46,6 +46,8 @@ public static class IntegrationModuleExtensions
         services.AddScoped<ILookupReferenceChecker, IntegrationCurrencyReferenceChecker>();
         // Finance asks every checker before it renames a tax code (a code mapping finds the code by its text).
         services.AddScoped<ITaxCodeReferenceChecker, IntegrationTaxCodeReferenceChecker>();
+        // A50 D-28 — CONNECT_QB: a QuickBooks connection that completed OAuth.
+        services.AddScoped<SMS.Shared.Onboarding.IOnboardingSignal, SMS.Modules.Integration.Onboarding.IntegrationOnboardingSignal>();
 
         // Each area registers its own services — one file per area, so they can be built independently.
         services.AddIntegrationApiKeyAuth(configuration);      // Auth/

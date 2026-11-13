@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterModule } from '@angular/router';
 import { ButtonModule } from 'primeng/button';
@@ -23,6 +23,7 @@ import { DocCurrencyInfo, cachedDocCurrency, hasBaseAmounts } from '../../../../
 import { MoneyPipe } from '../../../../shared/money/money.pipe';
 import { FLOW, FlowSection, FlowStage, flowStagesFrom } from '../../../../shared/flow';
 import { QboSyncBadgeComponent } from '../../../../shared/components/qbo-sync-badge/qbo-sync-badge.component';
+import { OnboardingTemplatesService, errorMessageOf, saveBlob } from '../../../../services/onboarding-templates.service';
 
 @Component({
   selector: 'app-customer-payment-detail',
@@ -123,6 +124,24 @@ export class CustomerPaymentDetailComponent implements OnInit {
 
   get canViewInvoices(): boolean { return this.can('SALES_INVOICE_VIEW'); }
   get canViewLedger(): boolean   { return this.can('CUSTOMER_LEDGER_VIEW'); }
+
+  // ── A50 D-25 — the payment receipt PDF (CUSTOMER_PAYMENT_VIEW) ──
+  private readonly templates = inject(OnboardingTemplatesService);
+  isDownloadingPdf = false;
+  get canDownloadReceipt(): boolean { return !!this.payment && this.can('CUSTOMER_PAYMENT_VIEW'); }
+
+  downloadReceipt(): void {
+    const p = this.payment;
+    if (!p || this.isDownloadingPdf) return;
+    this.isDownloadingPdf = true;
+    this.templates.downloadCustomerPaymentPdf(p.uuid || this.uuid).subscribe({
+      next: blob => { this.isDownloadingPdf = false; saveBlob(blob, `${p.paymentNumber || this.uuid}.pdf`); },
+      error: async err => {
+        this.isDownloadingPdf = false;
+        this.messageService.add({ severity: 'error', summary: 'No PDF', detail: await errorMessageOf(err, 'The receipt PDF could not be generated.') });
+      }
+    });
+  }
 
   /** A bounced or reversed payment keeps its allocation rows as history: none of it is applied any more. */
   get isHistoryOnly(): boolean {

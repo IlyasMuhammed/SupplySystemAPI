@@ -16,7 +16,13 @@ import { ReviewFormComponent, weightedRating } from './talent/review-form.compon
 import { PerformanceDashboardComponent, completionPercent, distributionRows } from './talent/performance-dashboard.component';
 import { MyProfileComponent } from './self/my-profile.component';
 import { HrmApi } from './core/hrm.api';
-import { Field, HrmFormComponent, markFilesSaved } from './core/hrm-form.component';
+import { Field, HrmFormComponent, formProblem, markFilesSaved } from './core/hrm-form.component';
+import { PERSONAL_FIELDS } from './employees/employee.fields';
+import { CANDIDATE_FIELDS } from './configs/tal.config';
+import * as ORG from './configs/org.config';
+import * as PAY from './configs/pay.config';
+import * as SELF from './configs/self.config';
+import * as ATT from './configs/att.config';
 
 const click = (m: Mounted<any>, id: string) => (m.q(id)!.querySelector('button') ?? m.q(id)!).click();
 const node = (uuid: string, children: DeptNode[] = [], parentUuid: string | null = null): DeptNode => ({ uuid, code: uuid.toUpperCase(), name: `Dept ${uuid}`, parentUuid, isActive: true, employeeCount: 1, children });
@@ -143,6 +149,9 @@ describe('HrSettingsComponent', () => {
     expect(put.request.body.payrollCostCenterUuid).toBe('cc1');
     expect(put.request.body.enablementCompletedAt).toBeUndefined();
     expect(put.request.body.payrollCostCenterCode).toBeUndefined();
+    // REV49B-2: HrmSettingsUpdate has no CountryCode: shown, never sent.
+    expect('countryCode' in put.request.body).toBeFalse();
+    expect(m.text('country')).toContain('PK');
     const r = await mountHrm(HrSettingsComponent, { perms: ['HRM_PAYROLL_VIEW'] });
     r.flush('hrm/settings', { payrollCostCenterName: 'Head office', payrollCostCenterMode: 'CENTRAL' });
     drain(r.http); r.detect();
@@ -160,6 +169,26 @@ describe('HrSettingsComponent user picker (FE-4)', () => {
     m.c.userSearch = ' ali ';
     m.c.loadUsers();
     expect(m.http.match(r => r.url === `${API}hrm/user-scopes/users` && r.params.get('search') === 'ali').length).toBe(1);
+  });
+});
+
+describe('Form limits match the server (REV49B-9)', () => {
+  it('names 60 and last name required for people; names 100 and codes 20 for masters', () => {
+    const emp = PERSONAL_FIELDS;
+    const first = emp.find(f => f.key === 'firstName')!;
+    const last = emp.find(f => f.key === 'lastName')!;
+    expect([first.maxLength, last.maxLength, last.required]).toEqual([60, 60, true]);
+    const cand = CANDIDATE_FIELDS.find(f => f.key === 'lastName')!;
+    expect([cand.maxLength, cand.required]).toEqual([60, true]);
+    for (const cfg of [ORG.BRANCHES, ORG.DESIGNATIONS, ORG.GRADES, PAY.COMPONENTS, SELF.STRUCTURES, ATT.HOLIDAYS]) {
+      const fields = cfg.form!.fields;
+      const name = fields.find(f => f.key === 'name');
+      const code = fields.find(f => f.key === 'code');
+      if (name) expect(name.maxLength).withContext(`${cfg.id} name`).toBeLessThanOrEqual(100);
+      if (code) expect(code.maxLength).withContext(`${cfg.id} code`).toBeLessThanOrEqual(20);
+    }
+    expect(formProblem([{ key: 'n', label: 'Name', maxLength: 3 }], { n: 'abcd' })).toBe('Name can be at most 3 characters.');
+    expect(formProblem([{ key: 'n', label: 'Name', required: true }], { n: '  ' })).toBe('Name is required.');
   });
 });
 
@@ -374,6 +403,33 @@ describe('CandidateDetailComponent (210, 211)', () => {
     m.c.saveDlg();
     expect(m.expectReq('hrm/interviews/i1', 'PUT').request.body.result).toBe('Passed');
   });
+
+  it('REV49B-6: the picker is local wall time; it goes out as the same instant in UTC and comes back the same', async () => {
+    const m = await mountHrm(CandidateDetailComponent, { perms: ['HRM_RECRUITMENT_MANAGE'], params: { uuid: 'c1' } });
+    m.flush('hrm/candidates/c1', { uuid: 'c1', firstName: 'Ali', applications: [{ uuid: 'a1', vacancyTitle: 'Clerk', stage: 'Interview' }] });
+    drain(m.http);
+    m.c.openInterview({ uuid: 'a1' });
+    drain(m.http);
+    m.c.dlgValues['scheduledAt'] = '2026-11-05T10:00';
+    m.c.saveDlg();
+    const sent = m.expectReq('hrm/applications/a1/interviews', 'POST').request.body.scheduledAt;
+    expect(sent).toBe(new Date(2026, 10, 5, 10, 0).toISOString());
+    expect(sent.endsWith('Z')).toBeTrue();
+    // The server answers the stored UTC value with no zone; editing shows the wall time that was picked.
+    m.c.openFeedback({ uuid: 'a1' }, { uuid: 'i1', scheduledAt: sent.replace('.000Z', ''), result: 'Pending' });
+    expect(m.c.dlgValues['scheduledAt']).toBe('2026-11-05T10:00');
+  });
+
+  it('REV49B-5: no salary field on a new offer without HRM_SALARY_EDIT', async () => {
+    const m = await mountHrm(CandidateDetailComponent, { perms: ['HRM_RECRUITMENT_MANAGE'], params: { uuid: 'c1' } });
+    m.flush('hrm/candidates/c1', { uuid: 'c1', firstName: 'Ali', applications: [] });
+    m.c.openOffer({ uuid: 'a1' });
+    expect(m.c.dlgFields.map(f => f.key)).not.toContain('offeredSalary');
+    const e = await mountHrm(CandidateDetailComponent, { perms: ['HRM_RECRUITMENT_MANAGE', 'HRM_SALARY_EDIT'], params: { uuid: 'c1' } });
+    e.flush('hrm/candidates/c1', { uuid: 'c1', firstName: 'Ali', applications: [] });
+    e.c.openOffer({ uuid: 'a1' });
+    expect(e.c.dlgFields.map(f => f.key)).toContain('offeredSalary');
+  });
 });
 
 describe('ReviewFormComponent (222)', () => {
@@ -449,20 +505,29 @@ describe('ReviewFormComponent (222)', () => {
     m.detect();
     expect(m.q('submit')).toBeNull();
     expect((m.q('mgr-g1') as HTMLInputElement).disabled).toBeTrue();
+    // REV49B-7: comments are saved by PUT first, then acknowledge goes with no body.
+    m.c.r.employeeComments = 'Fair review';
     click(m, 'acknowledge');
-    m.expectReq('hrm/reviews/r1/acknowledge', 'POST');
+    const put = m.expectReq('hrm/reviews/r1', 'PUT');
+    expect(put.request.body).toEqual({ employeeComments: 'Fair review' });
+    m.http.expectNone(`${API}hrm/reviews/r1/acknowledge`);
+    put.flush({ success: true, result: {} });
+    const ack = m.expectReq('hrm/reviews/r1/acknowledge', 'POST');
+    expect(ack.request.body).toEqual({});
   });
 });
 
 describe('Performance dashboard (223) and my profile', () => {
   it('completion and the real distribution shape', async () => {
-    expect(completionPercent({ total: 10, submitted: 3, acknowledged: 2 })).toBe(50);
+    // REV49B-3: submitted already includes acknowledged.
+    expect(completionPercent({ total: 10, submitted: 5, acknowledged: 2 })).toBe(50);
+    expect(completionPercent({ total: 4, submitted: 4, acknowledged: 4 })).toBe(100);
     expect(completionPercent(null)).toBe(0);
     expect(distributionRows([{ rating: 4, count: 2 }, { rating: 0, count: 1 }]).map(r => r.rating)).toEqual(['0', '4']);
     expect(distributionRows({ 2: 4 })[0].pct).toBe(100);
     const m = await mountHrm(PerformanceDashboardComponent, { perms: ['HRM_PERFORMANCE_VIEW'] });
     m.flush('hrm/review-cycles', [{ uuid: 'cy', name: '2026' }]);
-    m.http.expectOne(r => r.url === `${API}hrm/performance/dashboard`).flush({ success: true, result: { completion: { total: 4, submitted: 1, acknowledged: 1 }, ratingDistribution: [{ rating: 3, count: 2 }] } });
+    m.http.expectOne(r => r.url === `${API}hrm/performance/dashboard`).flush({ success: true, result: { completion: { total: 4, submitted: 2, acknowledged: 1 }, ratingDistribution: [{ rating: 3, count: 2 }] } });
     m.detect();
     expect(m.text('pct')).toBe('50%');
     expect(m.text('bar-3')).toContain('2');

@@ -55,10 +55,13 @@ internal sealed class QuickBooksJournalEntryBuilder : IQuickBooksJournalEntryBui
 
         CheckBalanced(lines, tx.SourceDocumentNumber);
 
-        var root = tx.SourceDocumentId.ToString();
+        // QA49C-1: a payment shares its document's uuid, so it is keyed apart; the IdempotencyKey already carries the type.
+        var root = JournalEntryKeys.Root(tx.SourceDocumentId, tx.DocumentType);
+        var uuid = tx.SourceDocumentId.ToString();
         var docType = tx.DocumentType.ToString();
         var note = PrivateNote(tx);
         var docNumber = (tx.SourceDocumentNumber ?? string.Empty).Trim();
+        var typeSuffix = JournalEntryKeys.IsPaymentOfAnother(tx.DocumentType) ? JournalEntryKeys.PaymentDocNumberSuffix : string.Empty;
 
         var batches = Split(lines, payroll?.Code, MaxLinesPerEntry);
         var payloads = new List<JournalEntryPayload>(batches.Count);
@@ -69,8 +72,8 @@ internal sealed class QuickBooksJournalEntryBuilder : IQuickBooksJournalEntryBui
             payloads.Add(new JournalEntryPayload
             {
                 ExternalId     = root + BatchSuffix(batch),
-                IdempotencyKey = $"{PostingSourceModules.Hrm}:{docType}:{root}{BatchSuffix(batch)}",
-                DocNumber      = WithSuffix(docNumber, batch is { } n ? $"-B{n}" : string.Empty),
+                IdempotencyKey = $"{PostingSourceModules.Hrm}:{docType}:{uuid}{BatchSuffix(batch)}",
+                DocNumber      = WithSuffix(docNumber, typeSuffix + (batch is { } n ? $"-B{n}" : string.Empty)),
                 TxnDate        = tx.TransactionDate.Date,
                 CurrencyCode   = (tx.CurrencyCode ?? string.Empty).Trim().ToUpperInvariant(),
                 ExchangeRate   = tx.ExchangeRate,

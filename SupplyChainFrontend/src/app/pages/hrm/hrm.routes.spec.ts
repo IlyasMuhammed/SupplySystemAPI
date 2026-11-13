@@ -28,7 +28,7 @@ describe('A49 routes and menu', () => {
       const r = routes.find(x => x.path === p.path);
       expect(r).withContext(p.path).toBeDefined();
       expect(r!.loadComponent).withContext(`${p.path} component`).toBeDefined();
-      expect(r!.canActivate?.length).withContext(`${p.path} guards`).toBe(p.feature ? 2 : 1);
+      expect(r!.canActivate?.length).withContext(`${p.path} guards`).toBe(1 + (p.feature ? 1 : 0) + (p.anyFeature?.length ? 1 : 0));
     }
   });
 
@@ -50,6 +50,7 @@ describe('A49 routes and menu', () => {
       expect(item).withContext(p.path).toBeDefined();
       expect(item.permRequired).toEqual(p.perms);
       expect(item.featureCode).toBe(p.feature);
+      expect(item.anyFeature).toEqual(p.anyFeature);
     }
   });
 
@@ -88,6 +89,24 @@ describe('A49 routes and menu', () => {
       expect(find(hrm.items, 'My Payslips')).toBeUndefined();
       t.tenant.set(tenant(['MODULE_HRM', 'FEATURE_HRM_PAYROLL']));
       expect(find(find(menu.model(), 'HR & Payroll').items, 'Payroll Runs')).toBeDefined();
+    });
+
+    it('REV49B-4: a Leave-only org sees Shifts and Holidays (attendance OR leave), not Daily Attendance', () => {
+      a.permissions = ['HRM_ATTENDANCE_VIEW', 'HRM_SHIFT_MANAGE', 'HRM_LEAVE_VIEW'];
+      t.tenant.set(tenant(['MODULE_HRM', 'FEATURE_HRM_LEAVE']));
+      let labels = allLabels(find(menu.model(), 'HR & Payroll').items);
+      expect(labels).toContain('Shifts');
+      expect(labels).toContain('Holidays');
+      expect(labels).not.toContain('Daily Attendance');
+      expect(labels).not.toContain('Overtime');
+      t.tenant.set(tenant(['MODULE_HRM', 'FEATURE_HRM_ATTENDANCE']));
+      labels = allLabels(find(menu.model(), 'HR & Payroll').items);
+      expect(labels).toContain('Daily Attendance');
+      expect(labels).toContain('Shifts');
+      t.tenant.set(tenant(['MODULE_HRM', 'FEATURE_HRM_PAYROLL']));
+      labels = allLabels(find(menu.model(), 'HR & Payroll')?.items ?? []);
+      expect(labels).not.toContain('Shifts');
+      expect(labels).not.toContain('Attendance');
     });
 
     it('no HR permission at all: no empty group', () => {

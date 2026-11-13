@@ -1,0 +1,60 @@
+{
+  "verified": false,
+  "verificationNote": "Rates are indicative (FBR, 2026). They have not been verified — check them with your tax adviser before use.",
+  "taxCodes": [
+    {
+      "code": "GST18",
+      "name": "Sales Tax 18%",
+      "description": "Standard sales tax on taxable supplies.",
+      "rate": 18,
+      "usage": "SALES",
+      "type": "Output",
+      "isDefault": true
+    },
+    {
+      "code": "FED16",
+      "name": "Federal Excise Duty 16%",
+      "description": "Federal excise duty on excisable goods and services.",
+      "rate": 16,
+      "usage": "SALES",
+      "type": "Excise",
+      "isDefault": false
+    },
+    {
+      "code": "WHT_G",
+      "name": "WHT on Goods 4.5%",
+      "description": "Income tax withheld on payments for the supply of goods.",
+      "rate": 4.5,
+      "usage": "PURCHASE",
+      "type": "Withholding",
+      "isDefault": false
+    },
+    {
+      "code": "WHT_S",
+      "name": "WHT on Services 8%",
+      "description": "Income tax withheld on payments for services.",
+      "rate": 8,
+      "usage": "PURCHASE",
+      "type": "Withholding",
+      "isDefault": false
+    },
+    {
+      "code": "INPUT18",
+      "name": "Input Tax 18%",
+      "description": "Sales tax paid on purchases (input tax).",
+      "rate": 18,
+      "usage": "PURCHASE",
+      "type": "Input",
+      "isDefault": true
+    },
+    {
+      "code": "GST0",
+      "name": "Exempt 0%",
+      "description": "Exempt supplies.",
+      "rate": 0,
+      "usage": "BOTH",
+      "type": "Exempt",
+      "isDefault": false
+    }
+  ]
+}

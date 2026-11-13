@@ -1,0 +1,166 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "sms://onboarding/schemas/COA.json",
+  "title": "COA",
+  "description": "The A42 chart-of-accounts template JSON (same format as SMS.Modules.Accounting/Templates/*_GENERAL.json). Levels 1-4; level 1 codes 1..5; level 4 = leaf; 3900 = Opening Balance Equity (D-12; A42 D-8, D-9, D-23).",
+  "type": "object",
+  "properties": {
+    "template_code": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 50,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.\\-]*$"
+    },
+    "template_name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "country_code": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 3
+    },
+    "currency_code": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 3
+    },
+    "version": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 20
+    },
+    "accounts": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/account"
+      },
+      "minItems": 5,
+      "maxItems": 5
+    },
+    "displayName": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 200
+    },
+    "notes": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 2000
+    }
+  },
+  "required": [
+    "template_code",
+    "template_name",
+    "version",
+    "accounts"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "account": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9]{1,20}$"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "root_type": {
+          "enum": [
+            "Asset",
+            "Liability",
+            "Equity",
+            "Revenue",
+            "Expense"
+          ]
+        },
+        "level": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4
+        },
+        "is_group": {
+          "type": "boolean"
+        },
+        "account_type": {
+          "enum": [
+            "Cash",
+            "Bank",
+            "Receivable",
+            "OtherCurrentAsset",
+            "FixedAsset",
+            "AccumulatedDepreciation",
+            "Payable",
+            "OtherCurrentLiability",
+            "LongTermLiability",
+            "Equity",
+            "Revenue",
+            "OtherIncome",
+            "CostOfGoodsSold",
+            "Expense",
+            "OtherExpense",
+            "Tax",
+            "Depreciation"
+          ]
+        },
+        "description": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 500
+        },
+        "is_default_account": {
+          "type": "boolean"
+        },
+        "default_account_key": {
+          "enum": [
+            "DEFAULT_RECEIVABLE",
+            "DEFAULT_PAYABLE",
+            "DEFAULT_CASH",
+            "DEFAULT_BANK",
+            "DEFAULT_REVENUE",
+            "DEFAULT_COGS",
+            "DEFAULT_TAX_RECEIVABLE",
+            "DEFAULT_TAX_PAYABLE",
+            "DEFAULT_INVENTORY",
+            "DEFAULT_PURCHASE",
+            "DEFAULT_DISCOUNT_GIVEN",
+            "DEFAULT_DISCOUNT_RECEIVED",
+            "DEFAULT_RETAINED_EARNINGS",
+            "DEFAULT_OPENING_BALANCE",
+            "DEFAULT_EXCHANGE_GAIN_LOSS",
+            "DEFAULT_ROUNDING"
+          ]
+        },
+        "children": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/account"
+          }
+        }
+      },
+      "required": [
+        "code",
+        "name",
+        "root_type",
+        "level",
+        "is_group"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

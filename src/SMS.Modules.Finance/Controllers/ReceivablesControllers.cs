@@ -141,6 +141,20 @@ public class SalesInvoicesController : ControllerBase
         var pdf = await _documents.GeneratePdfAsync(uuid);
         return File(pdf.Content, "application/pdf", pdf.FileName);
     }
+
+    /// <summary>
+    /// A50 (D-26) — emails the invoice PDF to the customer (their email on file unless <c>to</c> is given) with the org's
+    /// InvoiceSent template. Drafts and cancelled invoices are refused. A failed send is reported in the result, not thrown.
+    /// </summary>
+    [HttpPost("{uuid:guid}/email")]
+    [RequirePermission(PermissionCodes.SALES_INVOICE_MANAGE)]
+    public async Task<IActionResult> Email(
+        Guid uuid, [FromBody] SMS.Shared.Onboarding.DocumentEmailRequest? req, [FromServices] SalesInvoiceEmailService emails, CancellationToken ct)
+    {
+        var result = await emails.SendAsync(uuid, req, ct);
+        return Ok(ApiResponse<SMS.Shared.Onboarding.DocumentEmailResult>.Ok(result,
+            result.Sent ? "Invoice emailed." : "The invoice could not be emailed to every recipient."));
+    }
 }
 
 // ── Customer payments ─────────────────────────────────────────────────────────
@@ -185,6 +199,15 @@ public class CustomerPaymentsController : ControllerBase
         return detail is null
             ? NotFound(ApiResponse.Fail(StaticResponseMessage.recordNotFound))
             : Ok(ApiResponse<CustomerPaymentDetailModel>.Ok(detail));
+    }
+
+    /// <summary>A50 (D-25) — the payment receipt as a PDF, with the org's PaymentReceipt template when it has one.</summary>
+    [HttpGet("{uuid:guid}/pdf")]
+    [RequirePermission(PermissionCodes.CUSTOMER_PAYMENT_VIEW)]
+    public async Task<IActionResult> DownloadReceipt(Guid uuid, [FromServices] CustomerPaymentReceiptService receipts)
+    {
+        var (content, fileName) = await receipts.GeneratePdfAsync(uuid);
+        return File(content, "application/pdf", fileName);
     }
 
     /// <summary>

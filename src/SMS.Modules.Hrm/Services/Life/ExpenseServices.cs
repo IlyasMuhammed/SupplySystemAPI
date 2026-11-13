@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using SMS.Modules.Hrm.Data;
 using SMS.Modules.Hrm.Domain;
@@ -277,18 +277,20 @@ internal sealed class ExpenseClaimService : LifeServiceBase, IExpenseClaimServic
         row.SubmittedAt = DateTime.UtcNow;
         Stamp(row, caller);
         await SaveAsync(ct, "This claim");
+        // The claim is already Submitted: finish (open the approval, link it) even if the caller disconnects, or it would sit Submitted with no approval.
+        var finish = CancellationToken.None;
         try
         {
-            row.ApprovalUuid = await _approvals.SubmitAsync(caller, HrmWorkflowCodes.ExpenseClaim, row.Uuid, row.ClaimNumber, row.EmployeeId, PermissionCodes.HRM_EXPENSE_APPROVE, row.TotalAmount, ct);
+            row.ApprovalUuid = await _approvals.SubmitAsync(caller, HrmWorkflowCodes.ExpenseClaim, row.Uuid, row.ClaimNumber, row.EmployeeId, PermissionCodes.HRM_EXPENSE_APPROVE, row.TotalAmount, finish);
         }
         catch
         {
             row.Status = ExpenseClaimStatuses.Draft;
             row.SubmittedAt = null;
-            await SaveAsync(CancellationToken.None, "This claim");
+            await SaveAsync(finish, "This claim");
             throw;
         }
-        await SaveAsync(ct, "This claim");
+        await SaveAsync(finish, "This claim");
         return Map(row);
     }
 

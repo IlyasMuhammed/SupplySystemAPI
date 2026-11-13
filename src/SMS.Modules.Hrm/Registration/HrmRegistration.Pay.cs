@@ -31,6 +31,7 @@ internal static partial class HrmRegistration
         services.AddScoped<IPayrollPostingBuilder, PayrollPostingBuilder>();
         services.AddScoped<IPayrollRunService, PayrollRunService>();
         services.AddScoped<IPayslipService, PayslipService>();
+        services.AddScoped<IPayslipEmailService, PayslipEmailService>();   // A50 D-93
         services.AddScoped<IPayrollAdjustmentService, PayrollAdjustmentService>();
     }
 }

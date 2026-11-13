@@ -76,6 +76,8 @@ internal sealed class LogisticsDbContext : DbContext, ITenantScopedDbContext
     internal DbSet<CarrierWebhookDelivery> CarrierWebhookDeliveries => Set<CarrierWebhookDelivery>();
 
     internal DbSet<DocumentNumberSequence> DocumentNumberSequences => Set<DocumentNumberSequence>();
+    /// <summary>A50 D-19 — per-organization document prefixes (the setup wizard's DOC_NUMBERING).</summary>
+    internal DbSet<DocumentNumberFormat> DocumentNumberFormats => Set<DocumentNumberFormat>();
 
     // Layer A — the commitment to move goods.
     internal DbSet<DeliveryOrder>     DeliveryOrders     => Set<DeliveryOrder>();

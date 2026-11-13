@@ -47,6 +47,35 @@ export async function hrmErrorAsync(err: unknown, fallback: string): Promise<str
 
 export function today(): string { return toDateOnly(new Date()); }
 
+/**
+ * REV49B-6. HRM date-times are stored as UTC, but EF reads them back as Kind Unspecified, so the API sends them with no zone
+ * ("2026-11-05T05:00:00"). A value with no zone is UTC; one with Z or an offset is taken as written.
+ */
+export function utcInstant(v: string | Date | null | undefined): Date | null {
+  if (v === null || v === undefined || v === '') return null;
+  if (v instanceof Date) return isNaN(v.getTime()) ? null : v;
+  const s = String(v);
+  const zoned = /([zZ]|[+-]\d{2}:?\d{2})$/.test(s) || !s.includes('T');
+  const d = new Date(zoned ? s : `${s}Z`);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+const pad2 = (n: number) => String(n).padStart(2, '0');
+
+/** A server date-time as the `datetime-local` value of this browser ("yyyy-MM-ddTHH:mm", local wall time). */
+export function toLocalInput(v: string | Date | null | undefined): string {
+  const d = utcInstant(v);
+  if (!d) return '';
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}T${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+}
+
+/** A `datetime-local` value (this browser's wall time) as the same instant in UTC with Z, which the server stores unconverted. */
+export function fromLocalInput(v: string | null | undefined): string | null {
+  if (!v) return null;
+  const d = new Date(v);
+  return isNaN(d.getTime()) ? null : d.toISOString();
+}
+
 export function money(n: number | null | undefined): string {
   if (n === null || n === undefined) return '—';
   return Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });

@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "sms://onboarding/schemas/ROLES.json",
+  "title": "ROLES",
+  "description": "Roles (Auth, D-20). A code equal to a global role code is reused (no copy); otherwise an org-owned role is created with these permission codes (real auth.Permissions codes, or \"ALL\"), filtered by enabled modules.",
+  "type": "object",
+  "properties": {
+    "roles": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 50,
+            "pattern": "^[A-Z][A-Z0-9_]*$"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 500
+          },
+          "permissions": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[A-Z][A-Z0-9_]*$"
+            },
+            "minItems": 1
+          },
+          "requiredModules": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^(MODULE|FEATURE)_[A-Z0-9_]+$"
+            }
+          }
+        },
+        "required": [
+          "code",
+          "name",
+          "permissions",
+          "requiredModules"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 1
+    },
+    "displayName": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 200
+    },
+    "notes": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 2000
+    }
+  },
+  "required": [
+    "roles"
+  ],
+  "additionalProperties": false
+}

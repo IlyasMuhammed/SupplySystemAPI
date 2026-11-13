@@ -1,0 +1,106 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "sms://onboarding/schemas/APPROVAL_RULES.json",
+  "title": "APPROVAL_RULES",
+  "description": "Approval tiers (WorkflowEngine definitions, D-18). Level 1 applies from minAmount 0; level n>1 = a step skipped while the document value < minAmount. Amounts are in the org base currency. ExpenseClaim (interfaceCode EXPENSE_CLAIM, D-91): level 1 is the HRM named approver (line manager, else department head; approverRole is informational), levels above 1 are role steps. afterA49 is accepted and ignored.",
+  "type": "object",
+  "properties": {
+    "rules": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "documentType": {
+            "enum": [
+              "PurchaseOrder",
+              "ExpenseClaim"
+            ]
+          },
+          "interfaceCode": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 20
+          },
+          "afterA49": {
+            "type": "boolean"
+          },
+          "levels": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "level": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 10
+                },
+                "minAmount": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "maxAmount": {
+                  "type": [
+                    "number",
+                    "null"
+                  ],
+                  "minimum": 0
+                },
+                "approverRole": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 50,
+                  "pattern": "^[A-Z][A-Z0-9_]*$"
+                },
+                "label": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 100
+                },
+                "slaHours": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 720
+                }
+              },
+              "required": [
+                "level",
+                "minAmount",
+                "maxAmount",
+                "approverRole",
+                "label"
+              ],
+              "additionalProperties": false
+            },
+            "minItems": 1
+          }
+        },
+        "required": [
+          "documentType",
+          "levels"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 1
+    },
+    "displayName": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 200
+    },
+    "notes": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 2000
+    }
+  },
+  "required": [
+    "rules"
+  ],
+  "additionalProperties": false
+}

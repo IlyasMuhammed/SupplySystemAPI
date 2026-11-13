@@ -37,6 +37,8 @@ public static class ImportModuleExtensions
         services.AddScoped<IImportWorkbookService, ImportWorkbookService>();
         services.AddScoped<IImportJobScheduler, HangfireImportJobScheduler>();
         services.AddScoped<IImportHubNotifier, ImportHubNotifier>();
+        // A50 D-28 — IMPORT_DATA: a finished import that created or updated records.
+        services.AddScoped<SMS.Shared.Onboarding.IOnboardingSignal, SMS.Modules.Import.Onboarding.ImportOnboardingSignal>();
         services.AddScoped<ImportExecutionJob>();
         services.AddScoped<ImportPurgeJob>();
         services.AddScoped<ImportRecoveryJob>();

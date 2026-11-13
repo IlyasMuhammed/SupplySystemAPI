@@ -28,6 +28,7 @@ using SMS.Modules.Material;
 using SMS.Modules.Pos;
 using SMS.Modules.Import;
 using SMS.Modules.Crm;
+using SMS.Modules.Onboarding;
 using SMS.Modules.Hrm;
 using SMS.Modules.Accounting;
 using SMS.Shared.Common;
@@ -200,6 +201,7 @@ builder.Services.AddImportModule(builder.Configuration); // A40 — Data import 
 builder.Services.AddCrmModule(builder.Configuration); // A41 — CRM: leads, pipeline, opportunities, activities
 builder.Services.AddHrmModule(builder.Configuration); // A49 — HRM: employees, leave, attendance, payroll, recruitment, loans, expenses
 builder.Services.AddAccountingModule(builder.Configuration); // A42 — GL setup: chart of accounts, fiscal periods, GL opening balances
+builder.Services.AddOnboardingModule(builder.Configuration); // A50 — tenant onboarding: setup defaults, wizard, templates, sample data, checklist
 // Last on purpose: it replaces the NullQuickBooksGateway the modules above TryAdd.
 builder.Services.AddIntegrationModule(builder.Configuration);
 // A44 — after every module: the real financial posting / entity sync gateways and account map reader replace the
@@ -348,6 +350,7 @@ app.UseImportModule();         // A40: import schema migrations + profile reconc
 app.UseCrmModule();            // A41: crm schema migrations + per-organization lead sources / pipeline stages
 app.UseAccountingModule();     // A42: GL tables in schema finance (guarded migration)
 app.UseHrmModule();            // A49: hrm schema migrations + seed of organizations with MODULE_HRM on (none until licensed by hand)
+app.UseOnboardingModule();     // A50: onboarding schema migration (legacy orgs backfilled Completed) + built-in setup packs + checklist job
 
 app.MapControllers();
 app.MapHub<NotificationHub>("/hubs/notifications");

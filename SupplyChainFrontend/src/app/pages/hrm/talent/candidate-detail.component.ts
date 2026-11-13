@@ -15,7 +15,7 @@ import { Field, HrmFormComponent, cleanBody, formDefaults, formProblem, lookupsO
 import { HrmLookups } from '../core/hrm-lookups.service';
 import { HrmPdfViewerComponent } from '../core/hrm-pdf-viewer.component';
 import { HRM_ROUTE } from '../core/hrm.nav';
-import { ENUMS, hrmError, hrmErrorAsync, hrmLabel, hrmTone, money } from '../core/hrm.shared';
+import { ENUMS, fromLocalInput, hrmError, hrmErrorAsync, hrmLabel, hrmTone, money, toLocalInput, utcInstant } from '../core/hrm.shared';
 import { CANDIDATE_FIELDS } from '../configs/tal.config';
 
 const INTERVIEW_FIELDS: Field[] = [
@@ -61,7 +61,7 @@ type Dlg = 'edit' | 'resume' | 'interview' | 'offer' | 'offerStatus';
         <div class="gl-scroll"><table class="hrm-table hrm-stack">
           <thead><tr><th>Interview</th><th>Interviewer</th><th>Score</th><th>Result</th><th>Feedback</th><th></th></tr></thead>
           <tbody>
-            <tr *ngFor="let i of interviews[a.uuid] ?? []"><td data-label="When">{{ i.scheduledAt | date:'dd MMM yyyy, HH:mm' }}</td><td data-label="Interviewer">{{ i.interviewerName || '—' }}</td><td data-label="Score">{{ i.score ?? '—' }}</td><td data-label="Result"><span class="sf-pill" [ngClass]="hrmTone(i.result)">{{ hrmLabel(i.result) }}</span></td><td data-label="Feedback">{{ i.feedback || '—' }}</td>
+            <tr *ngFor="let i of interviews[a.uuid] ?? []"><td data-label="When">{{ utc(i.scheduledAt) | date:'dd MMM yyyy, HH:mm' }}</td><td data-label="Interviewer">{{ i.interviewerName || '—' }}</td><td data-label="Score">{{ i.score ?? '—' }}</td><td data-label="Result"><span class="sf-pill" [ngClass]="hrmTone(i.result)">{{ hrmLabel(i.result) }}</span></td><td data-label="Feedback">{{ i.feedback || '—' }}</td>
               <td class="hrm-acts"><div class="hrm-actions"><p-button *ngIf="canManage" label="Feedback" icon="pi pi-pencil" [text]="true" size="small" (onClick)="openFeedback(a, i)" [attr.data-testid]="'feedback-' + i.uuid"></p-button></div></td></tr>
             <tr *ngIf="!(interviews[a.uuid] ?? []).length"><td class="hrm-empty sf-mu" colspan="6">No interviews yet.</td></tr>
           </tbody>
@@ -92,6 +92,7 @@ export class CandidateDetailComponent implements OnInit {
   readonly hrmLabel = hrmLabel;
   readonly hrmTone = hrmTone;
   readonly money = money;
+  readonly utc = utcInstant;
 
   uuid = '';
   c: any = null;
@@ -144,14 +145,18 @@ export class CandidateDetailComponent implements OnInit {
   openResume(): void { this.open('resume', [{ key: 'resumeAttachmentUuid', label: 'Resume file', type: 'file', required: true, interfaceCode: 'HRM_CANDIDATE', docId: () => this.uuid }]); }
   openInterview(a: any): void { this.open('interview', INTERVIEW_FIELDS, undefined, a); }
   /** `dlgOffer` here holds the interview being updated. */
-  openFeedback(a: any, i: any): void { this.open('interview', INTERVIEW_FIELDS, { ...i, scheduledAt: (i.scheduledAt ?? '').slice(0, 16) }, a, i); }
-  openOffer(a: any): void { this.open('offer', OFFER_FIELDS, undefined, a); }
+  openFeedback(a: any, i: any): void { this.open('interview', INTERVIEW_FIELDS, { ...i, scheduledAt: toLocalInput(i.scheduledAt) }, a, i); }
+  /** REV49B-5: the salary field only for HRM_SALARY_EDIT (the server refuses a salary from anyone else with 403). */
+  get offerFields(): Field[] { return this.auth.hasPermission('HRM_SALARY_EDIT') ? OFFER_FIELDS : OFFER_FIELDS.filter(f => f.key !== 'offeredSalary'); }
+  openOffer(a: any): void { this.open('offer', this.offerFields, undefined, a); }
   openOfferStatus(o: any): void { this.open('offerStatus', OFFER_STATUS, { status: o.status }, null, o); }
 
   saveDlg(): void {
     this.dlgError = formProblem(this.dlgFields, this.dlgValues) ?? '';
     if (this.dlgError) return;
     const v = cleanBody(this.dlgFields, this.dlgValues);
+    // REV49B-6: the picker is this browser's wall time; send the same instant in UTC (the server stores it unconverted).
+    if (this.dlg === 'interview') v['scheduledAt'] = fromLocalInput(v['scheduledAt']);
     let call: Observable<any>;
     switch (this.dlg) {
       case 'edit': call = this.api.put(`hrm/candidates/${this.uuid}`, { ...this.c, ...v, applications: undefined }); break;

@@ -64,7 +64,7 @@
 
         <ng-template pTemplate="body" let-po>
           <tr>
-            <td><a class="sf-mono" [routerLink]="['/portal/pages/demand/purchase-orders', po.uuid]"><strong>{{ po.poNumber }}</strong></a></td>
+            <td><a class="sf-mono" [routerLink]="['/portal/pages/demand/purchase-orders', po.uuid]"><strong>{{ po.poNumber }}</strong></a> <app-demo-badge entityType="PurchaseOrder" [entityRef]="po.uuid"></app-demo-badge></td>
             <td class="font-semibold">{{ po.title || '—' }}</td>
             <td>{{ po.supplierName }}</td>
             <td><p-tag [value]="po.status" [severity]="getStatusSeverity(po.status)"></p-tag></td>

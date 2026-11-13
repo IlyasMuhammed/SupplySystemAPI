@@ -17,6 +17,8 @@ namespace SMS.Modules.Hrm.Services;
 public interface IEmployeeService
 {
     Task<PaginatedResponse<EmployeeListItem>> ListAsync(HrmCaller caller, EmployeeListFilter filter, CancellationToken ct = default);
+    /// <summary>The picker: employees in scope who are not Archived or Candidates, by number or name, at most 200. No contact, identity, bank or pay field.</summary>
+    Task<IReadOnlyList<EmployeeLookupItem>> LookupAsync(HrmCaller caller, string? search, int take, CancellationToken ct = default);
     Task<EmployeeDetail> GetAsync(HrmCaller caller, Guid uuid, CancellationToken ct = default);
     /// <summary>Self service: the caller's own record (404 HRM_NO_EMPLOYEE when the user has none).</summary>
     Task<EmployeeDetail> GetOwnAsync(HrmCaller caller, CancellationToken ct = default);
@@ -140,6 +142,27 @@ internal sealed class EmployeeService : HrmServiceBase, IEmployeeService
             }).ToList(),
             TotalRecords = total, Page = page, PageSize = size, TotalPages = (int)Math.Ceiling(total / (double)size)
         };
+    }
+
+    public async Task<IReadOnlyList<EmployeeLookupItem>> LookupAsync(HrmCaller caller, string? search, int take, CancellationToken ct = default)
+    {
+        var org = caller.OrganizationId;
+        var scope = await _scope.GetAsync(caller, ct);
+        var q = _scope.Apply(Db.Employees.AsNoTracking(), caller, scope)
+            .Where(e => e.Status != EmployeeStatuses.Archived && e.Status != EmployeeStatuses.Candidate);
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var s = search.Trim();
+            q = q.Where(e => e.EmployeeNumber.Contains(s) || (e.FirstName + " " + e.LastName).Contains(s));
+        }
+        var today = HrmValidate.Today;
+        return await q.OrderBy(e => e.EmployeeNumber).Take(Math.Clamp(take <= 0 ? 200 : take, 1, 200))
+            .Select(e => new EmployeeLookupItem
+            {
+                Uuid = e.Uuid, EmployeeNumber = e.EmployeeNumber, FullName = (e.FirstName + " " + e.LastName).Trim(), Status = e.Status,
+                DepartmentName = e.EmploymentRecords.Where(r => r.OrganizationId == org && r.EffectiveFrom <= today && (r.EffectiveTo == null || r.EffectiveTo >= today))
+                    .Select(r => r.Department!.Name).FirstOrDefault()
+            }).ToListAsync(ct);
     }
 
     public async Task<EmployeeDetail> GetAsync(HrmCaller caller, Guid uuid, CancellationToken ct = default) =>

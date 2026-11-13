@@ -36,6 +36,8 @@ public static class PosModuleExtensions
         services.AddScoped<IPosSessionService, PosSessionService>();
         services.AddScoped<IPosShiftService, PosShiftService>();
         services.AddScoped<StaleShiftAlertJob>();
+        // A50 REV50-1 — POS holds tax codes (store default, orders): Finance's rename and the onboarding TAX reset ask this.
+        services.AddScoped<ITaxCodeReferenceChecker, PosTaxCodeReferenceChecker>();
 
         // POS-B — orders, postings, settings, PWA sync, change pushes (IPosStockPoster / IPosCatalogSource — Inventory,
         // ICounterSaleService — Finance, IPosCustomerSource — Suppliers, ICustomerBalanceLookup are optional parameters).

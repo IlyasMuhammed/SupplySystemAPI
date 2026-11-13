@@ -4,7 +4,7 @@ import { RecordsConfig } from '../core/hrm-records.component';
 // Contract §2 — the org-structure masters (tasks 076, 078; cost centers FD-9).
 
 const code: Field = { key: 'code', label: 'Code', required: true, maxLength: 20 };
-const name: Field = { key: 'name', label: 'Name', required: true, maxLength: 150, full: true };
+const name: Field = { key: 'name', label: 'Name', required: true, maxLength: 100, full: true };
 const MANAGE = ['HRM_ORG_MANAGE'];
 
 export const BRANCHES: RecordsConfig = {

@@ -24,6 +24,8 @@ import { FLOW } from '../../../../shared/flow';
 
 type RouteCategoryFilter = 'STOCK' | 'MANUFACTURE';
 
+import { DemoBadgeComponent } from '../../../../shared/components/demo-badge/demo-badge.component';
+
 @Component({
   selector: 'app-product-list',
   standalone: true,
@@ -32,7 +34,7 @@ type RouteCategoryFilter = 'STOCK' | 'MANUFACTURE';
     ButtonModule, TableModule, TagModule, ToastModule,
     DropdownModule, InputTextModule, ConfirmDialogModule,
     TooltipModule, InputIconModule, IconFieldModule,
-    ...FLOW
+    DemoBadgeComponent, ...FLOW
   ],
   templateUrl: './product-list.component.html',
   styleUrls: ['./product-list.component.scss'],

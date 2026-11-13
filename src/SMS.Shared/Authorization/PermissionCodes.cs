@@ -556,6 +556,8 @@ public static class PermissionCodes
     public const string HRM_REMITTANCE_VIEW        = "HRM_REMITTANCE_VIEW";
     public const string HRM_REMITTANCE_MANAGE      = "HRM_REMITTANCE_MANAGE";
     public const string HRM_REPORTS_VIEW           = "HRM_REPORTS_VIEW";
+    /// <summary>A50 D-98 — emailing a whole payroll run's payslips (one payslip keeps payroll-view or self-service).</summary>
+    public const string HRM_PAYSLIP_EMAIL          = "HRM_PAYSLIP_EMAIL";
 
     /// <summary>Every A49 code.</summary>
     public static readonly IReadOnlyList<string> HrmCodes =
@@ -569,7 +571,7 @@ public static class PermissionCodes
         HRM_RECRUITMENT_VIEW, HRM_RECRUITMENT_MANAGE, HRM_PERFORMANCE_VIEW, HRM_PERFORMANCE_MANAGE, HRM_TRAINING_VIEW, HRM_TRAINING_MANAGE,
         HRM_LOAN_VIEW, HRM_LOAN_MANAGE, HRM_LOAN_APPROVE, HRM_SETTLEMENT_VIEW, HRM_SETTLEMENT_MANAGE, HRM_INCREMENT_MANAGE, HRM_INCREMENT_APPROVE,
         HRM_LETTER_ISSUE, HRM_TAX_CERT_VIEW, HRM_EXPENSE_VIEW, HRM_EXPENSE_APPROVE, HRM_EXPENSE_PAY, HRM_REMITTANCE_VIEW, HRM_REMITTANCE_MANAGE,
-        HRM_REPORTS_VIEW,
+        HRM_REPORTS_VIEW, HRM_PAYSLIP_EMAIL,
     ];
 
     /// <summary>
@@ -581,7 +583,25 @@ public static class PermissionCodes
         HRM_EMPLOYEE_SENSITIVE_VIEW, HRM_BANK_VIEW, HRM_BANK_EDIT, HRM_SALARY_VIEW, HRM_SALARY_EDIT, HRM_SALARY_APPROVE,
         HRM_PAYROLL_VIEW, HRM_PAYROLL_RUN, HRM_PAYROLL_APPROVE, HRM_PAYROLL_FINALIZE, HRM_PAYROLL_PAY, HRM_PAYROLL_REVERSE,
         HRM_LOAN_VIEW, HRM_LOAN_MANAGE, HRM_LOAN_APPROVE, HRM_SETTLEMENT_VIEW, HRM_SETTLEMENT_MANAGE, HRM_INCREMENT_MANAGE, HRM_INCREMENT_APPROVE,
-        HRM_TAX_CERT_VIEW, HRM_SCOPE_ALL,
+        HRM_TAX_CERT_VIEW, HRM_SCOPE_ALL, HRM_PAYSLIP_EMAIL,
+    ];
+
+    // ── A50 — Tenant onboarding (docs/onboarding/ADDENDUM-50-ANALYSIS.md D-8; module MODULE_ONBOARDING via ModuleCodeMap) ──
+    /// <summary>The setup wizard, the default data dashboard and category resets.</summary>
+    public const string SETUP_WIZARD_RUN      = "SETUP_WIZARD_RUN";
+    /// <summary>Document (PDF) templates and branding.</summary>
+    public const string DOC_TEMPLATE_MANAGE   = "DOC_TEMPLATE_MANAGE";
+    /// <summary>Email templates and send-test.</summary>
+    public const string EMAIL_TEMPLATE_MANAGE = "EMAIL_TEMPLATE_MANAGE";
+    /// <summary>Loading and removing sample (demo) data.</summary>
+    public const string SAMPLE_DATA_MANAGE    = "SAMPLE_DATA_MANAGE";
+    /// <summary>The onboarding checklist.</summary>
+    public const string ONBOARDING_VIEW       = "ONBOARDING_VIEW";
+
+    /// <summary>Every A50 code (D-8) — granted to ORG_ADMIN and SYSTEM_ADMIN.</summary>
+    public static readonly IReadOnlyList<string> OnboardingCodes =
+    [
+        SETUP_WIZARD_RUN, DOC_TEMPLATE_MANAGE, EMAIL_TEMPLATE_MANAGE, SAMPLE_DATA_MANAGE, ONBOARDING_VIEW,
     ];
 
     // ── All codes (used by System Admin seed) ─────────────────────────────────
@@ -646,5 +666,6 @@ public static class PermissionCodes
         AP_VIEW, AP_EXECUTE, AP_DEBIT_MEMO, MATCH_EXECUTE, MATCH_OVERRIDE, MATCH_APPROVE,
         PAYMENT_RUN_PROPOSE, PAYMENT_RUN_EDIT, PAYMENT_RUN_APPROVE, PAYMENT_RUN_EXECUTE, PAYMENT_RUN_ADMIN,
         FINANCE_AR_AP_ADMIN,
+        .. OnboardingCodes,
     ];
 }

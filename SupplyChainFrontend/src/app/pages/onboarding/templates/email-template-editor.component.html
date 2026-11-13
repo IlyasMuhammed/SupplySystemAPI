@@ -1,0 +1,130 @@
+<p-toast></p-toast>
+<p-confirmDialog [style]="{ width: '440px' }" [breakpoints]="{ '640px': '92vw' }"></p-confirmDialog>
+
+@if (loading) {
+  <div class="sf-empty" data-testid="editor-loading"><i class="pi pi-spin pi-spinner"></i> Loading template…</div>
+} @else if (notFound) {
+  <div class="sf-empty" data-testid="editor-not-found">
+    <i class="pi pi-inbox" style="font-size:2rem"></i>
+    <h2>Template not found</h2>
+    <p>It may have been removed, or the link may be wrong.</p>
+    <p-button label="Back to email templates" icon="pi pi-arrow-left" [text]="true" [routerLink]="listRoute"></p-button>
+  </div>
+} @else if (loadError) {
+  <div class="sf-empty tpl-err" data-testid="editor-error">
+    <i class="pi pi-exclamation-circle"></i> {{ loadError }}
+    <div><p-button label="Try again" icon="pi pi-refresh" [text]="true" (onClick)="load()"></p-button></div>
+  </div>
+} @else if (template) {
+<sf-page [crumbs]="['Settings', 'Email templates', template.name]">
+  <div sfCmd class="sf-cmd" role="toolbar" aria-label="Commands">
+    <p-button label="Save" icon="pi pi-check" [loading]="saving" [disabled]="!canSave" (onClick)="save()" data-testid="save"></p-button>
+    <p-button label="Preview" icon="pi pi-eye" [text]="true" [loading]="previewLoading" (onClick)="preview()" data-testid="preview"></p-button>
+    @if (!template.isDefault) {
+      <p-button label="Set as default" icon="pi pi-star" [text]="true" [disabled]="busy || !isActive" (onClick)="setDefault()" data-testid="set-default"></p-button>
+    }
+    <p-button label="Clone" icon="pi pi-copy" [text]="true" [disabled]="busy" (onClick)="clone()" data-testid="clone"></p-button>
+    <span class="sf-sep"></span>
+    <p-button label="Reset to default" icon="pi pi-replay" [text]="true" severity="danger" [disabled]="busy" (onClick)="confirmReset()" data-testid="reset"></p-button>
+  </div>
+
+  <header class="sf-hdr sf-compact">
+    <div>
+      <div class="sf-kicker">{{ typeLabel }} email</div>
+      <h1>{{ template.name }}
+        @if (template.isDefault) { <span class="sf-pill ok">Default</span> }
+        @if (template.isSeeded) { <span class="sf-pill in">Seeded</span> } @else { <span class="sf-pill">Custom</span> }
+        @if (dirty) { <span class="sf-pill wn" data-testid="dirty">Unsaved</span> }
+      </h1>
+      @if (template.templateType === 'PayslipSent') {
+        <div class="sf-meta">Kept ready: payslip emails are sent once payroll (HRM) is live.</div>
+      } @else if (template.templateType === 'PaymentReminder') {
+        <div class="sf-meta">Used by "Send reminder". Dunning runs keep their own letters.</div>
+      } @else {
+        <div class="sf-meta">Used for every {{ typeLabel.toLowerCase() }} email when it is the default.</div>
+      }
+    </div>
+  </header>
+
+  <div class="sf-body tpl-layout">
+    <div class="tpl-main">
+      <section class="sf-card">
+        <div class="sf-ch"><h2>Message</h2></div>
+        <div class="sf-fields tpl-fields">
+          <div class="sf-fld">
+            <label for="et-name">Name</label>
+            <input pInputText id="et-name" [(ngModel)]="name" (ngModelChange)="touch()" maxlength="200" class="w-full" data-testid="name" />
+            @if (!name.trim()) { <small class="tpl-errtxt">A name is required.</small> }
+          </div>
+          <div class="sf-fld">
+            <label>Status</label>
+            <div class="tpl-check">
+              <p-checkbox [(ngModel)]="isActive" (ngModelChange)="touch()" [binary]="true" inputId="et-active" [disabled]="template.isDefault"></p-checkbox>
+              <label for="et-active">Active</label>
+            </div>
+          </div>
+          <div class="sf-fld tpl-span">
+            <label for="et-subject">Subject
+              @if (target === 'subject') { <span class="sf-pill in">Placeholders go here</span> }</label>
+            <input pInputText #subjectInput id="et-subject" class="w-full tpl-subject" [(ngModel)]="subjectTemplate" (ngModelChange)="touch()"
+                   maxlength="300" (focus)="rememberSubjectCaret()" (keyup)="rememberSubjectCaret()" (click)="rememberSubjectCaret()"
+                   data-testid="subject" />
+            @if (!subjectValid) { <small class="tpl-errtxt" data-testid="subject-error">A one-line subject of up to 300 characters is required.</small> }
+          </div>
+        </div>
+      </section>
+
+      <section class="sf-card">
+        <div class="sf-ch">
+          <h2>Body</h2>
+          @if (target === 'body') { <span class="sf-pill in">Placeholders go here</span> }
+        </div>
+        <p class="tpl-hint">Placeholders such as {{ '{' }}CustomerName{{ '}' }} are replaced when the email is sent. {{ '{' }}Message{{ '}' }} is the note typed in the "Email to …" dialog.</p>
+        <app-html-field [value]="bodyHtml" (valueChange)="setBody($event)" (focused)="target = 'body'" label="Body"
+                        [minHeight]="240" [active]="target === 'body'" testId="html-body"></app-html-field>
+        @if (bodyEmpty) { <small class="tpl-errtxt" data-testid="body-error">The body cannot be empty.</small> }
+      </section>
+
+      <section class="sf-card">
+        <div class="sf-ch"><h2>Send a test email</h2></div>
+        <p class="tpl-hint">Sends the saved template, filled with sample values, with "[TEST]" in front of the subject.</p>
+        <div class="tpl-test">
+          <input pInputText type="email" [(ngModel)]="testEmail" placeholder="you@company.com" aria-label="Test email address"
+                 maxlength="200" data-testid="test-email" (keyup.enter)="sendTest()" />
+          <p-button label="Send test email" icon="pi pi-send" [outlined]="true" [loading]="sendingTest"
+                    [disabled]="!testValid" (onClick)="sendTest()" data-testid="send-test"></p-button>
+        </div>
+        @if (testEmail.trim() && !testValid) { <small class="tpl-errtxt">Enter one valid email address.</small> }
+        @if (dirty) { <small class="sf-mu">You have unsaved changes: save first to test them.</small> }
+        @if (testResult) {
+          <small [class.tpl-errtxt]="!testResult.ok" [class.sf-mu]="testResult.ok" data-testid="test-result">{{ testResult.text }}</small>
+        }
+      </section>
+    </div>
+
+    <aside class="tpl-side">
+      <app-placeholder-panel [placeholders]="placeholders" [loading]="placeholdersLoading" [error]="placeholdersError"
+                             [target]="'the ' + target" (insert)="insertPlaceholder($event)"></app-placeholder-panel>
+    </aside>
+  </div>
+
+  <div class="sf-fbar">
+    <span class="sf-mu sf-sm">{{ dirty ? 'You have unsaved changes.' : 'All changes saved.' }}</span>
+    <span class="sf-end">
+      <p-button label="Back" [text]="true" [routerLink]="listRoute"></p-button>
+      <p-button label="Save" icon="pi pi-check" [loading]="saving" [disabled]="!canSave" (onClick)="save()"></p-button>
+    </span>
+  </div>
+</sf-page>
+}
+
+<p-dialog [(visible)]="previewVisible" [modal]="true" header="Preview with sample values" styleClass="sdlg"
+          [style]="{ width: '680px' }" [breakpoints]="{ '720px': '96vw' }">
+  @if (previewLoading) {
+    <div class="sf-empty"><i class="pi pi-spin pi-spinner"></i> Rendering…</div>
+  } @else if (previewData) {
+    @if (dirty) { <p class="sf-mu sf-sm">This shows the saved template. Save to preview your changes.</p> }
+    <p class="tpl-preview-subject" data-testid="preview-subject">{{ previewData.subject }}</p>
+    <div class="tpl-preview-body" [innerHTML]="previewData.bodyHtml" data-testid="preview-body"></div>
+  }
+</p-dialog>

@@ -1,0 +1,34 @@
+{
+  "base": {
+    "code": "SAR",
+    "name": "Saudi Riyal",
+    "symbol": "﷼",
+    "decimals": 2
+  },
+  "additional": [
+    {
+      "code": "USD",
+      "name": "US Dollar",
+      "symbol": "$",
+      "decimals": 2
+    },
+    {
+      "code": "AED",
+      "name": "UAE Dirham",
+      "symbol": "د.إ",
+      "decimals": 2
+    },
+    {
+      "code": "GBP",
+      "name": "British Pound",
+      "symbol": "£",
+      "decimals": 2
+    },
+    {
+      "code": "EUR",
+      "name": "Euro",
+      "symbol": "€",
+      "decimals": 2
+    }
+  ]
+}

@@ -39,25 +39,46 @@ internal sealed class PayrollProgressTracker
         public int Total, Processed;
         public bool Running;
         public string? Error;
+        public DateTime LastActivityUtc;
     }
+
+    /// <summary>
+    /// REV49-9: a "running" entry with no progress for this long is treated as lost (the queued job died with its Hangfire server, or ran on
+    /// another instance) and may be started again. Safe: the database application lock and RowVersion still serialize real concurrent work.
+    /// </summary>
+    public TimeSpan StaleAfter { get; init; } = TimeSpan.FromMinutes(15);
+    public Func<DateTime> Clock { get; init; } = () => DateTime.UtcNow;
 
     private readonly ConcurrentDictionary<Guid, Entry> _runs = new();
 
-    public Entry? Get(Guid runUuid) => _runs.TryGetValue(runUuid, out var e) ? e : null;
+    public Entry? Get(Guid runUuid)
+    {
+        if (!_runs.TryGetValue(runUuid, out var e)) return null;
+        lock (e)
+        {
+            if (e.Running && Clock() - e.LastActivityUtc > StaleAfter)
+            {
+                e.Running = false;
+                e.Error = "The calculation did not finish; start it again.";
+            }
+        }
+        return e;
+    }
 
-    /// <summary>False when this run is already calculating here.</summary>
+    /// <summary>False when this run is already calculating here (and has shown progress within <see cref="StaleAfter"/>).</summary>
     public bool TryStart(Guid runUuid, int total)
     {
-        var fresh = new Entry { Total = total, Running = true };
+        var fresh = new Entry { Total = total, Running = true, LastActivityUtc = Clock() };
         var current = _runs.GetOrAdd(runUuid, fresh);
         if (ReferenceEquals(current, fresh)) return true;
         lock (current)
         {
-            if (current.Running) return false;
+            if (current.Running && Clock() - current.LastActivityUtc <= StaleAfter) return false;
             current.Total = total;
             current.Processed = 0;
             current.Error = null;
             current.Running = true;
+            current.LastActivityUtc = Clock();
             return true;
         }
     }
@@ -67,6 +88,7 @@ internal sealed class PayrollProgressTracker
         if (!_runs.TryGetValue(runUuid, out var e)) return;
         e.Processed = processed;
         e.Total = total;
+        e.LastActivityUtc = Clock();
     }
 
     public void Finish(Guid runUuid, string? error = null)
@@ -230,7 +252,8 @@ internal sealed class PayrollCalculationEngine : HrmServiceBase, IPayrollCalcula
         IReadOnlyDictionary<int, (string Method, bool HasAccount)> Bank,
         IReadOnlyDictionary<int, DateOnly> FirstRecord,
         IReadOnlyDictionary<int, AttendancePayData> Attendance,
-        bool AttendanceOn);
+        bool AttendanceOn,
+        IReadOnlyDictionary<int, (string Number, DateOnly From, DateOnly To)>? SettledSalary = null);
 
     private async Task<CalcInputs> LoadAsync(Guid org, PayrollRun run, IReadOnlyList<EmployeeTerms> employees, string countryCode, CancellationToken ct)
     {
@@ -252,9 +275,15 @@ internal sealed class PayrollCalculationEngine : HrmServiceBase, IPayrollCalcula
                 .Where(r => r.OrganizationId == org && ids.Contains(r.EmployeeId))
                 .Select(r => new { r.EmployeeId, r.EffectiveFrom }).ToListAsync(ct))
             .GroupBy(r => r.EmployeeId).ToDictionary(g => g.Key, g => g.Min(r => r.EffectiveFrom));
+        // REV49-4: a final settlement (not cancelled) that pays salary for days of this period: payroll must not pay them again.
+        var settled = new Dictionary<int, (string, DateOnly, DateOnly)>();
+        foreach (var s in await Db.FinalSettlements.IgnoreQueryFilters().AsNoTracking().Include(s => s.Lines)
+                     .Where(s => s.OrganizationId == org && ids.Contains(s.EmployeeId) && s.Status != SettlementStatuses.Cancelled && s.LastWorkingDay >= run.PeriodStart).ToListAsync(ct))
+            if (Life.FinalSettlementService.SalaryDays(s) is { } days && days.From <= run.PeriodEnd)
+                settled[s.EmployeeId] = (s.SettlementNumber, days.From, days.To);
         return new CalcInputs(assignments.GroupBy(a => a.EmployeeId).ToDictionary(g => g.Key, g => g.OrderByDescending(a => a.EffectiveFrom).ToArray()),
             components, table, rates, bank, first, await _attendance.GetManyAsync(org, ids, run.PeriodStart, run.PeriodEnd, ct),
-            _gate is null || await _gate.IsEnabledAsync(org, HrmFeatureCodes.Attendance, ct));
+            _gate is null || await _gate.IsEnabledAsync(org, HrmFeatureCodes.Attendance, ct), settled);
     }
 
     private async Task<PayrollRunLine?> CalculateLineAsync(HrmCaller caller, PayrollRun run, EmployeeTerms employee, CalcInputs data, int? settingsDivisor, string? centralCode, CancellationToken ct)
@@ -286,6 +315,8 @@ internal sealed class PayrollCalculationEngine : HrmServiceBase, IPayrollCalcula
         Stamp(line, caller, isNew: true);
 
         var blocks = new List<string>();
+        if (data.SettledSalary is not null && data.SettledSalary.TryGetValue(employee.EmployeeId, out var settled))
+            blocks.Add($"Final settlement {settled.Number} pays salary {settled.From:yyyy-MM-dd} to {settled.To:yyyy-MM-dd}: payroll does not pay these days again.");
         var shares = run.CostCenterMode == PayrollCostCenterModes.Central
             ? (centralCode is null ? [] : [new CostCenterShare(centralCode, 100m)])
             : await _directory.GetCostCenterSharesAsync(org, employee.RecordId, run.CostCenterMode, ct);
@@ -318,7 +349,7 @@ internal sealed class PayrollCalculationEngine : HrmServiceBase, IPayrollCalcula
             var inputs = new List<PayrollInput>();
             foreach (var provider in _providers)
                 inputs.AddRange(await provider.GetInputsAsync(org, run.Id, employee.EmployeeId, run.PeriodStart, run.PeriodEnd, ct));
-            Compose(caller, line, assignment, inputs, data, attendance, shares, centralCode, blocks);
+            Compose(caller, run, line, assignment, inputs, data, attendance, shares, centralCode, blocks);
         }
         catch (SalaryFormulaException ex)
         {
@@ -336,7 +367,7 @@ internal sealed class PayrollCalculationEngine : HrmServiceBase, IPayrollCalcula
         line.BlockReason = reason.Length <= 500 ? reason : reason[..500];
     }
 
-    private void Compose(HrmCaller caller, PayrollRunLine line, SalaryAssignment assignment, List<PayrollInput> inputs, CalcInputs data, AttendancePayData? attendance,
+    private void Compose(HrmCaller caller, PayrollRun run, PayrollRunLine line, SalaryAssignment assignment, List<PayrollInput> inputs, CalcInputs data, AttendancePayData? attendance,
         IReadOnlyList<CostCenterShare> shares, string? centralCode, List<string> blocks)
     {
         var amounts = assignment.Lines.ToDictionary(l => l.ComponentId, l => l.Amount);
@@ -465,7 +496,8 @@ internal sealed class PayrollCalculationEngine : HrmServiceBase, IPayrollCalcula
             {
                 if (data.TaxTable is null)
                 {
-                    blocks.Add("No tax table is in force for this period.");
+                    // QA49-1: never a silent zero tax. The seeded table ends 2026-06-30 and later years are statutory values (G-21): say what to do.
+                    blocks.Add($"No income tax table covers {run.PeriodStart:yyyy-MM-dd} to {run.PeriodEnd:yyyy-MM-dd}. Add the current year's tax table (Settings > Payroll > Tax tables) before calculating.");
                     continue;
                 }
                 var formula = string.IsNullOrWhiteSpace(l.FormulaOverride) ? c.Formula : l.FormulaOverride;

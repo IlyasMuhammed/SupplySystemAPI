@@ -1,0 +1,35 @@
+- generic [ref=e1]:
+  - generic [ref=e2]:
+    - generic [ref=e4]:
+      - generic [ref=e6]:
+        - generic [ref=e7]: AI Gateway
+        - heading "One endpoint for every AI task." [level=2] [ref=e13]
+        - paragraph [ref=e14]: Register organizations, connect their documents and databases, and let their apps ask questions in plain language.
+        - list [ref=e15]:
+          - listitem [ref=e16]:
+            - generic [ref=e23]: Documents uploaded or synced from blob storage
+          - listitem [ref=e24]:
+            - generic [ref=e31]: SQL Server answers through a read-only login
+          - listitem [ref=e32]:
+            - generic [ref=e38]: Isolated per organization, with its own keys
+      - generic [ref=e39]:
+        - button "Switch to dark theme" [ref=e40] [cursor=pointer]
+        - generic [ref=e44]:
+          - heading "Welcome back" [level=1] [ref=e45]
+          - paragraph [ref=e46]: Sign in to the admin console.
+          - generic [ref=e47]:
+            - generic [ref=e48]: Username
+            - textbox "Username" [active] [ref=e49]
+          - generic [ref=e50]:
+            - generic [ref=e51]: Password
+            - generic [ref=e52]:
+              - textbox "Password" [ref=e53]
+              - button "Reveal characters" [ref=e54] [cursor=pointer]
+          - button "Sign in" [disabled] [ref=e59]
+        - paragraph [ref=e60]: Internal tool · authorized administrators only
+    - generic:
+      - status
+  - generic [ref=e63]:
+    - generic [ref=e64]: "TS2551: Property 'unmappedDatabases' does not exist on type 'TenantDetail'. Did you mean 'unmappedTables'?"
+    - generic [ref=e65]: src/app/pages/tenant-detail.ts:446:34
+    - generic [ref=e67]: Click outside, press Esc key, or fix the code to dismiss.

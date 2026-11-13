@@ -29,23 +29,26 @@ Set `SMS_SWAGGER_DUMP_DIR` to also write `swagger.json` and `routes.json` to a f
 ## Conventions
 
 - Routes below are under `api/hrm`. Ids are uuids.
-- Every route needs a login, `MODULE_HRM` on and the permission shown, except the setup routes. Holding any one code listed is enough. **and** means two checks must both pass.
-- The `HRM_` prefix is left out of permission codes: `EMPLOYEE_VIEW` means `HRM_EMPLOYEE_VIEW`.
+- Every route needs a login, `MODULE_HRM` on and the permission shown, except `setup/*` (no module gate; see that section). Holding any one code listed is enough. **and** means two checks must both pass.
+- The `HRM_` prefix is left out of HRM permission codes: `EMPLOYEE_VIEW` means `HRM_EMPLOYEE_VIEW`. Codes from other modules are written in full and marked *(not HRM)*.
 - A permission is not the last check. The service then applies the HR scope, and anything outside it is 404 (API-CONTRACT §1).
-- Success returns `{ success, message, result }`. Coded errors start the message with the code.
+- Success returns `{ success, message, result }`. Coded errors start the message with the code. A few DELETEs (`user-scopes/{uuid}`, `employees/{uuid}/documents/{documentUuid}`, `holidays/{uuid}`) return the envelope with no `result`; the other DELETEs return `result: true`.
+- **Files, not the envelope.** These return the raw file: `attachments/{uuid}/content`, `payroll-runs/{uuid}/bank-file`, `.../journal-export/csv`, `.../journal-export/xlsx`, `.../lines/{line}/payslip`, `payslips/{uuid}/pdf`, `GET offers/{uuid}/letter`, `letters/{uuid}/pdf`, `tax-certificates/{uuid}/pdf`.
+- **Paged lists.** `result` is `{ data[], totalRecords, page, pageSize, totalPages, hasNext, hasPrevious }` (query `page` default 1, `pageSize` default 25) on exactly seven routes: `GET employees`, `GET attendance/days`, `GET leave/requests`, `GET payroll-runs`, `GET payroll-runs/{uuid}/lines`, `GET loans`, `GET expense-claims`. Every other list returns a plain array.
+- **Other statuses.** `POST payroll-runs/{uuid}/calculate` returns 202 (envelope, `calculationQueued: true`) when it queues the job. `POST`/`PUT candidates` return 409 with the likely duplicates as `result`; send `force: true` to save anyway.
 
 ## Routes
 
 ### Setup and settings
 
-Also needs: nothing beyond `MODULE_HRM` (setup routes check the licence in the service, not with the gate).
+Also needs: `settings` and `user-scopes/*` need `MODULE_HRM` on. `setup/*` (`HrmSetupController`) carries **no** module gate and skips the seed filter: the service checks the `MODULE_HRM` licence (403 when the plan does not include it, switch may be off) and seeds after that.
 
 | Method | Route | Permission (any of) | What it does |
 |---|---|---|---|
 | GET | `/settings` | SETTINGS_MANAGE, ACCOUNT_MAPPING_VIEW, PAYROLL_VIEW | Get the organization's HR settings |
 | PUT | `/settings` | SETTINGS_MANAGE | Update the organization's HR settings |
-| POST | `/setup/payroll-cost-center` | SETTINGS_MANAGE | Enablement wizard: select or create the payroll cost center |
-| GET | `/setup/status` | SETTINGS_MANAGE, MODULES_MANAGE | Enablement wizard: licence, switch and payroll cost center status |
+| POST | `/setup/payroll-cost-center` | SETTINGS_MANAGE (with `newCostCenter`, the service also needs ORG_MANAGE) | Enablement wizard: select or create the payroll cost center |
+| GET | `/setup/status` | SETTINGS_MANAGE, `MODULES_MANAGE` *(not HRM)* | Enablement wizard: licence, switch and payroll cost center status |
 | GET | `/user-scopes` | SETTINGS_MANAGE | List a user's extra HR scopes |
 | POST | `/user-scopes` | SETTINGS_MANAGE | Give a user an HR scope on a branch or department |
 | DELETE | `/user-scopes/{uuid}` | SETTINGS_MANAGE | Remove an HR scope |
@@ -86,7 +89,9 @@ Also needs: nothing beyond `MODULE_HRM`.
 
 | Method | Route | Permission (any of) | What it does |
 |---|---|---|---|
-| GET | `/employees` | EMPLOYEE_VIEW, EMPLOYEE_EDIT | List employees in scope (identifiers masked) |
+| GET | `/employees` | EMPLOYEE_VIEW, EMPLOYEE_EDIT | List employees in scope (identifiers masked). A `cnic` query parameter is refused with 400 `EMPLOYEE_CNIC_IN_QUERY` (REV49-12) |
+| POST | `/employees/search` | EMPLOYEE_VIEW, EMPLOYEE_EDIT | Same list, filter in the JSON body; the exact `cnic` search (needs SENSITIVE_VIEW) goes here so the number is not in URL logs (REV49-12) |
+| GET | `/employees/lookup?search=&take=` | EMPLOYEE_VIEW, EMPLOYEE_EDIT, ATTENDANCE_VIEW, ATTENDANCE_MANAGE, OVERTIME_APPROVE, SHIFT_MANAGE, LEAVE_VIEW, LEAVE_APPROVE, LEAVE_MANAGE, SALARY_EDIT, PAYROLL_RUN, TRAINING_MANAGE, RECRUITMENT_MANAGE, PERFORMANCE_MANAGE, LOAN_VIEW, SETTLEMENT_VIEW, INCREMENT_MANAGE, LETTER_ISSUE, TAX_CERT_VIEW, EXPENSE_VIEW | Employee picker (REV49-5): plain array of `{ uuid, employeeNumber, fullName, status, departmentName? }`, HR-scoped, ordered by number, `take` 1..200 (default 200), search on number or "first last". Archived and Candidate left out; leavers stay. No contact, identity, bank or pay field. The FE pickers use it, and fall back to `GET /employees` only on 404 |
 | POST | `/employees` | EMPLOYEE_EDIT | Create an employee, optionally with the hire record |
 | GET | `/employees/{uuid}` | EMPLOYEE_VIEW, EMPLOYEE_EDIT | Get an employee (identifiers masked) |
 | PUT | `/employees/{uuid}` | EMPLOYEE_EDIT | Replace an employee's record |
@@ -146,7 +151,7 @@ Also needs: `FEATURE_HRM_ATTENDANCE`.
 | GET | `/attendance/days/me` | SELF_SERVICE | List the caller's own attendance days |
 | POST | `/attendance/days/recompute` | ATTENDANCE_MANAGE | Recompute attendance days for a date range |
 | POST | `/attendance/events` | ATTENDANCE_MANAGE | Record an attendance event for an employee |
-| POST | `/attendance/events/import` | ATTENDANCE_MANAGE | Import attendance events from a CSV file |
+| POST | `/attendance/events/import` | ATTENDANCE_MANAGE | Import attendance events from a CSV file (multipart field `file`, max 10 MB; 400 when missing, empty or larger) |
 | POST | `/attendance/events/self` | SELF_SERVICE | Record the caller's own attendance event |
 | GET | `/attendance/summary` | ATTENDANCE_VIEW, ATTENDANCE_MANAGE, SELF_SERVICE | Monthly attendance summary for an employee |
 | GET | `/overtime` | ATTENDANCE_VIEW, ATTENDANCE_MANAGE, OVERTIME_APPROVE | List overtime records |
@@ -405,15 +410,17 @@ Also needs: `FEATURE_HRM_EXPENSES`.
 
 ### Outside `api/hrm`
 
+Codes in this table are written in full.
+
 | Method | Route | Permission (any of) | Gate | What it does |
 |---|---|---|---|---|
 | GET | `api/tenant/module-profiles` | MODULES_VIEW, PLATFORM_SUPER_ADMIN | | List deployment profiles and their modules |
-| POST | `api/tenancy/organizations/{id}/apply-profile` | PLATFORM_SUPER_ADMIN | Super admin | Apply a deployment profile |
+| POST | `api/tenancy/organizations/{id}/apply-profile` | PLATFORM_SUPER_ADMIN | `[RequireSuperAdmin]` (an org admin gets 403) | Apply a deployment profile |
 | POST | `api/tenant/modules/{code}/enable` | MODULES_MANAGE | | With `MODULE_HRM`: 422 `PAYROLL_COST_CENTER_REQUIRED` until the wizard is done |
 | GET | `api/integrations/quickbooks/cost-center-mappings` | INTEGRATION_VIEW, HRM_ACCOUNT_MAPPING_VIEW | `MODULE_INTEGRATION` | List cost center to Class mappings |
 | GET | `.../cost-center-mappings/unmapped` | INTEGRATION_VIEW, HRM_ACCOUNT_MAPPING_VIEW | `MODULE_INTEGRATION` | Cost centers with no Class mapped |
 | GET | `.../cost-center-mappings/reference` | INTEGRATION_VIEW, HRM_ACCOUNT_MAPPING_VIEW | `MODULE_INTEGRATION` | Stored Classes and Departments for pickers |
-| PUT | `.../cost-center-mappings/{code}` | INTEGRATION_MANAGE, HRM_ACCOUNT_MAPPING_EDIT | `MODULE_INTEGRATION` | Map a cost center |
+| PUT | `.../cost-center-mappings/{code}` | INTEGRATION_MANAGE, HRM_ACCOUNT_MAPPING_EDIT | `MODULE_INTEGRATION` | Map a cost center to a Class or Department (`{code}` is the cost center code, not a uuid) |
 | POST | `.../cost-center-mappings/sync` | INTEGRATION_MANAGE, HRM_ACCOUNT_MAPPING_EDIT | `MODULE_INTEGRATION` | Fill the list from HR's cost centers |
 | GET | `api/integrations/quickbooks/sync-control` | INTEGRATION_VIEW | `MODULE_INTEGRATION` | Document types, including the HRM ones while HRM is on |
 | PUT | `api/integrations/quickbooks/sync-control/{documentType}` | INTEGRATION_MANAGE | `MODULE_INTEGRATION` | Turn a type on or off |
@@ -431,8 +438,6 @@ Every route the contract names exists, every controller route is listed above, a
 | Contract says | The code | Owner |
 |---|---|---|
 | Changes (D-24): `HrmSetupController` "also runs the seed filter" | It carries `[SkipHrmSeed]`: nothing is seeded before the licence is checked, and the service seeds afterwards. | CORE |
-| §10.7 body: `GET api/finance/setup` | `GET api/finance/setup/status`. Already noted in Changes; the body is stale. | POST |
-| §10.3 `GET module-profiles` needs MODULES_VIEW | MODULES_VIEW or PLATFORM_SUPER_ADMIN | POST |
 
 **The code accepts more codes than the contract lists.** A caller the contract would refuse gets in, though HR scope still applies:
 
@@ -464,3 +469,19 @@ Every route the contract names exists, every controller route is listed above, a
 Not compared: response bodies and individual error codes, because the document does not describe them. Each field-level statement in the contract rests on its owner's tests, not on this check.
 
 **Note, not an HRM change.** `Program.cs` serves Swagger and `/swagger-error` in every environment without a login, so the whole route list, HRM included, is readable by anyone who can reach the API. A49 did not introduce this. It is worth a decision before production.
+
+## Corrections (REV-49, 2026-11-09)
+
+Checked against the controllers, not the route dump. All 262 HRM actions (verb, template, parameter names, codes, gates) and the outside routes matched the tables. These were fixed:
+
+- Setup and settings, gate line: implied `MODULE_HRM` covers `setup/*`; now says `setup/*` has no module gate (licence checked in the service, 403 when unlicensed) and `settings`/`user-scopes` do.
+- `GET setup/status`: `MODULES_MANAGE` read as `HRM_MODULES_MANAGE` under the prefix rule; now marked as not an HRM code, and the convention says so.
+- `POST setup/payroll-cost-center`: the extra ORG_MANAGE check for `newCostCenter` (service) was missing; added.
+- Conventions, response envelope: did not say which routes return raw files; listed (9 downloads).
+- Conventions, paged lists: did not say which lists are paged; now names the 7 that return `PaginatedResponse`, and says the rest are plain arrays.
+- Conventions, other statuses: 202 from calculate and 409-with-matches from candidates were only in summaries; stated, with `force`. DELETEs with no `result` noted.
+- `POST attendance/events/import`: multipart field name, 10 MB limit and the uncoded 400s added.
+- `PUT cost-center-mappings/{code}`: `{code}` is the cost center code, not a uuid; said so.
+- Outside `api/hrm`, apply-profile gate: said "Super admin"; now names `[RequireSuperAdmin]` and the 403.
+- Differences, §10.3 module-profiles row: stale, the contract already lists MODULES_VIEW or PLATFORM_SUPER_ADMIN; removed.
+- Differences, §10.7 `api/finance/setup` row: stale, the contract body already says `setup/status`; removed.

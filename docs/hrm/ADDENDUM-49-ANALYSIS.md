@@ -211,3 +211,232 @@ Rule for shared seams: add a new file; registration in your `HrmRegistration.<Ag
 | D-FE-14 | Round 2, cost center map: Class and Department are pickers on `cost-center-mappings/reference`, no typed ids. Class is required, because the server's `isMapped` looks only at the Class. An empty list has a hint (not connected, or reference data not fetched); there is no typed fallback. |
 | D-FE-15 | Round 2, shared frame: below 992 px `.layout-main-container` set padding 1rem while `.sf-page` pulled out by `--sms-pad` (1.25rem), so every sf-page ran 0.25rem past the right edge. The container now sets `--sms-pad: 1rem` and pads with it. The frame's phone padding is unchanged; content inside sf-* blocks that use the token moves 0.25rem. |
 | D-POST-10 | Employee import S3 at rest: a profile declaring `SensitiveFields` has `RawJson` and `ValuesJson` encrypted whole with `IEncryptionService` (`enc:` prefix), because which raw column is a CNIC depends on a mapping that can change. Masked as `*****` even for holders of the codes: nobody needs it back from an import, and the original file exists. Unmapped columns masked too in reports. Other profiles pass through. An error report cannot be fixed and re-uploaded with its masked values; re-enter from the source. Depends on A-21: a real `AesEncryptionKey`. |
+
+## Review (REV-49)
+
+Independent review, 2026-11-09, after the builders finished. It covered tenant isolation, security, payroll correctness, migrations, regression risk and the open follow-ups. Frontend fixes and the API-REFERENCE doc are REV-49B's; its rows are REV49B-n below. HIGH and MEDIUM findings were fixed in code, each with a test in `tests/SMS.Modules.Hrm.Tests/Rev49Tests.cs`. LOW findings are recorded with a recommendation.
+
+### Findings
+
+| ID | Area | Severity | Where | Failing scenario | Fix / recommendation | Status |
+|---|---|---|---|---|---|---|
+| REV49-1 | CORE seam (approvals) | MEDIUM | `Services/HrmSeams.cs:177` `ResolveApproverAsync` | The approver could be the employee the document is about. Example: an HR officer submits a salary change for an HR manager who has no line manager and holds `HRM_SALARY_APPROVE`. The fallback "first other holder" excluded only the submitter, so the HR manager got their own pay rise in the inbox. Approving it there goes through `SalaryChangeStatusHandler`, which has no self check. The same applied to leave and expense claims. | The employee's own user is now excluded at every level (manager, head, permission holder). Test `REV49_1_*`. | Fixed |
+| REV49-2 | PAY / FE contract | HIGH | `Services/Pay/SalaryConfigServices.cs:120` | The FE hides a system component's code and type and sends them as `null`. `UpdateAsync` validated `Code(null)`, so every edit of BASIC, ITAX, NET and the other seeded components returned 400. Their posting roles could not be set, and posting readiness needs those roles. | For a system component, null or blank code/type keeps the stored values. Test `REV49_2_*`. | Fixed |
+| REV49-3 | PAY workflow | MEDIUM | `Services/Pay/SalaryAssignmentService.cs:46` | `/salary-assignments/{uuid}/approve` and `/reject` decide directly, not through the engine. The SALARY_CHANGE approval opened at submit then stayed PENDING in the approver's inbox for ever. LIFE (expense) and ATT (leave) go through the engine; PAY did not. | After the screen decision, the open approval is cancelled. Best effort: the handler ignores the callback because the row is no longer pending. The route still lets any in-scope `HRM_SALARY_APPROVE` holder decide (contract §7), as before. Test `REV49_3_*` (approve and reject). | Fixed |
+| REV49-4 | LIFE × PAY (money) | HIGH | `Services/Pay/PayrollCalculationEngine.cs:256`, `Services/Life/SettlementService.cs:374` | Double pay of a leaver. Example: last working day 15 Oct; the settlement computes REMSAL for 1–15 Oct and is posted and paid. The October run then includes the leaver (Terminated with LeaveDate inside the period) and pays 1–15 Oct again, with allowances in full under D-PAY-5. The reverse order (run calculated, settlement posted, run finalized) paid twice too. The settlement's staleness check (D-LIFE-7) covered only loans and leave. | (a) Calculation blocks the line of anyone with a non-cancelled settlement whose REMSAL days overlap the period, and names the settlement. (b) Settlement `/post` returns 409 `SETTLEMENT_PAYROLL_IN_PROGRESS` while a live run has an unblocked line over those days, and 409 `SETTLEMENT_STALE` if a Finalized, Posted or Paid run already paid them. Tests `REV49_4_*`. | Fixed |
+| REV49-5 | CORE API (for FE) | MEDIUM | `Controllers/HrmControllers.cs:290` | Every employee picker reads `GET employees` (EMPLOYEE_VIEW/EDIT). Pages gated by other codes (leave balances, overtime, salary tools, enrolments, loans, letters, adjustments, interviewers) got 403 and an empty picker. Raised by REV-49B. | New `GET api/hrm/employees/lookup?search=&take=` returns `{uuid, employeeNumber, fullName, status, departmentName}`. Max 200, HR-scoped, Archived and Candidates excluded, any one of 20 HRM codes. It carries no contact, identity, bank or pay field. Test `REV49_5_*`. | Fixed |
+| REV49-6 | Workflow design | LOW | `HrmSeams.cs` approver resolution | The line manager or department head becomes the approver of a SALARY_CHANGE or EXPENSE_CLAIM even without `HRM_SALARY_APPROVE` / `HRM_EXPENSE_APPROVE`. The engine's inbox lets them approve pay. That suits leave (Odoo), but for salary it is a decision for the client. | Discuss: use the fallback permission holder first for SALARY_CHANGE. | Open (user) |
+| REV49-7 | Approvals | LOW | `HrmSeams.cs` fallback | The fallback approver is chosen from the first 200 users of `IOrgUserDirectory.SearchAsync`. A large org whose only holder is user 201+ gets `HRM_NO_APPROVER`. | Add a permission filter to the directory seam. | **Done 2026-11-10 (A49-LOW).** `IOrgUserDirectory.FindByPermissionAsync` (default method, so existing fakes keep working) is implemented by `OrgUserDirectory` / `PosPinService.FindUsersByPermissionAsync`, which pages the whole org by user id; `HrmApprovalGateway` now uses it. Tests: `A49LowTests.The_fallback_approver_is_found_even_when_the_org_has_more_than_200_users`, `A_directory_without_the_filter_still_works_through_the_default`, `PosPinServiceTests.FindUsersByPermission_looks_past_the_first_page_and_stays_in_the_org`. |
+| REV49-8 | Tenant | LOW | Status handlers (`LeaveServices.cs:252/270/316`, `ExpenseServices.cs:403/408`, `SalaryAssignmentService.cs:283/287`) | Rows are found by uuid with `IgnoreQueryFilters` and no org predicate. Uuids are global and the engine's own instance is org-scoped, so nothing leaks today, but it breaks D-2's "explicit org in every query". | Pass the org through when the engine exposes it. Every other one of the 348 `IgnoreQueryFilters` calls was checked: each filters on the org or loads by an id taken from an org-filtered row. | Accepted |
+| REV49-9 | PAY | LOW | `PayrollRunService.cs` CalculateAsync | The calculation progress tracker lives only in this process. If a queued (>200 employees) calculation is lost (Hangfire server stopped, another instance), the run reads "already being calculated" here until restart. | Expire entries, or read Hangfire state. | **Done 2026-11-10 (A49-LOW).** Entries expire: a Running entry with no progress for 15 minutes (`PayrollProgressTracker.StaleAfter`) reads as stopped ("did not finish; start it again") and `TryStart` accepts it again. Safe because the DB app lock and RowVersion still serialize real work. Chose expiry over reading Hangfire state (no Hangfire dependency in the screen path). Still per-process: a second instance does not see the first one\'s entry, which is the same as before and harmless for the same reason. Test: `A49LowTests.A_running_entry_with_no_progress_for_the_stale_window_can_be_started_again`. |
+| REV49-10 | PAY | LOW | `PayrollRunService.PayAsync` | `paidOn` is not checked against a closed GL period. The payment posting then fails and stays retryable, while the run already shows Paid. | Check `IFiscalPeriodGuard` as Finalize does. | **Done 2026-11-10 (A49-LOW).** `PayAsync` asks the guard (only when the internal GL is active, as Finalize does) before the run is marked Paid and refuses with 409 `PAYROLL_PERIOD_CLOSED`; the run stays unpaid and no payment posting row is made. Tests: `A49LowTests.Pay_refuses_a_payment_date_in_a_closed_period_and_leaves_the_run_unpaid`, `Pay_does_not_ask_the_period_guard_when_there_is_no_active_gl`. |
+| REV49-11 | Security (SoD) | LOW | Pay, Life controllers | Separation of duties is not enforced. One `HRM_SETTLEMENT_MANAGE` holder computes, approves, posts and pays a settlement (only the self check applies). One HR_MANAGER can calculate, approve and finalize a run. `POST tax-certificates/generate` needs only `HRM_TAX_CERT_VIEW`. | Client policy: add maker/checker rules if wanted. | Open (user) |
+| REV49-12 | Logging | LOW | FE `self.config.ts:113` → `GET employees?cnic=` | The exact-CNIC search sends the CNIC in the query string, so web-server and proxy access logs can record it. Nothing in the API logs it, and no HRM log line carries a salary, CNIC or account number. The posting `LastError` and sync logs hold role and aggregate figures only. | Move the CNIC search to a POST body. | **Done 2026-11-10 (A49-LOW).** New `POST /api/hrm/employees/search` takes the list filter as the body; `GET /employees` now refuses a `cnic` query parameter with 400 `EMPLOYEE_CNIC_IN_QUERY`. FE: `RecordsConfig.bodySearch` (EMPLOYEES config) POSTs when the CNIC filter is filled. API-CONTRACT and API-REFERENCE updated. Tests: FE `hrm-records.component.spec` (REV49-12 case), `HrmSecurityE2ETests` and `HrmPostE2ETests` moved to the POST and assert the GET is refused. |
+| QA49-1 | PAY / seeds (from QA-49) | MEDIUM, held | `Seeds/HrmSeedData.cs:123`, `PayrollCalculationEngine.cs` ITAX branch | The only seeded tax table (`PK-SALARIED-2026`) ends 2026-06-30, so a fresh org's first payroll for any later period has no table in force. It was never a silent zero (the line was blocked), but the reason did not say what to do. | No 2026-27 slabs invented (G-21, coordinator's ruling). The block reason now reads "No income tax table covers {from} to {to}. Add the current year's tax table (Settings > Payroll > Tax tables) before calculating." Tests `QA49_1_*`, and QA-49's `HrmPayrollCycleE2ETests.G21_with_no_tax_table_*`. The current table must be entered and verified by the client's consultant. | Message fixed; held for user |
+| QA49C-1 | QBO JE keys (from QA-49C) | HIGH | `QuickBooksJournalEntryBuilder.cs:58,71` | A payment (PayrollPayment for a run or settlement, ExpensePayment for a claim) carries its document's uuid, and the JE ExternalId was the uuid alone. So the payment was treated as an UPDATE of the document's QuickBooks entry, which then held only the payment lines (proven by T414 and T415 on the fake). It also replaced the held payload, made a later reversal use the payment lines, and gave the refresher one id for both. The GL side was correct. | New `JournalEntryKeys` (SMS.Shared): the payment types are keyed `{uuid}:{DocType}` with DocNumber `{number}-P`. Every other type keeps the bare uuid, so maps already stored stay valid. It is used by the builder, `JournalEntryPoster` (post and reverse), `QuickBooksPostingTarget` (status and void ids) and `QuickBooksStatusRefresher`. `JournalEntryStatusAsync` needed no change: its `:batch` prefix keeps the two apart. Tests `A49JournalEntryTests.QA49C_1_*` (run/settlement/claim, separate reversals, key rule); G2 updated. A payment already sent before this fix, on any live connection, overwrote its document's entry in QuickBooks: re-check such entries there. | Fixed; confirmed E2E by QA-49C (T414/T415: separate `-P` entries, originals unchanged) |
+| QA49C-2 | GL line cap (from QA-49C) | MEDIUM | `JournalEntryWriter.cs:360`, `GlCodes.cs` JournalLimits | The internal GL refused any entry over 500 lines (JE-002). A payroll is one line per role × cost center, so a run with about 170+ cost centers never reached the GL and failed on every retry, while QuickBooks split it and sent it (`T417` step 4). | Option (b): `JournalLimits.MaxLinesFor(isManual, sourceModule)`. A non-manual entry with a SourceModule (gateway postings and their reversals) may have up to `MaxSourceLines` = 20,000 lines. Manual journals, imports and the year-end close keep 500. The GL still keeps one journal per source document. (a) would remove nothing: payroll lines are already one per role × cost center. (c) would break the one-journal-per-source key and the reversal. Tests `JournalEngineTests.QA49C_2_*`; QA-49C aligns T417. | Fixed; confirmed E2E by QA-49C (T417 step 4: one Posted GL journal of 1200 lines = -B1 + -B2 per account) |
+| QA49-3 | Letters / tax certificate (from QA-49) | LOW | `LetterServices.cs:228` | `taxYear` is the start year of the fiscal year (2026 = Jul 2026 to Jun 2027), but FBR names that "Tax Year 2027". A user who types 2027 for that year gets a valid-looking certificate covering the wrong year, usually with income 0, and no warning. | Recommended: take FBR's numbering (the end year), or keep the start year but show the covered dates on the certificate and the form, and warn when the year has no payroll. The client's consultant should confirm which numbering the certificate must carry. QA-49 changed its test to 2026 and left the code alone. | Open (user) |
+| REV49-13 | Platform gap | LOW | Accounting | There is no P&L or balance-sheet route (only `trial-balance`), yet T413 / TS-G8-002 ask for "TB and P&L". QA-49D raised it again as QA49D-1 (failing `HrmProfilesE2ETests.T096_P2_profit_and_loss_report_exists`); same as QA49-2. | QA derives P&L from the TB by account type; a real report is an Accounting task. REV's call on QA49D-1: a documented gap, not built in A49; T096 is marked Skip and points to this row. | Open (user) |
+
+Checked and found sound (no finding):
+- **Tenant isolation.** Every service filters on the caller's organization. `HrmScopeService.Apply` is used for every employee-bound read and write. The bank file requires `All` scope. Super admins have `HrmSensitiveCodes` stripped.
+- **The one Hangfire job.** `PayrollCalculationJob` takes the org explicitly and sets `HangfireTenantScope`.
+- **Attachments.** The D-25 read/save/remove rules are as documented.
+- **Encryption.** CNIC, NTN, account number and IBAN are AES-encrypted, with a keyed per-org HMAC.
+- **Masking and audit.** List and detail never decrypt. A reveal logs to `SensitiveAccessLogs` before the value is returned, and the bank file logs per employee. The salary band is masked by permission.
+- **Permissions.** No action without `[RequirePermission]`, no `[AllowAnonymous]`.
+- **Payroll engine.**
+  - Pro-rata on BASIC (D-PAY-5), tax as a twelfth of the annualized slab (D-PAY-11), each component rounded once to 2 dp (AwayFromZero), largest-remainder cost-center split.
+  - The journal balances by construction, with a rounding line only under 1.00.
+  - State machine and `sp_getapplock` + RowVersion.
+  - The gateway is called only after commit and never throws (failures become retryable posting rows).
+  - Idempotency keys `hrm:{Type}:{uuid}`, `:void` on reversal.
+  - Reversal releases loans, claims, adjustments and overtime, and opens the `-R1` correction.
+- **Migrations.**
+  - `A49_HrmInitial`: all 273 `Up` statements guarded.
+  - `A49_HrDefaultKeys`: CHECK replaced only when narrower.
+  - `A49_CostCenterQboMappings`: table and sync rows insert-only.
+  - `A49_ServiceInvoiceIncomeAccount`: `COL_LENGTH` guarded.
+  - All four are additive, with sane Downs.
+- **Regression surface.**
+  - Finance revenue split is unchanged for lines without `IncomeAccountCode`.
+  - Accounting adds HR rows only when MODULE_HRM is on.
+  - The setup status is untouched.
+
+### Follow-ups from the previous session (verified in code)
+
+| Item | Landed? | Evidence |
+|---|---|---|
+| POST: import gate | Yes | `ImportSessionService.EnsureProfileCodes` (profile `RequiredPermissions`), `ImportRequiredPermissionTests` |
+| POST: unlicensed seed behaviour | Yes | `UseHrmModule` seeds only orgs with MODULE_HRM on; `HrmEnsureSeededFilter` runs after the `RequiresFeature` gate; setup routes `[SkipHrmSeed]` |
+| POST: service-invoice income account / QuickBooks | Yes | `A49_ServiceInvoiceIncomeAccount`, `SalesPostings.RevenueAndTax` split, `SERVICE_ITEM_MISSING` block + `ServiceItemRef` (D-POST-6; fake QuickBooks only) |
+| POST: Finance flaky test | Not traceable | No note or test names it in `docs/hrm` or `tests`; the Finance suite run is the evidence (below) |
+| FE round 2: FE-1..FE-5 + D-FE-12..15 | Yes | Upload tracker, cost-center map pickers, review sides via `employees/me`, user-scope search, payslip link, `--sms-pad` fix (see REV-49B) |
+| DOC: import defects queued to POST | Yes | D-POST-5 / D-POST-10 (create only, S3 encrypted at rest, masked reports) in code |
+| API-REFERENCE.md vs code | Yes | 11 corrections, listed at the end of API-REFERENCE.md ("Corrections (REV-49, 2026-11-09)") |
+
+### Frontend findings (REV-49B, 2026-11-09)
+
+REV-49 found these in its FE pass. REV-49B fixed them, each with a spec, in `SupplyChainFrontend/src/app/pages/hrm/**` and the service-invoice page. The FE review and the doc check were not repeated.
+
+| ID | Severity | Where | Problem | Fix | Spec |
+|---|---|---|---|---|---|
+| REV49B-1 | MEDIUM | `payroll/payroll-wizard.component.html:129,133` | The posting table read `target`/`targetSystem`/`note`/`message`, and the banner read `run.postingNote`. None of these exist: `PayrollPostingModel` sends `lastError` and `targetResultsJson` (`[{target,status,internalId,externalId,error}]`), and `PayrollRunModel` has no note. The table and banner were blank. | `postingTargets`/`postingTargetText`/`postingNote` in `payroll-wizard.component.ts` parse `targetResultsJson` safely (bad JSON gives "—"). The note is `lastError`, else the first target error; the banner shows the first problem posting's note. | `payroll-wizard.component.spec.ts` "REV49B-1", retry test |
+| REV49B-2 | MEDIUM | `setup/hr-settings.component.ts:24,135` | The form sent `countryCode`, which `HrmSettingsUpdate` does not have, so the change was silently dropped. | Removed from the editable fields. Shown read-only in both the edit and read views (set at enablement). | `hrm-screens.spec.ts` HrSettings |
+| REV49B-3 | MEDIUM | `talent/performance-dashboard.component.ts:15` | Completion added `submitted + acknowledged`. `ReviewCompletion.Submitted` already counts every review past Draft, so acknowledged reviews counted twice. | Percent = `submitted / total`, capped. The tile reads "Submitted or later". | `hrm-screens.spec.ts` dashboard |
+| REV49B-4 | MEDIUM | `core/hrm.nav.ts:53-57`, `hrm.routes.ts:47` | Shifts and Holidays sat under the group's `FEATURE_HRM_ATTENDANCE`, but the controllers take `[RequiresFeature(Attendance, Leave)]`. A Leave-only org could not reach its holiday calendar. | `HrmPage`/`HrmGroup` gain `anyFeature`. It goes to the menu (`AppMenu` already supports `anyFeature`) and to a new route guard, `hrmAnyFeatureGuard`. The group opens with attendance or leave. Daily Attendance and Overtime keep `FEATURE_HRM_ATTENDANCE`. The Holidays read gate also takes `HRM_LEAVE_VIEW`/`HRM_LEAVE_MANAGE`, as its list route does. | `hrm.routes.spec.ts` "REV49B-4", guard count, menu parity |
+| REV49B-5 | MEDIUM | `talent/candidate-detail.component.ts:26` | New offer showed "Offered salary" to every RECRUITMENT_MANAGE holder; the server gives 403 without `HRM_SALARY_EDIT`. | The field is offered only with `HRM_SALARY_EDIT`. Others create the offer with the salary unset. | `hrm-screens.spec.ts` "REV49B-5" |
+| REV49B-6 | MEDIUM | `talent/candidate-detail.component.ts:22,147,159`; `core/hrm-records.component.html:59` | The `datetime-local` value went out with no zone and was read back by slicing the string, so the time was off by the UTC offset. Root cause: HRM stores UTC, but EF reads it back as Kind Unspecified, so the API sends date-times with no `Z`. Every records `datetime` column therefore showed UTC as local. | `hrm.shared.ts` adds `utcInstant` (no zone = UTC), `toLocalInput` and `fromLocalInput`. The interview time goes out as the same instant in UTC with `Z`, not "local + offset", because System.Text.Json converts an offset to the server's own zone while `Z` is stored unconverted. Edits show local wall time. Records `datetime` columns go through `utcInstant`. | `hrm-screens.spec.ts` "REV49B-6" |
+| REV49B-7 | MEDIUM | `talent/review-form.component.ts:169` | Acknowledge posted `{ employeeComments }`, but `POST reviews/{uuid}/acknowledge` takes no body, so the comments were lost and the review then locked. | `PUT reviews/{uuid}` with `{ employeeComments }` first (open to the employee while Submitted), then acknowledge. A refused save stops before the acknowledge. No backend change needed. | `hrm-screens.spec.ts` employee review |
+| REV49B-8 | MEDIUM | `core/hrm-lookups.service.ts:25,67` | Employee pickers read `GET hrm/employees` (EMPLOYEE_VIEW/EDIT), so they were empty on pages gated by other codes (leave balances, bulk revision, shift assign, enrol, attendance and overtime, LIFE, interviewer). | REV-49 added `GET hrm/employees/lookup` (REV49-5). The `employees` lookup and `searchEmployees` use it (`take` 200 / 50) and fall back to the list route only on 404, for an API not yet deployed. API-REFERENCE and the API-CONTRACT Changes table are updated. | `hrm-screens.spec.ts` picker flows |
+| REV49B-9 | MEDIUM | `employees/employee.fields.ts:11`, `configs/tal.config.ts:30`, `configs/{org,pay,self,att,life}.config.ts`, `org/departments`, `setup/hrm-setup` | Form limits were looser than the server's `HrmValidate`. First/last name were 100 and last name was optional (server: both required, 60). Names were 150 (server: 100). Component, structure and settlement-line codes were 30 (server: 20). | Limits now match. `formProblem` also checks `maxLength`, since a loaded or pasted value gets past the input attribute, and a required blank string counts as missing. | `hrm-screens.spec.ts` "Form limits" |
+| REV49B-10 | MEDIUM | `finance/sales-invoices/service-invoice/service-invoice.component.ts:68` | The customer picker read `partners?isCustomer` (MODULE_SUPPLIERS). The page is for P2-S orgs that have Customers but no sales module. | Reads `api/customers` (pageSize 100, the server's cap; active only; "name (code)"). From 2 typed characters it searches `customers/search` (limit 50) and keeps the chosen customer. | `service-invoice.component.spec.ts` (2) |
+| REV49B-11 | LOW | `configs/pay.config.ts` (components), `configs/self.config.ts` (structures) | "Show inactive" sent `includeInactive`, which those list routes do not take. They return every row, so inactive rows always showed. | `active.clientSide`: no parameter is sent, and inactive rows are hidden on the page unless the toggle is on. | records engine |
+| REV49B-12 | LOW | `configs/tal.config.ts` COURSES | Courses could not be deactivated. No PATCH `.../active` exists; `CourseUpsert.isActive` is the switch. | "Active" checkbox on the course form (default on). | config |
+| REV49B-13 | LOW | `payroll/readiness-panel.component.ts:40` | Every unverified item's "Review" link opened Statutory Rates, tax tables included. | Routed by the server's `kind`: `TaxTable` opens Tax Tables, `StatutoryRate` opens Statutory Rates. Labels readable. | `payroll-wizard.component.spec.ts` "REV49B-13" |
+| REV49B-14 | LOW | `core/hrm.scss:24` | `--sms-mono` is not a theme token. | The mono stack the other screens use (`--font-mono`, then system monospace). | none |
+
+Raised to REV-49: the employee lookup route only (REV49-5, done).
+
+### REV-49 sign-off (2026-11-09)
+
+**Signed off.** A49 HRM is built and verified to the standard in ADDENDUM-49-TASKS.md. All 438 tracker rows (001–422 plus E-1..E-16) are done or n/a with evidence (task 422).
+- Every HIGH and MEDIUM finding from REV-49, REV-49B and the QA agents is fixed in code with a test: REV49-1..5, REV49B-1..10, QA49C-1 (HIGH) and QA49C-2. QA-49C confirmed QA49C-1 and QA49C-2 end to end.
+- QA49-1 is fixed as far as code can go (block with a clear message); its values stay with the user.
+
+Final regression on LocalDB, artifacts `D:\sms-art\rev49`:
+- Hrm 491/491, Auth 428/428 and Tenancy 202/202 pass.
+- Accounting 365/366. The 1 failure is `LocalDbChartTests.Apply_us_general_on_sql_server`, which counts 429 template items instead of 324 because of A50's onboarding packs `src/SMS.Modules.Onboarding/Packs/*/COA.json`. Not A49.
+- Finance 2670/2673. The 3 failures are A50's `A50UnchangedOutputTests` PDF byte checks; A50 is paused. Under load, the `ArApAgingPerformance*` timing tests can also time out; they are environmental, and the SQL classes pass when run alone.
+- Integration module 1290/1294. The 4 failures are `PreflightServiceTests.US_companies_are_refused` ×3 and `ModeAndMatchingTests.Live_is_refused_with_every_failing_check_listed`. They have been stale since the US country check became Warn on 2026-11-01. Not A49.
+- QA's E2E classes, as QA reported them:
+  - HrmPayrollCycle 9/9, HrmHireToRetire 3/3, HrmSecurity 6/6.
+  - HrmAcceptance 7/7 (+1 Skip: QA49-2, the 8th test, turned to Skip by REV).
+  - HrmProfiles 6/6 (+1 Skip: T096).
+  - HrmQuickBooks 3/3, plus QA-49B's security and scale class.
+
+**Limits of this sign-off:**
+- QuickBooks (G-1/5/14/16, tasks 414/415/417) is verified against the FAKE only. No Intuit sandbox has been run (D-POST-8), and the ~1000-line QBO cap is unverified.
+- Statutory values are Unverified until a consultant marks them (G-21).
+
+**Held for the user:**
+1. **QA49-1 / G-21: tax tables and statutory rates.** The only seeded table ends 2026-06-30, so a payroll for any later period is blocked with a clear message. The current year's slabs (and the other Unverified statutory rows) must be entered and verified by the client's payroll consultant. Nothing was invented.
+2. **REV49-13 = QA49-2 = QA49D-1: no P&L or balance-sheet report route.** Only the trial balance exists. Building one is an Accounting task. `HrmAcceptanceE2ETests.QA49_2_*` and `HrmProfilesE2ETests.T096_*` are Skip and point here.
+3. **QA49C-1 live data.** Any HRM payment sent to a real QuickBooks company before the fix overwrote its document's journal entry there. Check those entries in QuickBooks. On the fake, nothing needs repair.
+4. **QA49-3: tax certificate year numbering.** The app uses the start year, while FBR names the year by its end. The consultant decides which; the recommendation is in the row.
+5. **REV49-6: salary or expense approval by a line manager without the approve permission.** Client decision; recommended: the permission holder first for SALARY_CHANGE.
+6. **REV49-11: separation of duties** (settlement, run approval, tax-certificate generate). Client policy; maker/checker if wanted.
+7. Part C client decisions still stand: G-20 (QuickBooks in Pakistan), and G-18 (bank reconciliation) deferred by spec.
+   - **G-20 decision (user, 2026-11-10):** the client uses QuickBooks; its edition/country and home currency are still to be confirmed. Agreed approach: the internal GL stays the book of record for HR and payroll; the QuickBooks HR types (PayrollRun, PayrollPayment, LoanDisbursement, Expense, ExpensePayment, StatutoryRemittance, FinalSettlement, PayrollProvision) stay off + held. Turn them on one type at a time, starting with PayrollRun, only when (a) the QuickBooks home currency equals the organization base currency (else JE_CURRENCY_MISMATCH blocks every entry) and (b) an Intuit sandbox run with the client's keys has passed (D-POST-8; the ~1000-line cap is unverified). Meanwhile the payroll export covers a manual import. No code change.
+
+**LOW items REV49-7, 9, 10, 12: all done 2026-11-10 (A49-LOW); evidence in their rows. (Originally open:)**
+- REV49-7: approver directory capped at 200 users.
+- REV49-9: in-process calculation tracker.
+- REV49-10: `paidOn` not checked against a closed GL period.
+- REV49-12: CNIC in a query string.
+
+## QA (QA-49)
+
+Scope after the coordinator's split: 307, 412, 421 and the final regression. QA-49B has 416/418–420, QA-49C has 414/415/417, QA-49D has 095–099/413/E-11. Each of them adds its own section or rows.
+
+### Findings
+
+| # | Severity | Finding | Where | Test | Owner / state |
+|---|---|---|---|---|---|
+| QA49-1 | Medium (held user item) | The only seeded tax table, `PK-SALARIED-2026`, runs 2025-07-01 to 2026-06-30. A new organization's payroll for any later period therefore has no table in force, and every line with ITAX is blocked. The QA kit was hiding this by entering its own 2026-27 table. | `src/SMS.Modules.Hrm/Seeds/HrmSeedData.cs:123-124` | `HrmPayrollCycleE2ETests.G21_with_no_tax_table_for_the_period_every_line_is_blocked_with_a_clear_reason_and_approve_needs_exclude` (it now asserts the guarded behaviour) | REV-49 / coordinator: not seeded (G-21: the values are statutory). REV changed the block message to "No income tax table covers … Add the current year's tax table …". On the user's list as "Seeded tax table expired 2026-06-30". |
+| QA49-2 | Medium (gap, not an HRM defect) | Task 413 and TS-G8-002 ask for a P&L (and TS-G8-002 for a BS). The system has only `trial-balance` (+ export, ledger) under Accounting. No profit-and-loss or balance-sheet route exists anywhere in `src`. T413 derives the P&L from TB rows by root type and then probes `/api/finance/profit-and-loss`, which returns 404. | `src/SMS.Modules.Accounting/Controllers/TrialBalanceController.cs` (the only report) | `HrmAcceptanceE2ETests.T413_…` (final assertion) | Handed to QA-49D (owns 096/413). A report build is outside A49. |
+| QA49-3 | Low (labelling, client to confirm) | A tax certificate's `taxYear` is the year the period **starts** (2026 = Jul 2026..Jun 2027, stated in the 400 message). FBR names that year "Tax Year 2027". A user who types 2027 gets a valid but empty certificate (income 0, tax 0) with no warning. | `src/SMS.Modules.Hrm/Services/Life/LetterServices.cs:228`, `:289` | T412 used 2027 and got 0. The test now uses 2026. No failing test is kept, because this is behaviour by design. | REV-49 / client: either keep it and label the field "starts in", or switch to the FBR end-year label. Not changed. |
+
+Test-side corrections in T412 (not production bugs): a percent increment returns `newBasic` only after `/apply` (contract §11 `newBasic?`); the tax year is the start year (QA49-3).
+
+### Runs (LocalDB, one class at a time, artifacts `D:\sms-art\qa49`, after REV49-1..5)
+
+| Class | Result |
+|---|---|
+| HrmPayrollCycleE2ETests | 9/9 (T307 57 s; the class took 4 m 16 s) |
+| HrmHireToRetireE2ETests | 3/3 (1 m 41 s) |
+
+Unit-suite regression (2026-11-09, one at a time):
+
+| Suite | Result | Failures |
+|---|---|---|
+| SMS.Modules.Hrm.Tests | 491/491 | — |
+| SMS.Modules.Accounting.Tests | 365/366 | `LocalDbChartTests.Apply_us_general_on_sql_server` expects 324 template items and finds 429. SA_GENERAL / AE_GENERAL templates were added today (A50 onboarding, `Templates/*.json` 14:25). Not HRM. |
+| SMS.Modules.Finance.Tests | 2666/2673 | 4 LocalDB connection or execution timeouts while other agents loaded the instance (environmental), and 3 `A50UnchangedOutputTests` whose golden PDFs are not checked in (A50, paused). Not HRM. |
+| SMS.Modules.Integration.Tests | 1290/1294 | 3 `PreflightServiceTests.US_companies_are_refused` + `ModeAndMatchingTests.Live_is_refused_with_every_failing_check_listed`: `PreflightService.cs` (changed 2026-11-01, not by A49) now gives COUNTRY a Warn for US companies, and the tests still expect Fail. Not HRM. |
+| SMS.Modules.Auth.Tests | 428/428 | — |
+| SMS.Modules.Tenancy.Tests | 202/202 | — |
+
+Second round (coordinator, after QA-49B/C/D and QA49C-1/-2). Each class was run alone on a fresh `SMS.API` build:
+
+| Class | Result | Test-side changes (no production code) |
+|---|---|---|
+| HrmSecurityE2ETests | 6/6 | T418 setup failed with **405**: `HrUpload.UploadHrmAsync` posted to `POST api/attachments`, which has no POST action. The upload is `[HttpPost("upload")]` (`AttachmentsController.cs:56`). The helper now uses `api/attachments/upload`. The A50 AttachmentAccessPolicy change is not involved. |
+| HrmAcceptanceE2ETests | 7/8 | T413 now follows A37 D-6 (QA49D-2): off-module GETs return 200 and POSTs return 403 `MODULE_NOT_LICENSED`; the invoice id is `uuid`, not `invoiceUuid`. Its P&L probe moved to `QA49_2_a_profit_and_loss_report_route_exists`, the **one failure**, kept on purpose for QA49-2. T414 and TS_G1_004 now count only the fake records they create themselves, and TS_G1_004 runs September. The class shares one FakeQuickBooksCompany for every org, all orgs number runs alike, and the retry after a timeout matches by DocNumber, so it adopted another org's entry. That is a test artefact: in production each org has its own realm. T417 (GL keeps one entry, QA49C-2) passes: 1200-line post + split + send 0.9–3.2 s. T416: 500 employees calculated in 3.4 s, finalize + post 2.4 s (10.9 s / 6.6 s on a loaded machine). |
+
+### G-1..G-22 (task 421)
+
+| Gap | Resolved? | Evidence |
+|---|---|---|
+| G-1 QBO JE builder | Yes, **FAKE QuickBooks only** | A49JournalEntryTests G1_*; HrmPostE2ETests TS_G1_G12_G15; HrmAcceptanceE2ETests T414, TS_G1_004 (QA-49C). No sandbox run (D-POST-8). |
+| G-2 FinDocTypes, source `hrm` | Yes | GatewayJournalEngineTests; T307 asserts `FinancialPostings.SourceModule = 'hrm'` and the JournalEntry kind (TS-G2-001/003) |
+| G-3 readiness at finalize | Yes | TS_G3_001 (unmapped role names it); T307 readiness `isReady`; T414 QBO half (D-POST-2: counts only while the sync sends) |
+| G-4 HR role keys | Yes, deviation A-4 | HrDefaultKeysTests, HrRolesMissingTests; HrmPostE2ETests G8 (`hrRolesMissing`, status stays Complete). TS-G4-002 is deliberately not met: finalize blocks instead. |
+| G-5 cost center → Class | Yes, FAKE | G5_* unit; T414 five centers → five ClassRefs, credits on CL-PAYROLL |
+| G-6 employees not partners | Deferred by spec (v1: no entity on JE lines) | T414 / T307: no names in payloads (G-11). Employee sync kind not built, as planned. |
+| G-7 salary payment path | Yes | T307 bank file (one access log per employee), pay → Dr payable / Cr bank, double pay 409 |
+| G-8 Finance standalone | Partly | D-13: references kept and runtime gates instead. HrmPostE2ETests G8 (P-PK TB balanced) and T413 (P2-S, stock and selling 403). **P&L/BS do not exist: QA49-2.** 095–097 are with QA-49D. |
+| G-9 expense claims | Yes | LifeExpenseTests TS_G9_001..003; T412 expense with payroll; T413 / T415 separate payment |
+| G-10 pay-date fallback | Yes | TS_G10_pay_date_closed_falls_back_to_period_end_both_closed_blocks |
+| G-11 privacy | Yes | T307 (gateway rows, JE and JE lines hold no name or employee number), T414 / T415 (sent payload and stored PayloadJson) |
+| G-12 reversal | Yes | TS_G12_reversal_makes_an_opposite_journal_a_new_draft_and_releases_what_it_took; T414 `-R` entry, original kept |
+| G-13 remittance | Yes | LifeExpenseTests TS_G13_001; T412 remittance; T415 |
+| G-14 currency | Yes, FAKE | TS_G14_FAKE_currency_mismatch_blocks; G14_001 |
+| G-15 sync control seeded off + held | Yes | A49CostCenterMigrationTests; G15_hrm_rows_are_hidden_while_the_module_is_off; T414 (`false,true` on a fresh connection) |
+| G-16 split > 900 lines | Yes, FAKE | G16_001; T417 (QA-49C). The ~1000-line QBO cap is from the spec, not verified. |
+| G-17 one org = one employer | Documented | POST-GUIDE; analysis G-17 note (task 094). No test applies. |
+| G-18 bank reconciliation | **Unresolved: deferred by spec** | Not built (D-19) |
+| G-19 no target | Yes | TS_G19_no_target_stays_finalized_exports_pays_then_GL_on_retry_posts_it, G19_no_target_pay_is_allowed_from_finalized, HrmPostE2ETests G19 (P3). Export content: 099 with QA-49D. |
+| G-20 QBO in Pakistan | **Unresolved: client decision** | Part C. Both paths built; nothing to test. |
+| G-21 statutory values | **Mechanism yes, values unresolved** | G21_seeded_statutory_data_is_unverified_named_and_blocks_finalize_until_marked; QA49-1. The values need a payroll consultant (Part C). |
+| G-22 HR roles | Yes | HrmPermissionSeedTests; HrmSecurityE2ETests.Seeded_roles_hold_what_D18_says_through_the_real_permission_tables |
+
+## QA (QA-49D): profiles, rows 095-099, 413 / E-11
+
+`tests/SMS.Integration.Tests/Hrm/HrmProfilesE2ETests.cs`. Every profile is applied the way the product does it (super admin `POST api/tenancy/organizations/{id}/apply-profile`). Run on LocalDB with artifacts in `D:\sms-art\qa49d`, class alone, after REV49-1..5: **6 passed, 1 skipped (QA49D-1), 0 failed, 1 m 24 s**. P&L figures in the P2 and P2-S tests come from the trial balance by account root type, because no P&L report exists (QA49D-1).
+
+### Findings
+
+| # | Severity | Finding | Where | Test | Owner / state |
+|---|---|---|---|---|---|
+| QA49D-1 | Medium (gap, not an HRM defect) | §11A.5 acceptance, TS-G8-002 and tasks 096/413/E-11 need a P&L (and balance sheet). There is no route: `/api/finance/profit-and-loss`, `/api/finance/reports/profit-and-loss` and `/api/finance/income-statement` all return 404, and the frontend has no page either. The only GL reports are trial balance, export, account balance and ledger. | `src/SMS.Modules.Accounting/Controllers/TrialBalanceController.cs:31` | `HrmProfilesE2ETests.T096_P2_profit_and_loss_report_exists` (Skip, pointing here) | Same item as REV49-13 / QA49-2. REV-49's call: documented gap, not built in A49 (Accounting task), open with the user. |
+| QA49D-2 | Low (behaviour by design, note for QA-49's T413) | Profiles switch modules off through the licence path. An organization that ever had a module (every org is created on a plan first) keeps it **ReadOnly** (A37 D-6). So under P2 / P2-S / P3, `GET api/grns`, `api/sale-orders`, `api/purchase-orders` and Finance GETs under P3 answer **200**, not 403. Creates are refused with 403 `MODULE_NOT_LICENSED`, and the menu hides the module. A tenant created straight into a profile can therefore still read empty history lists of the off modules by URL. | `src/SMS.Shared/Authorization/FeatureAuthorizationFilter.cs:84-90` | T095 / T098 / T413 assert the write refusal (`WriteRefusedAsync`) | No change proposed. `HrmAcceptanceE2ETests.T413` asserts 403 on those GETs, which contradicts this; told QA-49. |
+| QA49D-3 | Low (test harness, not product) | `SapWebApplicationFactory` creates no tables for `NotificationsDbContext`. Every notification insert and the cleanup job therefore log `Invalid object name 'notifications.notifications'`, in every class that uses this factory. A second host started with `WithWebHostBuilder` leaves Hangfire's static log provider on its disposed `LoggerFactory`. Both are filtered out of the "no server error" assertions, with a comment, and nothing else is. | `tests/SMS.Integration.Tests/SapAlignment/SapWebApplicationFactory.cs:120-127` | `HrmProfilesE2ETests.NoErrors` | Harness owner: add `NotificationsDbContext` to the factory's `EnsureCreatedAndStampHistoryAsync` list. |
+
+No HIGH or MEDIUM production defect in HRM was found under P2, P2-S or P3. Under all three, startup (a second host on the same DB), the HRM and Finance pages, the QuickBooks settings, no-target finalize, pay and claims, and the journal exports all work without a server error.
+
+### Tests
+
+| Test | Row | What it proves |
+|---|---|---|
+| T095_P2_startup_and_HRM_work_with_selling_buying_and_stock_off_and_no_server_errors | 095 | Module list matches P2. 18 HRM/Finance GETs return 200 and 18 off-module GETs never 5xx. Off writes return 403. Payroll Posted then Paid. A second host on the same DB, with the P2 tenant in it, starts and answers the same sweep. No error is logged. |
+| T096_P2_trial_balance_ledger_balance_and_export_with_only_payroll_data | 096 | Only payroll and pay journals exist. TB is balanced, with per-account hand figures. Ledger totals, closing balance and line count; account balance; TB CSV export; P&L from the TB (expense 130,180). |
+| T096_P2_profit_and_loss_report_exists | 096 | Skip: QA49D-1 |
+| T097_P2_QuickBooks_settings_pages_work_before_and_after_connecting_with_partners_and_stock_off | 097 | 11 settings GETs return 200 before connecting. Connect → settings → tax → matching → Live go through. 15 GETs return 200 after. Settings read back; PayrollRun is off+held; the PAYROLL center is listed. |
+| T098_P3_finalize_with_no_target_is_Finalized_then_pays_and_claims_settle_without_error | 098 | Readiness is no-target ready. Finalized with every posting NoTarget; PayrollPostings rows NoTarget with no error; no journal. Retry stays Finalized. Paid. Claim approve and pay are NoTarget. Finance writes return 403. |
+| T099_P3_CSV_and_XLSX_journal_export_match_the_journal_and_the_hand_figures | 099 | Export before finalize returns 409. CSV and XLSX headers are exact, their rows equal `/journal` row for row, and they match the hand figures per role. Credits sit on PAYROLL. XLSX amounts are numeric. No employee name appears. |
+| T413_E11_P2S_service_invoice_receipt_bill_payroll_expense_then_TB_and_PnL_totals | 413, E-11 | Service invoice 300,000 → receipt; supplier bill 40,000 → paid; payroll → paid; claim 5,000 → paid. TB balanced. AR, AP and payables 0; bank 146,400. P&L from the TB: profit 124,820, which equals A + L + E. |
+
+## QA (QA-49C): rows 414, 415, 417
+
+All results come from **FakeQuickBooksCompany**. None of them is a sandbox pass (D-POST-8). The tests are in `tests/SMS.Integration.Tests/Hrm/HrmQuickBooksE2ETests.cs` (LocalDB HTTP E2E, real host, GL, gateway, outbox and executor). Every GL leaf is mapped to a fake QuickBooks account of its own (`GL{code}`), so each QuickBooks line names the GL account it came from. FakeQuickBooks additions (additive only): `ExtraAccounts`, `TimeOutAfterCreateOfDocNumber`, `FailNextCreateOfDocNumber`. The fake already took JournalEntry.
+
+| # | Severity | Finding | Where | Test | State |
+|---|---|---|---|---|---|
+| QA49C-1 | HIGH | Paying a run, claim or settlement **overwrote that document's own QuickBooks JournalEntry** with the payment lines. The JE ExternalId was the bare source uuid, so the payment upserted onto the document's map: fake writes `Create PAY-2026-10, Update PAY-2026-10`. With the payment type held, the stored payload was replaced instead. A later reverse would then have reversed the payment. | `src/SMS.Modules.Integration/Gateway/JournalEntries/QuickBooksJournalEntryBuilder.cs:58,71`; payment builders `PayrollPostingBuilder.cs:104`, `ExpenseServices.cs:324`, `SettlementService.cs:304` | `T414_payroll_run_finalized_and_paid_…`, `T415_expense_claim_approved_and_paid_…` (both failed before the fix) | Fixed by REV-49 (`JournalEntryKeys`: payments `{uuid}:{DocType}`, DocNumber `{number}-P`). Re-run green. |
+| QA49C-2 | MEDIUM | A payroll over 500 summarized lines (one per role × cost center, so about 170+ centers) **never reached the internal GL**: `JOURNAL_INVALID: JE-002 An entry can have at most 500 lines`. QuickBooks split and sent it. | `src/SMS.Modules.Accounting/Services/Journals/JournalEntryWriter.cs:360`, `Domain/GlCodes.cs` JournalLimits | `T417_1200_line_payroll_…` step 4 (failed before the fix) | Fixed by REV-49 (`JournalLimits.MaxLinesFor`: gateway postings up to 20,000 lines, manual journals stay at 500). Re-run green. |
+
+What the tests prove:
+- **414.** The run is finalized with three staff on two centers. One balanced GL journal (type MISC), with every line on its HR default key's account: salary expense = gross, employer contribution = employer cost, salary payable = −net, other liabilities = deductions + employer. QuickBooks receives one JournalEntry that equals the GL account by account, with per-center salary by Class and every credit on CL-PAYROLL. No name appears in the sent or stored payload; the map is Synced; the posting log shows both targets Posted; a retry sends nothing. Pay: a second GL journal (BANK) and a separate QuickBooks JournalEntry `-P`, and the payroll entry stays unchanged.
+- **415.** Decision 389 / D-6: an HR claim is a **JournalEntry** in QuickBooks, never a Bill. Approve gives a PURCH journal: Dr per category (a role-mapped one and a code-mapped one), Cr the claim payable. QuickBooks receives a matching JE, with no Bill and no other write under that number, and no claimant name or line text. Pay gives a BANK journal and its own JE `-P`; the accrual entry stays unchanged, and the payable nets to 0.
+- **417.** 1,200 lines through the real gateway give exactly `-B1`/`-B2`. Each batch balances and is ≤ 900 lines. The debit multiset (account, Class, amount) equals the input, so no line is lost or doubled; a center's lines stay in one batch; each liability's total is exact across batches (odd cents). The maps are `:batch1`/`:batch2` with keys `hrm:PayrollRun:{id}:batchN`. Retry: no writes, and byte-identical stored payloads. Faults: batch 1 refused once before create and batch 2 timing out after create still end with each batch exactly once, Synced, and the posting log Posted. GL: one Posted journal of 1,200 lines equal to B1 + B2 per account.

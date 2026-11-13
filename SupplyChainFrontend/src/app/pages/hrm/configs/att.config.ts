@@ -41,7 +41,7 @@ export const HOLIDAYS: RecordsConfig = {
     { key: 'isEstimated', label: 'Date', kind: 'pill', value: r => r.isEstimated ? 'Estimated' : 'Confirmed' }
   ],
   form: { noun: 'Holiday', createPerm: ['HRM_SHIFT_MANAGE'], editPerm: ['HRM_SHIFT_MANAGE'], fields: [
-    { key: 'date', label: 'Date', type: 'date', required: true }, { key: 'name', label: 'Name', required: true, maxLength: 150 },
+    { key: 'date', label: 'Date', type: 'date', required: true }, { key: 'name', label: 'Name', required: true, maxLength: 100 },
     { key: 'countryCode', label: 'Country code', maxLength: 2, def: 'PK', required: true }, { key: 'branchUuid', label: 'Branch only', type: 'lookup', lookup: 'branches', hint: 'Empty applies to every branch.' }
   ] },
   remove: { perm: ['HRM_SHIFT_MANAGE'], confirm: r => `Delete ${r.name}?` }

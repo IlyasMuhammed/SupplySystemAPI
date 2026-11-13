@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "sms://onboarding/schemas/PAYMENT_TERMS.json",
+  "title": "PAYMENT_TERMS",
+  "description": "Per-org A48 EarlyPaymentTerm rows (natural key = code) + global lookups.PaymentTerms ensured by name (D-15).",
+  "type": "object",
+  "properties": {
+    "terms": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 20,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.\\-]*$"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "netDays": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 365
+          },
+          "discountPercent": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "discountDays": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 365
+          },
+          "isDefault": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "code",
+          "name",
+          "netDays",
+          "discountPercent",
+          "discountDays"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 1
+    },
+    "displayName": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 200
+    },
+    "notes": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 2000
+    }
+  },
+  "required": [
+    "terms"
+  ],
+  "additionalProperties": false
+}

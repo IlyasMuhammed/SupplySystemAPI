@@ -19,6 +19,8 @@ export interface FeatureDefinitionModel {
   description?: string;
   isCore: boolean;
   displayOrder: number;
+  /** False for modules that are listed but not built yet ("Coming soon"). */
+  isAvailable?: boolean;
 }
 
 export interface PlanFeatureTemplateItem {

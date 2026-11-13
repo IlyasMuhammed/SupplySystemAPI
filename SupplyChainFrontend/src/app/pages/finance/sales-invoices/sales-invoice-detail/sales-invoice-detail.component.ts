@@ -29,6 +29,8 @@ import { FxDifferenceComponent } from '../../../../shared/doc-currency/fx-differ
 import { DocCurrencyInfo, cachedDocCurrency, missingRateOf, sumDifferences } from '../../../../shared/doc-currency/doc-currency';
 import { FLOW, FlowSection, FlowStage, flowStagesFrom } from '../../../../shared/flow';
 import { SyncKind } from '../../../../models/quickbooks-integration.models';
+import { DocumentEmailDialogComponent, emailSentToast } from '../../../../shared/components/document-email-dialog/document-email-dialog.component';
+import { DocumentEmailResult } from '../../../../services/onboarding-templates.service';
 
 /** A44 — the other QuickBooks kinds a POS sale / a credit note may have been sent as. */
 const QBO_POS_ALSO: SyncKind[] = ['SalesReceipt'];
@@ -41,7 +43,7 @@ const QBO_CREDIT_ALSO: SyncKind[] = ['RefundReceipt'];
     CommonModule, RouterModule, FormsModule,
     TableModule, ButtonModule, TagModule, TooltipModule, ToastModule, DialogModule, CalendarModule, TextareaModule,
     AttachmentListComponent, SalesInvoicePdfDialogComponent, QboSyncBadgeComponent, DocCurrencyPanelComponent, FxDifferenceComponent,
-    ...FLOW
+    DocumentEmailDialogComponent, ...FLOW
   ],
   templateUrl: './sales-invoice-detail.component.html',
   styleUrls: ['./sales-invoice-detail.component.scss'],
@@ -158,6 +160,12 @@ export class SalesInvoiceDetailComponent implements OnInit {
   }
 
   get isCancelled(): boolean { return this.invoice?.status === 'CANCELLED'; }
+
+  // ── A50 D-26 — Email to customer (the server attaches the PDF; draft / cancelled are refused) ──
+  emailVisible = false;
+  get canEmail(): boolean { return !!this.invoice && !this.isDraft && !this.isCancelled && this.can('SALES_INVOICE_MANAGE'); }
+  onEmailSent(r: DocumentEmailResult | null): void { this.messageService.add({ ...emailSentToast(r), life: 6000 }); }
+  onEmailFailed(message: string): void { this.messageService.add({ severity: 'error', summary: 'Not sent', detail: message, life: 8000 }); }
 
   // ── A38 — POS invoices and credit notes ─────────────────────────────────────
   get isPos(): boolean { return isPosInvoice(this.invoice); }

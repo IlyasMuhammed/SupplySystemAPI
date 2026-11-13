@@ -45,6 +45,8 @@ public static class TenancyModuleExtensions
         services.AddScoped<IOrganizationCurrencySettingsService, OrganizationCurrencySettingsService>();
         services.AddScoped<OrganizationCurrencySettingsProvisioningHandler>();
         services.AddScoped<IOrganizationProvisionedHandler, OrganizationCurrencySettingsProvisioningHandler>();
+        // A50 D-50 (SEED-FIN) — the CURRENCY setup seeder's base-currency writer.
+        services.AddScoped<SMS.Shared.Onboarding.IOrganizationBaseCurrencySetter, SMS.Modules.Tenancy.Onboarding.OrganizationBaseCurrencySetter>();
         // A37 — module registry: org-admin module switches, the jobs' module gate, the daily grace expiry.
         services.AddScoped<IModuleRegistryService, ModuleRegistryService>();
         services.AddScoped<IModuleGate, ModuleGate>();

@@ -330,6 +330,7 @@ internal sealed class FinalSettlementService : LifeServiceBase, IFinalSettlement
             var (loans, advances) = await _ledger.OutstandingAsync(org, row.EmployeeId, ct);
             if (loans != row.Lines.Where(l => l.Code == LoanCode).Sum(l => l.Amount) || advances != row.Lines.Where(l => l.Code == AdvanceCode).Sum(l => l.Amount))
                 throw HrmErrors.Conflict("SETTLEMENT_STALE", "The loan balance changed since this was computed. Cancel it and compute again.");
+            await EnsureSalaryNotInPayrollAsync(org, row, ct);
             var leave = await EncashableAsync(org, row.EmployeeId, ct);
             var encashLine = row.Lines.FirstOrDefault(l => l.Code == EncashCode);
             if (encashLine?.Basis is { } days && days != leave.Sum(x => x.Days))
@@ -358,6 +359,33 @@ internal sealed class FinalSettlementService : LifeServiceBase, IFinalSettlement
 
         await ApplyAccrualAsync(caller, row, ct);
         return Map(row);
+    }
+
+    /// <summary>The days the REMSAL line pays: its basis is their count, ending on the last working day. Null without such a line.</summary>
+    internal static (DateOnly From, DateOnly To)? SalaryDays(FinalSettlement s)
+    {
+        var line = s.Lines.FirstOrDefault(l => l.Code == SalaryCode && l.Type == SalaryComponentTypes.Earning && l.Amount != 0m);
+        if (line is null) return null;
+        var days = line.Basis is { } b && b >= 1m ? (int)b : 1;
+        return (s.LastWorkingDay.AddDays(1 - days), s.LastWorkingDay);
+    }
+
+    /// <summary>
+    /// REV49-4: the settlement's remaining salary and a payroll run must never pay the same days. A run that is not cancelled or reversed and has an
+    /// unblocked line for this person over those days stops the post: a finalized one means the compute is stale, a live one that payroll is still running.
+    /// </summary>
+    private async Task EnsureSalaryNotInPayrollAsync(Guid org, FinalSettlement row, CancellationToken ct)
+    {
+        if (SalaryDays(row) is not { } days) return;
+        var dead = new[] { PayrollRunStatuses.Cancelled, PayrollRunStatuses.Reversed };
+        var run = await Db.PayrollRunLines.IgnoreQueryFilters().AsNoTracking()
+            .Where(l => l.OrganizationId == org && l.EmployeeId == row.EmployeeId && !l.IsBlocked && !dead.Contains(l.Run!.Status)
+                && l.Run.PeriodStart <= days.To && l.Run.PeriodEnd >= days.From)
+            .Select(l => new { l.Run!.RunNumber, l.Run.Status }).FirstOrDefaultAsync(ct);
+        if (run is null) return;
+        if (run.Status is PayrollRunStatuses.Finalized or PayrollRunStatuses.Posted or PayrollRunStatuses.Paid)
+            throw HrmErrors.Conflict("SETTLEMENT_STALE", $"Payroll run {run.RunNumber} has paid part of the salary on this settlement. Cancel it and compute again.");
+        throw HrmErrors.Conflict("SETTLEMENT_PAYROLL_IN_PROGRESS", $"Payroll run {run.RunNumber} ({run.Status}) also pays this person for these days. Recalculate it (the line is then blocked) or cancel it, then post.");
     }
 
     private async Task ApplyAccrualAsync(HrmCaller caller, FinalSettlement row, CancellationToken ct)

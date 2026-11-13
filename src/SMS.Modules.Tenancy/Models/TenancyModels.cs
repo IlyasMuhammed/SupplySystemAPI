@@ -19,6 +19,13 @@ public class CreateOrganizationRequest
     public string AdminFirstName { get; set; } = string.Empty;
     public string AdminLastName { get; set; } = string.Empty;
     public string AdminEmail { get; set; } = string.Empty;
+
+    /// <summary>
+    /// The modules to license at creation. Null = the plan's defaults (the old behaviour); a list (even an empty one)
+    /// licenses exactly those modules, what they depend on, and the always-on core — so an empty list leaves an
+    /// organization whose admin can only manage users.
+    /// </summary>
+    public List<string>? ModuleCodes { get; set; }
 }
 
 public class CreateOrganizationResult
@@ -190,6 +197,8 @@ public class FeatureDefinitionModel
     public string? Description { get; set; }
     public bool IsCore { get; set; }
     public int DisplayOrder { get; set; }
+    /// <summary>False for catalog entries that are listed but not built ("Coming soon").</summary>
+    public bool IsAvailable { get; set; } = true;
 }
 
 // Merged catalog + one org's toggle state — backs the feature-management screen.

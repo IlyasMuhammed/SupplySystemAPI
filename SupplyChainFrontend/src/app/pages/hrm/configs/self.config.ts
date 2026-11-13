@@ -107,6 +107,7 @@ export const MY_TAX_CERTS: RecordsConfig = {
 
 export const EMPLOYEES: RecordsConfig = {
   id: 'employees', crumbs: ['HR', 'Employees'], title: 'Employees', sub: 'Only the people in your HR scope. Identity numbers are always masked here.', listPath: 'hrm/employees', empty: 'No employees found.',
+  bodySearch: { path: 'hrm/employees/search', keys: ['cnic'] },
   chips: { key: 'status', options: ENUMS.employeeStatus },
   filters: [
     { key: 'search', label: 'Search name, number, email', type: 'search' },
@@ -124,12 +125,12 @@ export const STRUCTURES: RecordsConfig = {
   id: 'structures', crumbs: ['HR', 'Payroll', 'Salary structures'], title: 'Salary structures', sub: 'Which components, in which order. An employee is assigned one structure with amounts.', listPath: 'hrm/salary-structures', empty: 'No structures yet.',
   columns: [{ key: 'code', label: 'Code', kind: 'mono' }, { key: 'name', label: 'Name', sub: r => r.description }, { key: 'lines', label: 'Components', value: r => (r.lines ?? []).map((l: any) => l.componentCode).join(', ') }, { key: 'isDefault', label: 'Default', kind: 'bool' }, { key: 'isActive', label: 'Status', kind: 'pill', value: r => r.isActive ? 'Active' : 'Inactive' }],
   form: { noun: 'Structure', createPerm: ['HRM_PAYROLL_CONFIG'], editPerm: ['HRM_PAYROLL_CONFIG'], load: r => `hrm/salary-structures/${r.uuid}`, wide: true, fields: [
-    { key: 'code', label: 'Code', required: true, maxLength: 30 }, { key: 'name', label: 'Name', required: true, maxLength: 100 }, { key: 'description', label: 'Description', type: 'textarea', maxLength: 500 }, { key: 'isDefault', label: 'Default structure', type: 'bool' },
+    { key: 'code', label: 'Code', required: true, maxLength: 20 }, { key: 'name', label: 'Name', required: true, maxLength: 100 }, { key: 'description', label: 'Description', type: 'textarea', maxLength: 500 }, { key: 'isDefault', label: 'Default structure', type: 'bool' },
     { key: 'lines', label: 'Components', type: 'rows', required: true, rows: [
       { key: 'componentUuid', label: 'Component', type: 'lookup', lookup: 'components', required: true }, { key: 'sequence', label: 'Order', type: 'number', required: true, step: 1, def: 10 }, { key: 'formulaOverride', label: 'Formula override', maxLength: 500 }, { key: 'valueOverride', label: 'Value override', type: 'number' }
     ] }
   ] },
-  active: { perm: ['HRM_PAYROLL_CONFIG'] }
+  active: { perm: ['HRM_PAYROLL_CONFIG'], clientSide: true }
 };
 
 const MAP_EDIT = ['INTEGRATION_MANAGE', 'HRM_ACCOUNT_MAPPING_EDIT'];

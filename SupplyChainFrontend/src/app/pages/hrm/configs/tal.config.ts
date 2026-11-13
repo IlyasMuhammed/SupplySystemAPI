@@ -27,7 +27,7 @@ export const VACANCIES: RecordsConfig = {
 };
 
 export const CANDIDATE_FIELDS: Field[] = [
-  { key: 'firstName', label: 'First name', required: true, maxLength: 100 }, { key: 'lastName', label: 'Last name', maxLength: 100 }, { key: 'email', label: 'Email', maxLength: 200 }, { key: 'phone', label: 'Phone', maxLength: 30 },
+  { key: 'firstName', label: 'First name', required: true, maxLength: 60 }, { key: 'lastName', label: 'Last name', required: true, maxLength: 60 }, { key: 'email', label: 'Email', maxLength: 200 }, { key: 'phone', label: 'Phone', maxLength: 30 },
   { key: 'source', label: 'Source', maxLength: 100 }, { key: 'notes', label: 'Notes', type: 'textarea', maxLength: 2000 },
   { key: 'force', label: 'Save even if the email or phone matches another candidate', type: 'bool', hint: 'Only after the duplicate warning.' }
 ];
@@ -77,7 +77,9 @@ export const COURSES: RecordsConfig = {
     { key: 'isActive', label: 'Status', kind: 'pill', value: r => r.isActive ? 'Active' : 'Inactive' }
   ],
   form: { noun: 'Course', createPerm: TRAIN, editPerm: TRAIN, fields: [
-    { key: 'code', label: 'Code', required: true, maxLength: 20 }, { key: 'name', label: 'Name', required: true, maxLength: 150 }, { key: 'provider', label: 'Provider', maxLength: 150 }, { key: 'durationHours', label: 'Hours', type: 'number', min: 0 }, { key: 'cost', label: 'Cost', type: 'number', min: 0 }, { key: 'description', label: 'Description', type: 'textarea', maxLength: 1000 }
+    { key: 'code', label: 'Code', required: true, maxLength: 20 }, { key: 'name', label: 'Name', required: true, maxLength: 150 }, { key: 'provider', label: 'Provider', maxLength: 150 }, { key: 'durationHours', label: 'Hours', type: 'number', min: 0 }, { key: 'cost', label: 'Cost', type: 'number', min: 0 }, { key: 'description', label: 'Description', type: 'textarea', maxLength: 1000 },
+    // REV49B-12: no PATCH .../active for courses; CourseUpsert.isActive is the switch (PUT; null keeps it).
+    { key: 'isActive', label: 'Active', type: 'bool', def: true }
   ] },
   actions: [{ id: 'enroll', label: 'Enroll', icon: 'pi pi-user-plus', perm: TRAIN, when: r => r.isActive !== false, path: () => 'hrm/enrollments', done: 'Enrolled.', fields: [employee, { key: 'enrolledDate', label: 'Enrolled on', type: 'date', required: true, def: today() }], body: (r, v) => ({ ...v, courseUuid: r.uuid }) }]
 };

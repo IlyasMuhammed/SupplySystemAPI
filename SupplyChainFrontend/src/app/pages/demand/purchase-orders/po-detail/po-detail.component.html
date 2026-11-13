@@ -34,6 +34,8 @@
 
     <p-button label="Download PDF" icon="pi pi-file-pdf" [text]="true"
               [loading]="isDownloadingPdf" (onClick)="downloadPdf()"></p-button>
+    <p-button *ngIf="canEmail" label="Email to supplier" icon="pi pi-envelope" [text]="true"
+              (onClick)="emailVisible = true" data-testid="action-email"></p-button>
     <p-button label="Timeline" icon="pi pi-history" [text]="true"
               pTooltip="View Timeline" (onClick)="showTimeline = true"></p-button>
 
@@ -268,6 +270,11 @@
     </ng-container>
   </sf-panel>
 </sf-page>
+
+<!-- A50 D-26 — email the PO PDF to the supplier -->
+<app-document-email-dialog *ngIf="canEmail" [(visible)]="emailVisible" kind="PurchaseOrder" [uuid]="uuid"
+                           [documentLabel]="'purchase order ' + (po?.poNumber ?? '')" partyLabel="supplier"
+                           (sent)="onEmailSent($event)" (failed)="onEmailFailed($event)"></app-document-email-dialog>
 
 <!-- ── Send to Supplier dialog ────────────────────────────────────────────── -->
 <p-dialog [(visible)]="showSendDialog" [modal]="true" [style]="{width:'480px'}"

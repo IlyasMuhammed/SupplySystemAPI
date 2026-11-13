@@ -29,7 +29,10 @@ internal static partial class ArApRegistration
             sp.GetRequiredService<FinanceDbContext>(),
             sp.GetRequiredService<ArApReportingService>(),
             sp.GetService<IEmailSender>(),
-            sp.GetService<IPoDocumentTemplateService>()));
+            sp.GetService<IPoDocumentTemplateService>(),
+            // A50 (D-25) — the CustomerStatement template; null in hosts without Onboarding (the pre-A50 PDF).
+            sp.GetService<SMS.Shared.Onboarding.IDocumentBrandingProvider>(),
+            sp.GetService<SMS.Shared.Onboarding.ITemplatedDocumentRenderer>()));
         services.AddScoped<IStatementService>(sp => sp.GetRequiredService<StatementService>());
         services.AddScoped<IVendorReconciliationService>(sp => sp.GetRequiredService<StatementService>());
     }

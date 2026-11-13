@@ -740,15 +740,18 @@ internal sealed class LeaveService : HrmServiceBase, ILeaveService
         }
 
         // The engine has its own context, so this cannot share the transaction. It is last: if it refuses, the request is taken back.
+        // The request row is already saved, so this step runs to the end even if the caller disconnects (a slow call that the browser
+        // gave up on used to leave a Pending request with no approval, which nobody could approve). `ct` only guards the work above.
+        var finish = CancellationToken.None;
         try
         {
-            row.ApprovalUuid = await _approvals.SubmitAsync(caller, HrmWorkflowCodes.LeaveRequest, row.Uuid, row.RequestNumber, employee.Id, PermissionCodes.HRM_LEAVE_APPROVE, days, ct);
-            await SaveAsync(ct, "This leave request");
+            row.ApprovalUuid = await _approvals.SubmitAsync(caller, HrmWorkflowCodes.LeaveRequest, row.Uuid, row.RequestNumber, employee.Id, PermissionCodes.HRM_LEAVE_APPROVE, days, finish);
+            await SaveAsync(finish, "This leave request");
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        catch (Exception)
         {
             Db.LeaveRequests.Remove(row);
-            await Db.SaveChangesAsync(ct);
+            await Db.SaveChangesAsync(finish);
             throw;
         }
         return await GetRequestModelAsync(org, row.Uuid, ct);

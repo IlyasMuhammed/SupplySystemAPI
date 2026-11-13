@@ -8,6 +8,7 @@ import { TenantService } from '../../pages/service/tenant.service';
 import { ModuleService } from '../../services/module.service';
 import { AccountingService } from '../../services/accounting.service';
 import { hrmMenuGroup, HRM_ROUTE } from '../../pages/hrm/core/hrm.nav';
+import { organizationSettingsGroup } from '../../pages/onboarding/onboarding.nav';
 import {
     AP_READ, ARAP_SETTINGS_READ, AR_READ, CREDIT_MEMO_READ, CREDIT_READ, DEBIT_MEMO_READ, DUNNING_PROCEDURE_READ, DUNNING_RUN_READ, MATCH_READ, PAYMENT_RUN_READ, SCHEDULE_READ,
     STATEMENT_READ, VENDOR_STATEMENT_READ
@@ -891,6 +892,8 @@ export class AppMenu {
                     label: 'Settings',
                     icon: 'pi pi-fw pi-cog',
                     items: [
+                        // A50 D-29 — Settings › Organization (one shared definition: pages/onboarding/onboarding.nav.ts).
+                        organizationSettingsGroup(),
                         {
                             label: 'Sales & Fulfilment',
                             icon: 'pi pi-fw pi-shopping-bag',
@@ -1039,7 +1042,10 @@ export class AppMenu {
                   routerLink: ['/portal/pages/organizations'] },
                 // docs/quickbooks/APP-CREDENTIALS.md — the platform's Intuit app keys.
                 { label: 'QuickBooks App', icon: 'pi pi-fw pi-key',
-                  routerLink: ['/portal/pages/system/quickbooks-app'] }
+                  routerLink: ['/portal/pages/system/quickbooks-app'] },
+                // A50 — the setup wizard's master defaults (country × industry × category).
+                { label: 'Setup Defaults', icon: 'pi pi-fw pi-clone',
+                  routerLink: ['/portal/pages/system/setup-defaults'] }
             ]
         }
     ];
@@ -1052,7 +1058,11 @@ export class AppMenu {
         // (fully-open or fully-closed) sidebar while it's in flight.
         if (!tenant) return [];
 
-        return this.withGlState(this.filterItems(this.fullMenu, {
+        // The platform super admin manages tenants only (organizations, their features, platform settings); the
+        // organization menus belong to the organizations' own users, so they are not shown here.
+        const menu = tenant.isSuperAdmin ? this.fullMenu.filter(item => item.superAdminOnly) : this.fullMenu;
+
+        return this.withGlState(this.filterItems(menu, {
             isSuperAdmin: tenant.isSuperAdmin
         }));
     });
@@ -1084,8 +1094,8 @@ export class AppMenu {
         for (const item of items) {
             if (item.separator) { result.push(item); continue; }
 
-            // Super Admin is outside org scope: sees every non-superAdminOnly item unfiltered, plus
-            // the superAdminOnly System Administration group. Everyone else never sees that group.
+            // Super Admin sees only the superAdminOnly System Administration group (model() drops the rest
+            // before this runs). Everyone else never sees that group.
             if (item.superAdminOnly) {
                 if (!ctx.isSuperAdmin) continue;
             } else if (!ctx.isSuperAdmin) {

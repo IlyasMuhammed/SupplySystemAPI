@@ -1,0 +1,40 @@
+{
+  "terms": [
+    {
+      "code": "COD",
+      "name": "Cash on Delivery",
+      "netDays": 0,
+      "discountPercent": 0,
+      "discountDays": 0
+    },
+    {
+      "code": "NET15",
+      "name": "Net 15",
+      "netDays": 15,
+      "discountPercent": 0,
+      "discountDays": 0
+    },
+    {
+      "code": "NET30",
+      "name": "Net 30",
+      "netDays": 30,
+      "discountPercent": 0,
+      "discountDays": 0,
+      "isDefault": true
+    },
+    {
+      "code": "NET60",
+      "name": "Net 60",
+      "netDays": 60,
+      "discountPercent": 0,
+      "discountDays": 0
+    },
+    {
+      "code": "2_10_NET30",
+      "name": "2/10 Net 30",
+      "netDays": 30,
+      "discountPercent": 2,
+      "discountDays": 10
+    }
+  ]
+}

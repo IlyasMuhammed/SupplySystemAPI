@@ -1,0 +1,1051 @@
+{
+  "template_code": "PK_GENERAL",
+  "template_name": "Pakistan — General Business",
+  "country_code": "PAK",
+  "currency_code": "PKR",
+  "version": "1.0",
+  "accounts": [
+    {
+      "code": "1",
+      "name": "Assets",
+      "root_type": "Asset",
+      "level": 1,
+      "is_group": true,
+      "children": [
+        {
+          "code": "11",
+          "name": "Current Assets",
+          "root_type": "Asset",
+          "level": 2,
+          "is_group": true,
+          "children": [
+            {
+              "code": "111",
+              "name": "Cash and Bank Balances",
+              "root_type": "Asset",
+              "level": 3,
+              "is_group": true,
+              "children": [
+                {
+                  "code": "1111",
+                  "name": "Petty Cash",
+                  "root_type": "Asset",
+                  "level": 4,
+                  "is_group": false,
+                  "account_type": "Cash",
+                  "description": "Small cash float for minor day-to-day expenses.",
+                  "children": []
+                },
+                {
+                  "code": "1112",
+                  "name": "Cash in Hand",
+                  "root_type": "Asset",
+                  "level": 4,
+                  "is_group": false,
+                  "account_type": "Cash",
+                  "description": "Cash held at the office or shop.",
+                  "is_default_account": true,
+                  "default_account_key": "DEFAULT_CASH",
+                  "children": []
+                },
+                {
+                  "code": "1113",
+                  "name": "Cash at Bank — Current Account",
+                  "root_type": "Asset",
+                  "level": 4,
+                  "is_group": false,
+                  "account_type": "Bank",
+                  "description": "Main operating current account.",
+                  "is_default_account": true,
+                  "default_account_key": "DEFAULT_BANK",
+                  "children": []
+                },
+                {
+                  "code": "1114",
+                  "name": "Cash at Bank — PLS Saving Account",
+                  "root_type": "Asset",
+                  "level": 4,
+                  "is_group": false,
+                  "account_type": "Bank",
+                  "children": []
+                }
+              ]
+            },
+            {
+              "code": "112",
+              "name": "Trade Debts and Receivables",
+              "root_type": "Asset",
+              "level": 3,
+              "is_group": true,
+              "children": [
+                {
+                  "code": "1121",
+                  "name": "Accounts Receivable — Trade Debts",
+                  "root_type": "Asset",
+                  "level": 4,
+                  "is_group": false,
+                  "account_type": "Receivable",
+                  "description": "Amounts owed by customers for goods and services sold on credit.",
+                  "is_default_account": true,
+                  "default_account_key": "DEFAULT_RECEIVABLE",
+                  "children": []
+                },
+                {
+                  "code": "1123",
+                  "name": "Advances to Employees",
+                  "root_type": "Asset",
+                  "level": 4,
+                  "is_group": false,
+                  "account_type": "OtherCurrentAsset",
+                  "children": []
+                },
+                {
+                  "code": "1124",
+                  "name": "Advances to Suppliers",
+                  "root_type": "Asset",
+                  "level": 4,
+                  "is_group": false,
+                  "account_type": "OtherCurrentAsset",
+                  "children": []
+                }
+              ]
+            },
+            {
+              "code": "113",
+              "name": "Stock-in-Trade",
+              "root_type": "Asset",
+              "level": 3,
+              "is_group": true,
+              "children": [
+                {
+                  "code": "1131",
+                  "name": "Raw Materials",
+                  "root_type": "Asset",
+                  "level": 4,
+                  "is_group": false,
+                  "account_type": "OtherCurrentAsset",
+                  "children": []
+                },
+                {
+                  "code": "1132",
+                  "name": "Finished Goods",
+                  "root_type": "Asset",
+                  "level": 4,
+                  "is_group": false,
+                  "account_type": "OtherCurrentAsset",
+                  "children": []
+                },
+                {
+                  "code": "1133",
+                  "name": "Stock-in-Trade — Traded Goods",
+                  "root_type": "Asset",
+                  "level": 4,
+                  "is_group": false,
+                  "account_type": "OtherCurrentAsset",
+                  "description": "Goods bought for resale; default stock account.",
+                  "is_default_account": true,
+                  "default_account_key": "DEFAULT_INVENTORY",
+                  "children": []
+                }
+              ]
+            },
+            {
+              "code": "114",
+              "name": "Tax Refunds, Advances and Prepayments",
+              "root_type": "Asset",
+              "level": 3,
+              "is_group": true,
+              "children": [
+                {
+                  "code": "1141",
+                  "name": "Sales Tax Refundable — Input Tax",
+                  "root_type": "Asset",
+                  "level": 4,
+                  "is_group": false,
+                  "account_type": "Tax",
+                  "description": "Input sales tax paid on purchases, adjustable against output tax in the FBR return.",
+                  "is_default_account": true,
+                  "default_account_key": "DEFAULT_TAX_RECEIVABLE",
+                  "children": []
+                },
+                {
+                  "code": "1142",
+                  "name": "Advance Income Tax",
+                  "root_type": "Asset",
+                  "level": 4,
+                  "is_group": false,
+                  "account_type": "Tax",
+                  "description": "Income tax paid in advance or withheld at source (e.g. on imports, utility bills, bank cash withdrawals), adjustable against the final liability.",
+                  "children": []
+                },
+                {
+                  "code": "1143",
+                  "name": "Prepayments",
+                  "root_type": "Asset",
+                  "level": 4,
+                  "is_group": false,
+                  "account_type": "OtherCurrentAsset",
+                  "children": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": "12",
+          "name": "Non-Current Assets",
+          "root_type": "Asset",
+          "level": 2,
+          "is_group": true,
+          "children": [
+            {
+              "code": "121",
+              "name": "Property, Plant and Equipment",
+              "root_type": "Asset",
+              "level": 3,
+              "is_group": true,
+              "children": [
+                {
+                  "code": "1211",
+                  "name": "Freehold Land",
+                  "root_type": "Asset",
+                  "level": 4,
+                  "is_group": false,
+                  "account_type": "FixedAsset",
+                  "children": []
+                },
+                {
+                  "code": "1212",
+                  "name": "Buildings",
+                  "root_type": "Asset",
+                  "level": 4,
+                  "is_group": false,
+                  "account_type": "FixedAsset",
+                  "children": []
+                },
+                {
+                  "code": "1213",
+                  "name": "Plant and Machinery",
+                  "root_type": "Asset",
+                  "level": 4,
+                  "is_group": false,
+                  "account_type": "FixedAsset",
+                  "children": []
+                },
+                {
+                  "code": "1214",
+                  "name": "Furniture and Fixtures",
+                  "root_type": "Asset",
+                  "level": 4,
+                  "is_group": false,
+                  "account_type": "FixedAsset",
+                  "children": []
+                },
+                {
+                  "code": "1215",
+                  "name": "Vehicles",
+                  "root_type": "Asset",
+                  "level": 4,
+                  "is_group": false,
+                  "account_type": "FixedAsset",
+                  "children": []
+                },
+                {
+                  "code": "1216",
+                  "name": "Office Equipment and Computers",
+                  "root_type": "Asset",
+                  "level": 4,
+                  "is_group": false,
+                  "account_type": "FixedAsset",
+                  "children": []
+                }
+              ]
+            },
+            {
+              "code": "122",
+              "name": "Accumulated Depreciation",
+              "root_type": "Asset",
+              "level": 3,
+              "is_group": true,
+              "children": [
+                {
+                  "code": "1221",
+                  "name": "Accumulated Depreciation — Buildings",
+                  "root_type": "Asset",
+                  "level": 4,
+                  "is_group": false,
+                  "account_type": "AccumulatedDepreciation",
+                  "children": []
+                },
+                {
+                  "code": "1222",
+                  "name": "Accumulated Depreciation — Plant and Machinery",
+                  "root_type": "Asset",
+                  "level": 4,
+                  "is_group": false,
+                  "account_type": "AccumulatedDepreciation",
+                  "children": []
+                },
+                {
+                  "code": "1223",
+                  "name": "Accumulated Depreciation — Furniture, Vehicles and Equipment",
+                  "root_type": "Asset",
+                  "level": 4,
+                  "is_group": false,
+                  "account_type": "AccumulatedDepreciation",
+                  "children": []
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "code": "2",
+      "name": "Liabilities",
+      "root_type": "Liability",
+      "level": 1,
+      "is_group": true,
+      "children": [
+        {
+          "code": "21",
+          "name": "Current Liabilities",
+          "root_type": "Liability",
+          "level": 2,
+          "is_group": true,
+          "children": [
+            {
+              "code": "211",
+              "name": "Trade and Other Payables",
+              "root_type": "Liability",
+              "level": 3,
+              "is_group": true,
+              "children": [
+                {
+                  "code": "2111",
+                  "name": "Accounts Payable — Trade",
+                  "root_type": "Liability",
+                  "level": 4,
+                  "is_group": false,
+                  "account_type": "Payable",
+                  "description": "Amounts owed to suppliers for goods and services bought on credit.",
+                  "is_default_account": true,
+                  "default_account_key": "DEFAULT_PAYABLE",
+                  "children": []
+                },
+                {
+                  "code": "2112",
+                  "name": "Accrued Liabilities",
+                  "root_type": "Liability",
+                  "level": 4,
+                  "is_group": false,
+                  "account_type": "OtherCurrentLiability",
+                  "children": []
+                },
+                {
+                  "code": "2113",
+                  "name": "Advances from Customers",
+                  "root_type": "Liability",
+                  "level": 4,
+                  "is_group": false,
+                  "account_type": "OtherCurrentLiability",
+                  "children": []
+                },
+                {
+                  "code": "2114",
+                  "name": "Salaries and Wages Payable",
+                  "root_type": "Liability",
+                  "level": 4,
+                  "is_group": false,
+                  "account_type": "OtherCurrentLiability",
+                  "children": []
+                }
+              ]
+            },
+            {
+              "code": "212",
+              "name": "Taxes Payable",
+              "root_type": "Liability",
+              "level": 3,
+              "is_group": true,
+              "children": [
+                {
+                  "code": "2121",
+                  "name": "Sales Tax Payable — FBR",
+                  "root_type": "Liability",
+                  "level": 4,
+                  "is_group": false,
+                  "account_type": "Tax",
+                  "description": "Output sales tax on goods charged to customers, payable to FBR.",
+                  "is_default_account": true,
+                  "default_account_key": "DEFAULT_TAX_PAYABLE",
+                  "children": []
+                },
+                {
+                  "code": "2122",
+                  "name": "Sales Tax on Services Payable — Provincial (SRB / PRA / KPRA / BRA)",
+                  "root_type": "Liability",
+                  "level": 4,
+                  "is_group": false,
+                  "account_type": "Tax",
+                  "children": []
+                },
+                {
+                  "code": "2123",
+                  "name": "Withholding Income Tax Payable",
+                  "root_type": "Liability",
+                  "level": 4,
+                  "is_group": false,
+                  "account_type": "Tax",
+                  "description": "Income tax deducted from suppliers, employees and others, payable to FBR.",
+                  "children": []
+                },
+                {
+                  "code": "2124",
+                  "name": "Income Tax Payable",
+                  "root_type": "Liability",
+                  "level": 4,
+                  "is_group": false,
+                  "account_type": "Tax",
+                  "children": []
+                }
+              ]
+            },
+            {
+              "code": "213",
+              "name": "Employee Statutory Liabilities",
+              "root_type": "Liability",
+              "level": 3,
+              "is_group": true,
+              "children": [
+                {
+                  "code": "2131",
+                  "name": "EOBI Payable",
+                  "root_type": "Liability",
+                  "level": 4,
+                  "is_group": false,
+                  "account_type": "OtherCurrentLiability",
+                  "children": []
+                },
+                {
+                  "code": "2132",
+                  "name": "Social Security Contribution Payable (PESSI / SESSI)",
+                  "root_type": "Liability",
+                  "level": 4,
+                  "is_group": false,
+                  "account_type": "OtherCurrentLiability",
+                  "children": []
+                },
+                {
+                  "code": "2133",
+                  "name": "Workers' Profit Participation Fund Payable",
+                  "root_type": "Liability",
+                  "level": 4,
+                  "is_group": false,
+                  "account_type": "OtherCurrentLiability",
+                  "children": []
+                }
+              ]
+            },
+            {
+              "code": "214",
+              "name": "Short-Term Borrowings",
+              "root_type": "Liability",
+              "level": 3,
+              "is_group": true,
+              "children": [
+                {
+                  "code": "2141",
+                  "name": "Running Finance",
+                  "root_type": "Liability",
+                  "level": 4,
+                  "is_group": false,
+                  "account_type": "OtherCurrentLiability",
+                  "children": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": "22",
+          "name": "Non-Current Liabilities",
+          "root_type": "Liability",
+          "level": 2,
+          "is_group": true,
+          "children": [
+            {
+              "code": "221",
+              "name": "Long-Term Financing",
+              "root_type": "Liability",
+              "level": 3,
+              "is_group": true,
+              "children": [
+                {
+                  "code": "2211",
+                  "name": "Long-Term Loans from Banks",
+                  "root_type": "Liability",
+                  "level": 4,
+                  "is_group": false,
+                  "account_type": "LongTermLiability",
+                  "children": []
+                },
+                {
+                  "code": "2212",
+                  "name": "Loans from Directors",
+                  "root_type": "Liability",
+                  "level": 4,
+                  "is_group": false,
+                  "account_type": "LongTermLiability",
+                  "children": []
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "code": "3",
+      "name": "Equity",
+      "root_type": "Equity",
+      "level": 1,
+      "is_group": true,
+      "children": [
+        {
+          "code": "31",
+          "name": "Owner's Equity",
+          "root_type": "Equity",
+          "level": 2,
+          "is_group": true,
+          "children": [
+            {
+              "code": "310",
+              "name": "Capital",
+              "root_type": "Equity",
+              "level": 3,
+              "is_group": true,
+              "children": [
+                {
+                  "code": "3100",
+                  "name": "Owner's Capital / Paid-up Share Capital",
+                  "root_type": "Equity",
+                  "level": 4,
+                  "is_group": false,
+                  "account_type": "Equity",
+                  "description": "Capital contributed by the owners or shareholders.",
+                  "children": []
+                },
+                {
+                  "code": "3101",
+                  "name": "Drawings",
+                  "root_type": "Equity",
+                  "level": 4,
+                  "is_group": false,
+                  "account_type": "Equity",
+                  "children": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": "32",
+          "name": "Retained Earnings",
+          "root_type": "Equity",
+          "level": 2,
+          "is_group": true,
+          "children": [
+            {
+              "code": "320",
+              "name": "Retained Earnings",
+              "root_type": "Equity",
+              "level": 3,
+              "is_group": true,
+              "children": [
+                {
+                  "code": "3200",
+                  "name": "Retained Earnings — Unappropriated Profit",
+                  "root_type": "Equity",
+                  "level": 4,
+                  "is_group": false,
+                  "account_type": "Equity",
+                  "description": "Accumulated profits and losses of prior years; the year-end close posts here.",
+                  "is_default_account": true,
+                  "default_account_key": "DEFAULT_RETAINED_EARNINGS",
+                  "children": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": "39",
+          "name": "Opening Balances",
+          "root_type": "Equity",
+          "level": 2,
+          "is_group": true,
+          "children": [
+            {
+              "code": "390",
+              "name": "Opening Balance Equity",
+              "root_type": "Equity",
+              "level": 3,
+              "is_group": true,
+              "children": [
+                {
+                  "code": "3900",
+                  "name": "Opening Balance Equity",
+                  "root_type": "Equity",
+                  "level": 4,
+                  "is_group": false,
+                  "account_type": "Equity",
+                  "description": "System account. Balancing plug for opening balances entered at go-live; should be cleared to capital or retained earnings.",
+                  "is_default_account": true,
+                  "default_account_key": "DEFAULT_OPENING_BALANCE",
+                  "children": []
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "code": "4",
+      "name": "Revenue",
+      "root_type": "Revenue",
+      "level": 1,
+      "is_group": true,
+      "children": [
+        {
+          "code": "41",
+          "name": "Revenue from Sales",
+          "root_type": "Revenue",
+          "level": 2,
+          "is_group": true,
+          "children": [
+            {
+              "code": "411",
+              "name": "Sales",
+              "root_type": "Revenue",
+              "level": 3,
+              "is_group": true,
+              "children": [
+                {
+                  "code": "4111",
+                  "name": "Sales — Local",
+                  "root_type": "Revenue",
+                  "level": 4,
+                  "is_group": false,
+                  "account_type": "Revenue",
+                  "description": "Revenue from local sales of goods, net of sales tax.",
+                  "is_default_account": true,
+                  "default_account_key": "DEFAULT_REVENUE",
+                  "children": []
+                },
+                {
+                  "code": "4112",
+                  "name": "Sales — Export",
+                  "root_type": "Revenue",
+                  "level": 4,
+                  "is_group": false,
+                  "account_type": "Revenue",
+                  "children": []
+                },
+                {
+                  "code": "4113",
+                  "name": "Service Revenue",
+                  "root_type": "Revenue",
+                  "level": 4,
+                  "is_group": false,
+                  "account_type": "Revenue",
+                  "children": []
+                },
+                {
+                  "code": "4114",
+                  "name": "Sales Returns",
+                  "root_type": "Revenue",
+                  "level": 4,
+                  "is_group": false,
+                  "account_type": "Revenue",
+                  "children": []
+                },
+                {
+                  "code": "4115",
+                  "name": "Trade Discounts Allowed",
+                  "root_type": "Revenue",
+                  "level": 4,
+                  "is_group": false,
+                  "account_type": "Revenue",
+                  "description": "Discounts given to customers (contra revenue).",
+                  "is_default_account": true,
+                  "default_account_key": "DEFAULT_DISCOUNT_GIVEN",
+                  "children": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": "42",
+          "name": "Other Income",
+          "root_type": "Revenue",
+          "level": 2,
+          "is_group": true,
+          "children": [
+            {
+              "code": "421",
+              "name": "Other Income",
+              "root_type": "Revenue",
+              "level": 3,
+              "is_group": true,
+              "children": [
+                {
+                  "code": "4211",
+                  "name": "Discounts Received",
+                  "root_type": "Revenue",
+                  "level": 4,
+                  "is_group": false,
+                  "account_type": "OtherIncome",
+                  "description": "Discounts received from suppliers.",
+                  "is_default_account": true,
+                  "default_account_key": "DEFAULT_DISCOUNT_RECEIVED",
+                  "children": []
+                },
+                {
+                  "code": "4212",
+                  "name": "Exchange Gain or Loss",
+                  "root_type": "Revenue",
+                  "level": 4,
+                  "is_group": false,
+                  "account_type": "OtherIncome",
+                  "description": "Realised and unrealised foreign exchange differences.",
+                  "is_default_account": true,
+                  "default_account_key": "DEFAULT_EXCHANGE_GAIN_LOSS",
+                  "children": []
+                },
+                {
+                  "code": "4213",
+                  "name": "Profit on Bank Deposits",
+                  "root_type": "Revenue",
+                  "level": 4,
+                  "is_group": false,
+                  "account_type": "OtherIncome",
+                  "children": []
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "code": "5",
+      "name": "Expenses",
+      "root_type": "Expense",
+      "level": 1,
+      "is_group": true,
+      "children": [
+        {
+          "code": "51",
+          "name": "Cost of Sales",
+          "root_type": "Expense",
+          "level": 2,
+          "is_group": true,
+          "children": [
+            {
+              "code": "511",
+              "name": "Cost of Sales",
+              "root_type": "Expense",
+              "level": 3,
+              "is_group": true,
+              "children": [
+                {
+                  "code": "5111",
+                  "name": "Cost of Goods Sold",
+                  "root_type": "Expense",
+                  "level": 4,
+                  "is_group": false,
+                  "account_type": "CostOfGoodsSold",
+                  "description": "Cost of stock sold.",
+                  "is_default_account": true,
+                  "default_account_key": "DEFAULT_COGS",
+                  "children": []
+                },
+                {
+                  "code": "5112",
+                  "name": "Purchases",
+                  "root_type": "Expense",
+                  "level": 4,
+                  "is_group": false,
+                  "account_type": "Expense",
+                  "description": "Purchases of goods and services not held as stock.",
+                  "is_default_account": true,
+                  "default_account_key": "DEFAULT_PURCHASE",
+                  "children": []
+                },
+                {
+                  "code": "5113",
+                  "name": "Carriage Inward and Freight",
+                  "root_type": "Expense",
+                  "level": 4,
+                  "is_group": false,
+                  "account_type": "CostOfGoodsSold",
+                  "children": []
+                },
+                {
+                  "code": "5114",
+                  "name": "Customs Duty and Clearing Charges",
+                  "root_type": "Expense",
+                  "level": 4,
+                  "is_group": false,
+                  "account_type": "CostOfGoodsSold",
+                  "children": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": "52",
+          "name": "Administrative and Selling Expenses",
+          "root_type": "Expense",
+          "level": 2,
+          "is_group": true,
+          "children": [
+            {
+              "code": "521",
+              "name": "Staff Costs",
+              "root_type": "Expense",
+              "level": 3,
+              "is_group": true,
+              "children": [
+                {
+                  "code": "5211",
+                  "name": "Salaries, Wages and Benefits",
+                  "root_type": "Expense",
+                  "level": 4,
+                  "is_group": false,
+                  "account_type": "Expense",
+                  "children": []
+                },
+                {
+                  "code": "5212",
+                  "name": "EOBI Contribution — Employer",
+                  "root_type": "Expense",
+                  "level": 4,
+                  "is_group": false,
+                  "account_type": "Expense",
+                  "children": []
+                },
+                {
+                  "code": "5213",
+                  "name": "Social Security Contribution — Employer",
+                  "root_type": "Expense",
+                  "level": 4,
+                  "is_group": false,
+                  "account_type": "Expense",
+                  "children": []
+                }
+              ]
+            },
+            {
+              "code": "522",
+              "name": "Premises Costs",
+              "root_type": "Expense",
+              "level": 3,
+              "is_group": true,
+              "children": [
+                {
+                  "code": "5221",
+                  "name": "Rent, Rates and Taxes",
+                  "root_type": "Expense",
+                  "level": 4,
+                  "is_group": false,
+                  "account_type": "Expense",
+                  "children": []
+                },
+                {
+                  "code": "5222",
+                  "name": "Electricity, Gas and Water",
+                  "root_type": "Expense",
+                  "level": 4,
+                  "is_group": false,
+                  "account_type": "Expense",
+                  "children": []
+                },
+                {
+                  "code": "5223",
+                  "name": "Repairs and Maintenance",
+                  "root_type": "Expense",
+                  "level": 4,
+                  "is_group": false,
+                  "account_type": "Expense",
+                  "children": []
+                }
+              ]
+            },
+            {
+              "code": "523",
+              "name": "General and Administrative",
+              "root_type": "Expense",
+              "level": 3,
+              "is_group": true,
+              "children": [
+                {
+                  "code": "5231",
+                  "name": "Printing and Stationery",
+                  "root_type": "Expense",
+                  "level": 4,
+                  "is_group": false,
+                  "account_type": "Expense",
+                  "children": []
+                },
+                {
+                  "code": "5232",
+                  "name": "Communication",
+                  "root_type": "Expense",
+                  "level": 4,
+                  "is_group": false,
+                  "account_type": "Expense",
+                  "children": []
+                },
+                {
+                  "code": "5233",
+                  "name": "Legal and Professional Charges",
+                  "root_type": "Expense",
+                  "level": 4,
+                  "is_group": false,
+                  "account_type": "Expense",
+                  "children": []
+                },
+                {
+                  "code": "5234",
+                  "name": "Insurance",
+                  "root_type": "Expense",
+                  "level": 4,
+                  "is_group": false,
+                  "account_type": "Expense",
+                  "children": []
+                },
+                {
+                  "code": "5235",
+                  "name": "Bank Charges",
+                  "root_type": "Expense",
+                  "level": 4,
+                  "is_group": false,
+                  "account_type": "Expense",
+                  "children": []
+                },
+                {
+                  "code": "5236",
+                  "name": "Travelling and Conveyance",
+                  "root_type": "Expense",
+                  "level": 4,
+                  "is_group": false,
+                  "account_type": "Expense",
+                  "children": []
+                },
+                {
+                  "code": "5237",
+                  "name": "Advertisement and Sales Promotion",
+                  "root_type": "Expense",
+                  "level": 4,
+                  "is_group": false,
+                  "account_type": "Expense",
+                  "children": []
+                },
+                {
+                  "code": "5238",
+                  "name": "Fees and Subscriptions",
+                  "root_type": "Expense",
+                  "level": 4,
+                  "is_group": false,
+                  "account_type": "Expense",
+                  "children": []
+                }
+              ]
+            },
+            {
+              "code": "524",
+              "name": "Depreciation",
+              "root_type": "Expense",
+              "level": 3,
+              "is_group": true,
+              "children": [
+                {
+                  "code": "5241",
+                  "name": "Depreciation",
+                  "root_type": "Expense",
+                  "level": 4,
+                  "is_group": false,
+                  "account_type": "Depreciation",
+                  "children": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "code": "53",
+          "name": "Finance Cost and Other Charges",
+          "root_type": "Expense",
+          "level": 2,
+          "is_group": true,
+          "children": [
+            {
+              "code": "531",
+              "name": "Finance Cost and Other Charges",
+              "root_type": "Expense",
+              "level": 3,
+              "is_group": true,
+              "children": [
+                {
+                  "code": "5311",
+                  "name": "Markup on Borrowings",
+                  "root_type": "Expense",
+                  "level": 4,
+                  "is_group": false,
+                  "account_type": "OtherExpense",
+                  "children": []
+                },
+                {
+                  "code": "5312",
+                  "name": "Rounding Differences",
+                  "root_type": "Expense",
+                  "level": 4,
+                  "is_group": false,
+                  "account_type": "OtherExpense",
+                  "description": "Small rounding differences on invoices, payments and currency conversion.",
+                  "is_default_account": true,
+                  "default_account_key": "DEFAULT_ROUNDING",
+                  "children": []
+                },
+                {
+                  "code": "5313",
+                  "name": "Workers' Profit Participation Fund",
+                  "root_type": "Expense",
+                  "level": 4,
+                  "is_group": false,
+                  "account_type": "OtherExpense",
+                  "children": []
+                },
+                {
+                  "code": "5315",
+                  "name": "Taxation",
+                  "root_type": "Expense",
+                  "level": 4,
+                  "is_group": false,
+                  "account_type": "OtherExpense",
+                  "children": []
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

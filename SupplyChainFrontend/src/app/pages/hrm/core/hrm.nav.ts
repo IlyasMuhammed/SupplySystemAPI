@@ -17,11 +17,16 @@ export interface HrmPage {
   icon: string;
   perms: string[];
   feature?: string;
+  /** Any one of these sub-features opens the page (the controller's `[RequiresFeature(a, b)]`). */
+  anyFeature?: string[];
 }
 
-export interface HrmGroup { label: string; icon: string; feature?: string; pages: HrmPage[]; }
+export interface HrmGroup { label: string; icon: string; feature?: string; anyFeature?: string[]; pages: HrmPage[]; }
 
-const page = (path: string, label: string, icon: string, perms: string[], feature?: string): HrmPage => ({ path, label, icon: `pi pi-fw ${icon}`, perms, feature });
+const page = (path: string, label: string, icon: string, perms: string[], feature?: string, anyFeature?: string[]): HrmPage => ({ path, label, icon: `pi pi-fw ${icon}`, perms, feature, ...(anyFeature ? { anyFeature } : {}) });
+
+/** REV49B-4: shifts and holidays open with attendance OR leave (AttControllers: leave counts working days). */
+export const SHIFT_FEATURES = [F.ATTENDANCE, F.LEAVE];
 
 export const EMPLOYEE_READ = ['HRM_EMPLOYEE_VIEW', 'HRM_EMPLOYEE_EDIT'];
 export const ORG_READ = ['HRM_ORG_VIEW', 'HRM_ORG_MANAGE'];
@@ -50,11 +55,11 @@ export const HRM_GROUPS: HrmGroup[] = [
     page('org/designations', 'Designations', 'pi-briefcase', ORG_READ),
     page('org/grades', 'Grades', 'pi-sort-amount-up', ORG_READ)
   ] },
-  { label: 'Attendance', icon: 'pi pi-fw pi-clock', feature: F.ATTENDANCE, pages: [
-    page('attendance', 'Daily Attendance', 'pi-calendar', ['HRM_ATTENDANCE_VIEW', 'HRM_ATTENDANCE_MANAGE']),
-    page('attendance/overtime', 'Overtime', 'pi-stopwatch', ['HRM_ATTENDANCE_VIEW', 'HRM_ATTENDANCE_MANAGE', 'HRM_OVERTIME_APPROVE']),
-    page('attendance/shifts', 'Shifts', 'pi-sync', ['HRM_ATTENDANCE_VIEW', 'HRM_SHIFT_MANAGE']),
-    page('attendance/holidays', 'Holidays', 'pi-sun', ['HRM_ATTENDANCE_VIEW', 'HRM_SHIFT_MANAGE'])
+  { label: 'Attendance', icon: 'pi pi-fw pi-clock', anyFeature: SHIFT_FEATURES, pages: [
+    page('attendance', 'Daily Attendance', 'pi-calendar', ['HRM_ATTENDANCE_VIEW', 'HRM_ATTENDANCE_MANAGE'], F.ATTENDANCE),
+    page('attendance/overtime', 'Overtime', 'pi-stopwatch', ['HRM_ATTENDANCE_VIEW', 'HRM_ATTENDANCE_MANAGE', 'HRM_OVERTIME_APPROVE'], F.ATTENDANCE),
+    page('attendance/shifts', 'Shifts', 'pi-sync', ['HRM_ATTENDANCE_VIEW', 'HRM_SHIFT_MANAGE'], undefined, SHIFT_FEATURES),
+    page('attendance/holidays', 'Holidays', 'pi-sun', ['HRM_ATTENDANCE_VIEW', 'HRM_SHIFT_MANAGE', 'HRM_LEAVE_VIEW', 'HRM_LEAVE_MANAGE'], undefined, SHIFT_FEATURES)
   ] },
   { label: 'Leave', icon: 'pi pi-fw pi-calendar-plus', feature: F.LEAVE, pages: [
     page('leave', 'Team Calendar', 'pi-calendar', ['HRM_LEAVE_VIEW', 'HRM_LEAVE_APPROVE', 'HRM_LEAVE_MANAGE']),
@@ -105,7 +110,10 @@ export const HRM_GROUPS: HrmGroup[] = [
   ] }
 ];
 
-export const HRM_PAGES: HrmPage[] = HRM_GROUPS.flatMap(g => g.pages.map(p => ({ ...p, feature: p.feature ?? g.feature })));
+export const HRM_PAGES: HrmPage[] = HRM_GROUPS.flatMap(g => g.pages.map(p => {
+  const anyFeature = p.anyFeature ?? (p.feature ? undefined : g.anyFeature);
+  return { ...p, feature: p.feature ?? g.feature, ...(anyFeature ? { anyFeature } : {}) };
+}));
 
 /** The sidebar group: MODULE_HRM on the group, permission and sub-feature per entry, exactly as the routes guard them. */
 export function hrmMenuGroup(): any {
@@ -116,12 +124,14 @@ export function hrmMenuGroup(): any {
       label: g.label,
       icon: g.icon,
       ...(g.feature ? { featureCode: g.feature } : {}),
+      ...(g.anyFeature ? { anyFeature: g.anyFeature } : {}),
       items: g.pages.map(p => ({
         label: p.label,
         icon: p.icon,
         routerLink: [`${HRM_ROUTE}/${p.path}`],
         permRequired: p.perms,
-        ...((p.feature ?? g.feature) ? { featureCode: p.feature ?? g.feature } : {})
+        ...((p.feature ?? g.feature) ? { featureCode: p.feature ?? g.feature } : {}),
+        ...(p.anyFeature ? { anyFeature: p.anyFeature } : {})
       }))
     }))
   };

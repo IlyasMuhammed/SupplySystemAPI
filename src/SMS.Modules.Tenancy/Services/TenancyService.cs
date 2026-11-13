@@ -62,6 +62,9 @@ internal sealed class TenancyService : ITenancyService
             throw new BadRequestException($"Plan must be one of: {string.Join(", ", TenancyFeatureCatalog.AllPlans)}.");
         if (string.IsNullOrWhiteSpace(req.AdminFirstName) || string.IsNullOrWhiteSpace(req.AdminEmail))
             throw new BadRequestException("The initial admin's first name and email are required.");
+        if (req.ModuleCodes?.FirstOrDefault(c => !TenancyFeatureCatalog.ByCode.TryGetValue(c ?? "", out var e)
+                || !e.Category.Equals("MODULE", StringComparison.OrdinalIgnoreCase)) is { } badModule)
+            throw new BadRequestException($"'{badModule}' is not a module that can be licensed at creation.");
         if (await _repo.OrgCodeExistsAsync(req.OrgCode))
             throw new BadRequestException($"Organization code '{req.OrgCode}' is already in use.");
         if (req.BaseCurrency is { } baseCurrency)

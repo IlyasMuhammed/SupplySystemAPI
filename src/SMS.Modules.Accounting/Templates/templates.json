@@ -127,7 +127,7 @@
     "currencyCode": "AED",
     "description": "For UAE businesses, with 5% VAT and corporate tax accounts.",
     "version": "1.0",
-    "itemsFile": null
+    "itemsFile": "AE_GENERAL.json"
   },
   {
     "templateCode": "SA_GENERAL",
@@ -137,7 +137,7 @@
     "currencyCode": "SAR",
     "description": "For Saudi businesses, with 15% VAT, zakat and GOSI accounts.",
     "version": "1.0",
-    "itemsFile": null
+    "itemsFile": "SA_GENERAL.json"
   },
   {
     "templateCode": "IN_GENERAL",

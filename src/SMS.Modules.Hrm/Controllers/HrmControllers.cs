@@ -285,7 +285,25 @@ public sealed class EmployeesController : HrmControllerBase
 
     [Microsoft.AspNetCore.Http.EndpointSummary("List employees in scope (identifiers masked)")]
     [HttpGet, RequirePermission(P.HRM_EMPLOYEE_VIEW, P.HRM_EMPLOYEE_EDIT)]
-    public async Task<IActionResult> List([FromQuery] EmployeeListFilter filter, CancellationToken ct) => Done(await _employees.ListAsync(Caller, filter, ct));
+    public async Task<IActionResult> List([FromQuery] EmployeeListFilter filter, CancellationToken ct)
+    {
+        // REV49-12: a CNIC never travels in a URL (access logs). The exact search is POST employees/search.
+        if (Request.Query.ContainsKey("cnic")) throw HrmErrors.Bad("EMPLOYEE_CNIC_IN_QUERY", "Search by CNIC with POST employees/search; an identity number must not be sent in the URL.");
+        return Done(await _employees.ListAsync(Caller, filter, ct));
+    }
+
+    /// <summary>REV49-12: the list with the filter in the body, so the exact-CNIC search keeps the number out of the URL.</summary>
+    [Microsoft.AspNetCore.Http.EndpointSummary("List employees in scope, filter in the body (exact CNIC search)")]
+    [HttpPost("search"), RequirePermission(P.HRM_EMPLOYEE_VIEW, P.HRM_EMPLOYEE_EDIT)]
+    public async Task<IActionResult> Search([FromBody] EmployeeListFilter filter, CancellationToken ct) => Done(await _employees.ListAsync(Caller, filter ?? new EmployeeListFilter(), ct));
+
+    /// <summary>REV49B / REV49-5: the picker every HRM screen needs. Uuid, number, name and department only; HR-scoped like the list.</summary>
+    [Microsoft.AspNetCore.Http.EndpointSummary("Employee picker: number and name of employees in scope")]
+    [HttpGet("lookup"), RequirePermission(P.HRM_EMPLOYEE_VIEW, P.HRM_EMPLOYEE_EDIT, P.HRM_ATTENDANCE_VIEW, P.HRM_ATTENDANCE_MANAGE, P.HRM_OVERTIME_APPROVE, P.HRM_SHIFT_MANAGE,
+        P.HRM_LEAVE_VIEW, P.HRM_LEAVE_APPROVE, P.HRM_LEAVE_MANAGE, P.HRM_SALARY_EDIT, P.HRM_PAYROLL_RUN, P.HRM_TRAINING_MANAGE, P.HRM_RECRUITMENT_MANAGE, P.HRM_PERFORMANCE_MANAGE,
+        P.HRM_LOAN_VIEW, P.HRM_SETTLEMENT_VIEW, P.HRM_INCREMENT_MANAGE, P.HRM_LETTER_ISSUE, P.HRM_TAX_CERT_VIEW, P.HRM_EXPENSE_VIEW)]
+    public async Task<IActionResult> Lookup([FromQuery] string? search, [FromQuery] int take = 200, CancellationToken ct = default) =>
+        Done(await _employees.LookupAsync(Caller, search, take, ct));
 
     [Microsoft.AspNetCore.Http.EndpointSummary("The caller's own employee record")]
     [HttpGet("me"), RequirePermission(P.HRM_SELF_SERVICE)]

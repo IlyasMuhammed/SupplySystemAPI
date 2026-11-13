@@ -1,0 +1,59 @@
+{
+  "sequences": [
+    {
+      "documentType": "SaleOrder",
+      "defaultPrefix": "SO",
+      "prefix": "SO",
+      "pattern": "SO-{YYYY}-{NNNNN}",
+      "startNumber": 1,
+      "resetYearly": true,
+      "sharedGenerator": true
+    },
+    {
+      "documentType": "PurchaseOrder",
+      "defaultPrefix": "PO",
+      "prefix": "PO",
+      "pattern": "PO-{YYYY}-{NNNNN}",
+      "startNumber": 1,
+      "resetYearly": true,
+      "sharedGenerator": true
+    },
+    {
+      "documentType": "SalesInvoice",
+      "defaultPrefix": "SINV",
+      "prefix": "SINV",
+      "pattern": "SINV-{YYYYMMDD}-{N}",
+      "startNumber": 1,
+      "resetYearly": false,
+      "sharedGenerator": false
+    },
+    {
+      "documentType": "Quotation",
+      "defaultPrefix": "SQ",
+      "prefix": "SQ",
+      "pattern": "SQ-{YYYY}-{NNNNN}",
+      "startNumber": 1,
+      "resetYearly": true,
+      "sharedGenerator": true
+    },
+    {
+      "documentType": "GoodsReceipt",
+      "defaultPrefix": "GRN",
+      "prefix": "GRN",
+      "pattern": "GRN-{YYYY}-{NNNNN}",
+      "startNumber": 1,
+      "resetYearly": true,
+      "sharedGenerator": false
+    },
+    {
+      "documentType": "PaymentVoucher",
+      "defaultPrefix": "PAY",
+      "prefix": "PAY",
+      "pattern": "PAY-{YYYY}-{NNNNN}",
+      "startNumber": 1,
+      "resetYearly": true,
+      "sharedGenerator": false
+    }
+  ],
+  "notes": "Existing default prefixes. Documents with sharedGenerator:false keep their own numbering; their entries are stored but inert (R-3)."
+}

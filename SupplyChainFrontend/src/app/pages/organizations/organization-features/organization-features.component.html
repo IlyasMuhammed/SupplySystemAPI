@@ -16,7 +16,7 @@
     </div>
     <span class="sf-meta md-subtitle" *ngIf="org">
       <span class="sf-mono">{{ org.orgCode }}</span> &bull;
-      <p-tag [value]="org.plan" [severity]="planSeverity(org.plan)"></p-tag>
+      <p-tag [value]="planLabel(org.plan)" [severity]="planSeverity(org.plan)"></p-tag>
     </span>
   </header>
 
@@ -37,24 +37,54 @@
         <i class="pi pi-spin pi-spinner"></i> Loading features…
       </div>
 
+      <!-- Search, status filter, coming-soon switch, expand/collapse -->
+      <div class="feature-tools" *ngIf="!isLoading" data-testid="feature-tools">
+        <span class="feature-search">
+          <i class="pi pi-search"></i>
+          <input type="search" class="feature-search-input" placeholder="Search modules and features…" aria-label="Search features"
+                 [(ngModel)]="search" (ngModelChange)="applyFilter()" data-testid="feature-search" />
+          <button type="button" class="feature-search-clear" *ngIf="search" (click)="clearSearch()" aria-label="Clear search">
+            <i class="pi pi-times"></i>
+          </button>
+        </span>
+        <div class="sf-filters">
+          <button type="button" class="sf-chip" [class.on]="statusFilter === 'all'" (click)="setStatus('all')">All</button>
+          <button type="button" class="sf-chip" [class.on]="statusFilter === 'on'" (click)="setStatus('on')" data-testid="filter-on">Licensed</button>
+          <button type="button" class="sf-chip" [class.on]="statusFilter === 'off'" (click)="setStatus('off')" data-testid="filter-off">Not licensed</button>
+          <button type="button" class="sf-chip" [class.on]="showComingSoon" (click)="showComingSoon = !showComingSoon; applyFilter()"
+                  data-testid="toggle-coming-soon">Coming soon</button>
+        </div>
+        <span class="feature-expand">
+          <button type="button" class="feature-link" (click)="setAllGroups(true)">Expand all</button> ·
+          <button type="button" class="feature-link" (click)="setAllGroups(false)">Collapse all</button>
+        </span>
+      </div>
+
       <ng-container *ngIf="!isLoading">
-        <section class="sf-card feature-group" *ngFor="let group of groupedFeatures; trackBy: trackGroup"
+        <section class="sf-card feature-group" *ngFor="let group of visibleGroups; trackBy: trackView"
                  [attr.data-testid]="'group-' + group.key">
-          <div class="sf-ch"><h2>{{ group.title }}</h2></div>
+          <div class="sf-ch feature-group-head" (click)="toggleGroup(group.key)" role="button" tabindex="0"
+               (keydown.enter)="toggleGroup(group.key)" [attr.aria-expanded]="group.open">
+            <i class="pi" [ngClass]="group.open ? 'pi-chevron-down' : 'pi-chevron-right'"></i>
+            <h2>{{ group.title }}</h2>
+            <span class="sf-mu sf-sm" [attr.data-testid]="'count-' + group.key">{{ group.onCount }} of {{ group.total }} licensed</span>
+          </div>
 
           <div>
             <ng-container *ngIf="group.module as m">
               <ng-container *ngTemplateOutlet="rowTpl; context: { $implicit: m, isModule: true }"></ng-container>
             </ng-container>
-            <div [class.feature-children]="!!group.module">
-              <ng-container *ngFor="let r of group.items; trackBy: trackRow">
+            <div [class.feature-children]="!!group.module" *ngIf="group.open">
+              <ng-container *ngFor="let r of group.shown; trackBy: trackRow">
                 <ng-container *ngTemplateOutlet="rowTpl; context: { $implicit: r, isModule: false }"></ng-container>
               </ng-container>
             </div>
           </div>
         </section>
 
-        <div class="sf-card sf-empty" *ngIf="!groupedFeatures.length">No features found</div>
+        <div class="sf-card sf-empty" *ngIf="!visibleGroups.length" data-testid="no-features">
+          {{ groupedFeatures.length ? 'Nothing matches your search or filter.' : 'No features found' }}
+        </div>
       </ng-container>
     </ng-container>
 

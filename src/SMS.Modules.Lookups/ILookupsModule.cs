@@ -24,6 +24,8 @@ public static class LookupsModuleExtensions
         services.AddScoped<ILookupsService, LookupsService>();
         services.AddScoped<IPoDocumentTemplateRepository, PoDocumentTemplateRepository>();
         services.AddScoped<IPoDocumentTemplateService, PoDocumentTemplateService>();
+        // A50 TPL (D-25) — the saved letterhead for Onboarding's document templates (one-time PO copy, company block).
+        services.AddScoped<SMS.Shared.Onboarding.ILegacyLetterheadSource, LegacyLetterheadSource>();
         services.AddScoped<LookupsDataSeeder>();
 
         // Shared contract — lets other modules resolve a city from this catalog without a
@@ -35,6 +37,8 @@ public static class LookupsModuleExtensions
         services.AddScoped<ISyncLookupReader, SyncLookupReader>();
         // A40 (TINV) — units of measure are importable (the Import module resolves every IImportTarget).
         services.AddScoped<IImportTarget, Import.UnitImportTarget>();
+        // A50 D-16 — the setup wizard's UOM category (Onboarding enumerates every ISetupCategorySeeder).
+        services.AddScoped<SMS.Shared.Onboarding.ISetupCategorySeeder, Onboarding.UomSetupSeeder>();
 
         return services;
     }

@@ -1,4 +1,4 @@
-using System.Text.RegularExpressions;
+﻿using System.Text.RegularExpressions;
 using AngleSharp;
 using AngleSharp.Dom;
 using Microsoft.AspNetCore.Hosting;
@@ -6,10 +6,12 @@ using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
 using SMS.Modules.Demand.Models;
+using SMS.Modules.Demand.Services.Documents;
 using SMS.Modules.Lookups.Models;
 using SMS.Modules.Lookups.Services;
 using SMS.Shared.Common;
 using SMS.Shared.Exceptions;
+using SMS.Shared.Onboarding;
 using HtmlElement = AngleSharp.Dom.IElement;
 
 namespace SMS.Modules.Demand.Services;
@@ -29,31 +31,53 @@ internal sealed class PoDocumentService : IPoDocumentService
 
     // Brand accent used across the app's UI (dialogs, buttons, icon chips) — reused here so the
     // generated PDF reads as the same product rather than a generic black-and-white document.
-    private const string BrandColor      = "#6C63FF";
-    private const string BrandColorDark  = "#4A42CC";
-    private const string BrandColorTint  = "#F4F3FF";
+    // A50 — the house palette is DocumentPalette.House (#6C63FF / #4A42CC / #F4F3FF); a PurchaseOrder template may replace it.
 
     public PoDocumentService(
         IPurchaseOrderService poService, IPoDocumentTemplateService templateService,
-        ISupplierContactLookupService supplierContactService, IWebHostEnvironment env)
+        ISupplierContactLookupService supplierContactService, IWebHostEnvironment env, TimeProvider? clock = null,
+        IDocumentBrandingProvider? branding = null, ITemplatedDocumentRenderer? templated = null)
     {
         _poService = poService;
         _templateService = templateService;
         _supplierContactService = supplierContactService;
         _env = env;
+        _clock = clock ?? TimeProvider.System;
+        _branding = branding ?? new NullDocumentBrandingProvider();
+        _templated = templated ?? new NullTemplatedDocumentRenderer();
     }
 
+    private readonly TimeProvider _clock;
+    private readonly IDocumentBrandingProvider _branding;
+    private readonly ITemplatedDocumentRenderer _templated;
+
+    /// <summary>
+    /// A50 (D-25) — the org's PurchaseOrder document template wins over the pre-A50 PoDocumentTemplate body: its BodyHtml
+    /// through the templated renderer, else this letter layout with the template's colour, logo, header, footer and terms.
+    /// No template = the pre-A50 PDF, byte for byte. Every render goes through PdfRenderGate.
+    /// </summary>
     public async Task<byte[]> GeneratePdfAsync(Guid poUuid)
     {
         var po = await _poService.GetByIdAsync(poUuid)
             ?? throw new NotFoundException("Purchase order not found");
         var template = await _templateService.GetActiveAsync();
         var supplierContact = await _supplierContactService.GetContactInfoAsync(po.SupplierId);
+        var brand = await _branding.GetAsync(DocumentTemplateTypes.PurchaseOrder);
+        if (brand is not null)
+            brand = BrandedDocumentKit.WithLetterhead(brand, template?.CompanyName, template?.CompanyAddress, template?.CompanyPhone,
+                template?.CompanyEmail, template?.CompanyTaxId);
 
-        var tokens = BuildTokenValues(po, template);
+        var now = _clock.GetLocalNow().DateTime;
+        var tokens = BuildTokenValues(po, template, now);
+
+        if (brand is not null && !string.IsNullOrWhiteSpace(brand.BodyHtml)
+            && _templated.Render(brand, Templated(po, template, supplierContact, tokens, now)) is { } bodyPdf)
+            return bodyPdf;
+
         var bodyWithTokens = ReplaceSimpleTokens(template?.BodyHtml ?? "", tokens);
         var segments = await ParseBodySegmentsAsync(bodyWithTokens);
-        var logoBytes = TryLoadLogoBytes(template?.CompanyLogoUrl);
+        var logoBytes = brand?.LogoBytes ?? TryLoadLogoBytes(template?.CompanyLogoUrl);
+        var p = DocumentPalette.Resolve(brand, DocumentPalette.House);
 
         var document = QuestPDF.Fluent.Document.Create(container =>
         {
@@ -63,13 +87,48 @@ internal sealed class PoDocumentService : IPoDocumentService
                 page.Margin(32);
                 page.DefaultTextStyle(x => x.FontSize(9.5f).LineHeight(1.35f));
 
-                page.Header().Element(c => ComposeHeader(c, template, po, supplierContact, logoBytes));
-                page.Content().Element(c => ComposeContent(c, template, po, segments));
-                page.Footer().Element(c => ComposeFooter(c, template));
+                page.Header().Element(c => ComposeHeader(c, template, po, supplierContact, logoBytes, p, brand));
+                page.Content().Element(c => ComposeContent(c, template, po, segments, p, brand));
+                page.Footer().Element(c => ComposeFooter(c, template, now, brand, po));
             });
         });
 
-        return document.GeneratePdf();
+        return PdfRenderGate.Run(document.GeneratePdf);
+    }
+
+    /// <summary>A50 — the PO for a BodyHtml template: the pre-A50 tokens without braces, plus the common ones.</summary>
+    internal static TemplatedDocument Templated(
+        PoDetailModel po, PoDocumentTemplateModel? template, SupplierContactInfo? supplier, Dictionary<string, string> tokens, DateTime now)
+    {
+        var values = tokens.ToDictionary(kv => kv.Key.Trim('{', '}'), kv => (string?)kv.Value, StringComparer.OrdinalIgnoreCase);
+        values["DocumentNumber"] = po.PoNumber;
+        values["DocumentDate"] = po.CreatedDate.ToString("dd MMM yyyy", System.Globalization.CultureInfo.InvariantCulture);
+        values["SupplierAddress"] = supplier?.Address ?? "";
+        values["SupplierPhone"] = supplier?.Phone ?? "";
+        values["Status"] = po.Status ?? "";
+        values["CurrencyCode"] = po.CurrencyCode ?? "";
+        values["AmountInWords"] = AmountInWords.Format(po.TotalAmount, po.CurrencyCode);
+        values["PartyLabel"] = "To:";
+        values["PartyName"] = po.SupplierName ?? "-";
+        values["PartyAddress"] = supplier?.Address ?? "";
+        if (po.DeliveryDate is { } due) values["HeaderFacts"] = $"Delivery: {due:dd MMM yyyy}";
+
+        var doc = new TemplatedDocument
+        {
+            TemplateType = DocumentTemplateTypes.PurchaseOrder, Title = "PURCHASE ORDER", Values = values, GeneratedAt = now,
+            SignatureDisclaimer = template?.ShowSignatureBlock == false
+                ? template.SignatureDisclaimer ?? "This is a system generated document and does not require a signature." : null,
+        };
+        if (template?.ShowSignatureBlock != false)
+            doc.SignatureLabels.AddRange([template?.PreparedByLabel ?? "Prepared By", template?.ApprovedByLabel ?? "Approved By",
+                                          template?.AuthorizedSignatoryLabel ?? "Authorized Signatory"]);
+        doc.LineColumns.AddRange([new("#", 0.4f), new("Item", 3f), new("Spec", 1.3f), new("UOM", 0.7f), new("Qty", 0.9f, true),
+                                  new("Unit Price", 1.1f, true), new("Line Total", 1.2f, true)]);
+        foreach (var l in po.Lines ?? [])
+            doc.LineRows.Add([l.LineNo.ToString(), l.ItemDescription ?? "-", l.Specification ?? "-", l.UnitOfMeasure ?? "-",
+                              l.Quantity.ToString("N2"), l.UnitPrice.ToString("N2"), l.LineTotal.ToString("N2")]);
+        doc.Totals.Add(new("Grand Total", po.TotalAmount.ToString("N2") + (string.IsNullOrWhiteSpace(po.CurrencyCode) ? "" : " " + po.CurrencyCode), true));
+        return doc;
     }
 
     // The logo is stored as a web-relative URL (e.g. "/uploads/attachments/po-template-logo/x.png")
@@ -88,7 +147,7 @@ internal sealed class PoDocumentService : IPoDocumentService
 
     // ── Token resolution ───────────────────────────────────────────────────────
 
-    private static Dictionary<string, string> BuildTokenValues(PoDetailModel po, PoDocumentTemplateModel? template)
+    private static Dictionary<string, string> BuildTokenValues(PoDetailModel po, PoDocumentTemplateModel? template, DateTime now)
     {
         return new Dictionary<string, string>
         {
@@ -109,7 +168,7 @@ internal sealed class PoDocumentService : IPoDocumentService
             ["{{CompanyAddress}}"]   = template?.CompanyAddress ?? "",
             ["{{CompanyPhone}}"]     = template?.CompanyPhone ?? "",
             ["{{CompanyEmail}}"]     = template?.CompanyEmail ?? "",
-            ["{{GeneratedDate}}"]    = DateTime.Now.ToString("dd MMM yyyy HH:mm"),
+            ["{{GeneratedDate}}"]    = now.ToString("dd MMM yyyy HH:mm"),
         };
     }
 
@@ -162,15 +221,20 @@ internal sealed class PoDocumentService : IPoDocumentService
     // (subject, greeting, body paragraphs) is entirely user-designed in the template body below.
     private static void ComposeHeader(
         IContainer container, PoDocumentTemplateModel? template, PoDetailModel po,
-        SupplierContactInfo? supplierContact, byte[]? logoBytes)
+        SupplierContactInfo? supplierContact, byte[]? logoBytes, DocumentPalette p, DocumentBranding? brand)
     {
         container.Column(column =>
         {
             column.Item().Row(row =>
             {
-                row.RelativeItem().Column(col =>
+                var letterhead = row.RelativeItem();
+                var branded = brand is not null && BrandedDocumentKit.TryComposeHeader(letterhead, brand,
+                    BrandedDocumentKit.HeaderValues(brand, "PURCHASE ORDER", po.PoNumber, po.CreatedDate), p.Dark);
+
+                if (!branded)
+                letterhead.Column(col =>
                 {
-                    col.Item().Text(template?.CompanyName ?? "Company Name").FontSize(16).Bold().FontColor(BrandColorDark);
+                    col.Item().Text(template?.CompanyName ?? brand?.CompanyName ?? "Company Name").FontSize(16).Bold().FontColor(p.Dark);
                     if (!string.IsNullOrWhiteSpace(template?.CompanyAddress))
                         col.Item().PaddingTop(2).Text(template.CompanyAddress).FontSize(8);
                     var contactLine = string.Join("   |   ", new[]
@@ -215,12 +279,12 @@ internal sealed class PoDocumentService : IPoDocumentService
                 });
             });
 
-            column.Item().PaddingTop(14).LineHorizontal(1.5f).LineColor(BrandColor);
+            column.Item().PaddingTop(14).LineHorizontal(1.5f).LineColor(p.Primary);
         });
     }
 
     private static void ComposeContent(
-        IContainer container, PoDocumentTemplateModel? template, PoDetailModel po, List<BodySegment> segments)
+        IContainer container, PoDocumentTemplateModel? template, PoDetailModel po, List<BodySegment> segments, DocumentPalette p, DocumentBranding? brand)
     {
         container.PaddingTop(14).Column(column =>
         {
@@ -233,17 +297,20 @@ internal sealed class PoDocumentService : IPoDocumentService
                             ComposeHtmlBody(column, segment.ParsedHtml);
                         break;
                     case SegmentKind.LineItemsTable:
-                        ComposeLineItemsTable(column, po);
+                        ComposeLineItemsTable(column, po, p);
                         break;
                     case SegmentKind.SignatureBlock:
                         ComposeSignatureBlock(column, template);
                         break;
                 }
             }
+
+            if (brand is not null)
+                BrandedDocumentKit.ComposeTerms(column, brand, p.Dark);
         });
     }
 
-    private static void ComposeLineItemsTable(ColumnDescriptor column, PoDetailModel po)
+    private static void ComposeLineItemsTable(ColumnDescriptor column, PoDetailModel po, DocumentPalette p)
     {
         column.Item().PaddingTop(6).PaddingBottom(10).Table(table =>
         {
@@ -268,8 +335,8 @@ internal sealed class PoDocumentService : IPoDocumentService
                 header.Cell().Element(HeaderCell).AlignRight().Text("Unit Price");
                 header.Cell().Element(HeaderCell).AlignRight().Text("Line Total");
 
-                static IContainer HeaderCell(IContainer c) =>
-                    c.Background(BrandColor)
+                IContainer HeaderCell(IContainer c) =>
+                    c.Background(p.Primary)
                      .DefaultTextStyle(x => x.Bold().FontSize(8.5f).FontColor(Colors.White))
                      .PaddingVertical(8).PaddingHorizontal(4);
             });
@@ -289,8 +356,8 @@ internal sealed class PoDocumentService : IPoDocumentService
                 table.Cell().Element(c => BodyCell(c, isLast, isEven)).AlignRight().Text(line.UnitPrice.ToString("N2"));
                 table.Cell().Element(c => BodyCell(c, isLast, isEven)).AlignRight().Text(line.LineTotal.ToString("N2"));
 
-                static IContainer BodyCell(IContainer c, bool isLast, bool isEven) =>
-                    c.Background(isEven ? BrandColorTint : Colors.White)
+                IContainer BodyCell(IContainer c, bool isLast, bool isEven) =>
+                    c.Background(isEven ? p.Tint : Colors.White)
                      .PaddingVertical(6).PaddingHorizontal(4)
                      .BorderBottom(isLast ? 0 : 0.5f).BorderColor(Colors.Grey.Lighten2);
             }
@@ -299,8 +366,8 @@ internal sealed class PoDocumentService : IPoDocumentService
             // paragraph, so it always lines up with the table regardless of template body content.
             table.Cell().ColumnSpan(6).Element(c => c.PaddingTop(8).PaddingRight(4).AlignRight()
                 .Text("Grand Total").FontSize(9.5f).Bold());
-            table.Cell().Element(c => c.PaddingTop(8).BorderTop(1.5f).BorderColor(BrandColor).PaddingTop(8).PaddingHorizontal(4))
-                .AlignRight().Text(po.TotalAmount.ToString("N2")).FontSize(10.5f).Bold().FontColor(BrandColorDark);
+            table.Cell().Element(c => c.PaddingTop(8).BorderTop(1.5f).BorderColor(p.Primary).PaddingTop(8).PaddingHorizontal(4))
+                .AlignRight().Text(po.TotalAmount.ToString("N2")).FontSize(10.5f).Bold().FontColor(p.Dark);
         });
     }
 
@@ -336,19 +403,22 @@ internal sealed class PoDocumentService : IPoDocumentService
         });
     }
 
-    private static void ComposeFooter(IContainer container, PoDocumentTemplateModel? template)
+    private static void ComposeFooter(IContainer container, PoDocumentTemplateModel? template, DateTime now, DocumentBranding? brand, PoDetailModel po)
     {
         container.Column(column =>
         {
             column.Item().PaddingBottom(4).LineHorizontal(0.5f).LineColor(Colors.Grey.Lighten2);
 
-            if (!string.IsNullOrWhiteSpace(template?.FooterText))
+            var branded = brand is not null && BrandedDocumentKit.TryComposeFooter(column, brand,
+                BrandedDocumentKit.HeaderValues(brand, "PURCHASE ORDER", po.PoNumber, po.CreatedDate));
+
+            if (!branded && !string.IsNullOrWhiteSpace(template?.FooterText))
                 column.Item().AlignCenter().Text(template.FooterText).FontSize(7).FontColor(Colors.Grey.Medium);
 
             column.Item().PaddingTop(2).AlignCenter().Text(text =>
             {
                 text.Span("Generated ").FontSize(7).FontColor(Colors.Grey.Medium);
-                text.Span(DateTime.Now.ToString("yyyy-MM-dd HH:mm")).FontSize(7).FontColor(Colors.Grey.Medium);
+                text.Span(now.ToString("yyyy-MM-dd HH:mm")).FontSize(7).FontColor(Colors.Grey.Medium);
             });
         });
     }

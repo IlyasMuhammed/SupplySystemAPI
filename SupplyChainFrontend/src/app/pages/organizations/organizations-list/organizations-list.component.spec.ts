@@ -10,6 +10,7 @@ import {
 import { CountriesService } from '../../../services/countries.service';
 import { CurrenciesService } from '../../../services/currencies.service';
 import { UserService } from '../../../services/user.service';
+import { FeaturesService } from '../../../services/features.service';
 
 const PKR = 'cur-pkr';
 const USD = 'cur-usd';
@@ -69,6 +70,16 @@ describe('OrganizationsListComponent — base currency', () => {
       ]
     }));
 
+    const features = jasmine.createSpyObj<FeaturesService>('FeaturesService', ['getCatalog', 'getPlanTemplates']);
+    features.getCatalog.and.returnValue(of({ success: true, message: '', result: [
+      { id: 'm1', featureCode: 'MODULE_MASTER_DATA', featureName: 'Master Data', category: 'MODULE', isCore: true, displayOrder: 10 },
+      { id: 'm2', featureCode: 'MODULE_SUPPLIERS', featureName: 'Supplier Management', category: 'MODULE', isCore: false, displayOrder: 20, description: 'Suppliers' },
+      { id: 'm3', featureCode: 'MODULE_CRM', featureName: 'CRM', category: 'MODULE', isCore: false, displayOrder: 145, description: 'Leads' },
+      { id: 'm4', featureCode: 'MODULE_PROJECTS', featureName: 'Projects', category: 'MODULE', isCore: false, displayOrder: 140, isAvailable: false }
+    ] }));
+    features.getPlanTemplates.and.returnValue(of({ success: true, message: '', result: [
+      { plan: 'BASIC', features: [{ featureCode: 'MODULE_SUPPLIERS', isEnabledByDefault: true }, { featureCode: 'MODULE_CRM', isEnabledByDefault: false }] }
+    ] }));
     await TestBed.resetTestingModule().configureTestingModule({
       imports: [OrganizationsListComponent],
       providers: [
@@ -76,7 +87,8 @@ describe('OrganizationsListComponent — base currency', () => {
         { provide: OrganizationsService, useValue: service },
         { provide: UserService, useValue: users },
         { provide: CountriesService, useValue: countries },
-        { provide: CurrenciesService, useValue: currencies }
+        { provide: CurrenciesService, useValue: currencies },
+        { provide: FeaturesService, useValue: features }
       ]
     }).compileComponents();
 
@@ -203,8 +215,50 @@ describe('OrganizationsListComponent — base currency', () => {
     });
 
     component.save();
+    component.confirmCreate();
 
     expect(service.create).toHaveBeenCalledWith(jasmine.objectContaining({ orgCode: 'NEW', baseCurrency: USD }));
+  });
+
+  describe('feature picker at creation', () => {
+    function fillNew() {
+      component.openNew();
+      component.form.patchValue({ orgCode: 'NEW', orgName: 'New Org', adminFirstName: 'Jane', adminEmail: 'jane@new.test' });
+    }
+
+    it('asks for features first and creates nothing until confirmed', async () => {
+      await setup();
+      fillNew();
+      component.save();
+      expect(component.showFeaturesDialog).toBeTrue();
+      expect(service.create).not.toHaveBeenCalled();
+    });
+
+    it('offers only built, non-core modules and pre-ticks the plan defaults', async () => {
+      await setup();
+      fillNew();
+      component.save();
+      expect(component.moduleChoices.map(m => m.featureCode)).toEqual(['MODULE_SUPPLIERS', 'MODULE_CRM']);
+      expect([...component.selectedModules]).toEqual(['MODULE_SUPPLIERS']);
+    });
+
+    it('with nothing selected, creates the organization with an empty module list', async () => {
+      await setup();
+      fillNew();
+      component.save();
+      component.clearModules();
+      component.confirmCreate();
+      expect(service.create.calls.mostRecent().args[0].moduleCodes).toEqual([]);
+    });
+
+    it('sends the modules that were ticked', async () => {
+      await setup();
+      fillNew();
+      component.save();
+      component.toggleModule('MODULE_CRM', true);
+      component.confirmCreate();
+      expect(service.create.calls.mostRecent().args[0].moduleCodes).toEqual(['MODULE_SUPPLIERS', 'MODULE_CRM']);
+    });
   });
 });
 
@@ -243,6 +297,16 @@ describe('OrganizationsListComponent — admin status, resend invite, set passwo
     const currencies = jasmine.createSpyObj<CurrenciesService>('CurrenciesService', ['getAll']);
     currencies.getAll.and.returnValue(of({ success: true, message: '', result: [] }));
 
+    const features = jasmine.createSpyObj<FeaturesService>('FeaturesService', ['getCatalog', 'getPlanTemplates']);
+    features.getCatalog.and.returnValue(of({ success: true, message: '', result: [
+      { id: 'm1', featureCode: 'MODULE_MASTER_DATA', featureName: 'Master Data', category: 'MODULE', isCore: true, displayOrder: 10 },
+      { id: 'm2', featureCode: 'MODULE_SUPPLIERS', featureName: 'Supplier Management', category: 'MODULE', isCore: false, displayOrder: 20, description: 'Suppliers' },
+      { id: 'm3', featureCode: 'MODULE_CRM', featureName: 'CRM', category: 'MODULE', isCore: false, displayOrder: 145, description: 'Leads' },
+      { id: 'm4', featureCode: 'MODULE_PROJECTS', featureName: 'Projects', category: 'MODULE', isCore: false, displayOrder: 140, isAvailable: false }
+    ] }));
+    features.getPlanTemplates.and.returnValue(of({ success: true, message: '', result: [
+      { plan: 'BASIC', features: [{ featureCode: 'MODULE_SUPPLIERS', isEnabledByDefault: true }, { featureCode: 'MODULE_CRM', isEnabledByDefault: false }] }
+    ] }));
     await TestBed.resetTestingModule().configureTestingModule({
       imports: [OrganizationsListComponent],
       providers: [
@@ -250,7 +314,8 @@ describe('OrganizationsListComponent — admin status, resend invite, set passwo
         { provide: OrganizationsService, useValue: service },
         { provide: UserService, useValue: users },
         { provide: CountriesService, useValue: countries },
-        { provide: CurrenciesService, useValue: currencies }
+        { provide: CurrenciesService, useValue: currencies },
+        { provide: FeaturesService, useValue: features }
       ]
     }).compileComponents();
 
@@ -385,3 +450,4 @@ describe('OrganizationsListComponent — admin status, resend invite, set passwo
     expect(component.newPassword).toBe('Str0ng!pw');
   });
 });
+

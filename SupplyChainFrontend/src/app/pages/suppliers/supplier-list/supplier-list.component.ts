@@ -21,6 +21,8 @@ import {
 } from '../../../services/supplier.service';
 import { FLOW } from '../../../shared/flow';
 
+import { DemoBadgeComponent } from '../../../shared/components/demo-badge/demo-badge.component';
+
 @Component({
   selector: 'app-supplier-list',
   standalone: true,
@@ -29,7 +31,7 @@ import { FLOW } from '../../../shared/flow';
     TableModule, ButtonModule, ToolbarModule,
     InputTextModule, InputIconModule, IconFieldModule,
     TagModule, TooltipModule, ToastModule, DropdownModule,
-    ConfirmDialogModule, ...FLOW
+    ConfirmDialogModule, DemoBadgeComponent, ...FLOW
   ],
   templateUrl: './supplier-list.component.html',
   styleUrls: ['./supplier-list.component.scss'],

@@ -45,6 +45,16 @@ public static class DemandModuleExtensions
         services.AddScoped<IPurchaseOrderLineFactory, PurchaseOrderLineFactory>();
         services.AddScoped<ISupplierPricelistService, SupplierPricelistService>();
         services.AddScoped<IPoDocumentService, PoDocumentService>();
+        // A50 (TPL, D-25/D-26) — the quotation PDF and the "email to customer / supplier" actions. Branding, templated bodies and
+        // email templates come from Onboarding; these Null fallbacks keep a host without it on the pre-A50 output.
+        services.AddScoped<SMS.Modules.Demand.Services.Documents.SaleQuotationDocumentService>();
+        services.AddScoped<SMS.Modules.Demand.Services.Documents.SalesDocumentEmailService>();
+        Microsoft.Extensions.DependencyInjection.Extensions.ServiceCollectionDescriptorExtensions.TryAddScoped<
+            SMS.Shared.Onboarding.IDocumentBrandingProvider, SMS.Shared.Onboarding.NullDocumentBrandingProvider>(services);
+        Microsoft.Extensions.DependencyInjection.Extensions.ServiceCollectionDescriptorExtensions.TryAddSingleton<
+            SMS.Shared.Onboarding.ITemplatedDocumentRenderer, SMS.Shared.Onboarding.NullTemplatedDocumentRenderer>(services);
+        Microsoft.Extensions.DependencyInjection.Extensions.ServiceCollectionDescriptorExtensions.TryAddScoped<
+            SMS.Shared.Onboarding.IEmailTemplateRenderer, SMS.Shared.Onboarding.NullEmailTemplateRenderer>(services);
         services.AddScoped<IWhatsAppStatusUpdateHandler, DemandWhatsAppStatusHandler>();
         // A29-P3-03 — sale order administration & configuration (§3.2/§3.5).
         services.AddScoped<ISaleOrderConfigService, SaleOrderConfigService>();
@@ -122,6 +132,9 @@ public static class DemandModuleExtensions
         // PV-007 — lets Inventory ask "has this variant ever been transacted" cross-module
         services.AddScoped<IVariantReferenceChecker, PoLineVariantReferenceChecker>();
         services.AddScoped<ISupplierReferenceChecker, DemandSupplierReferenceChecker>();
+        // A50 D-27/D-28 — demo sale orders and purchase order, and the CREATE_SO / CREATE_PO checklist signal.
+        services.AddScoped<SMS.Shared.Onboarding.ISampleDataContributor, Onboarding.DemandSampleDataContributor>();
+        services.AddScoped<SMS.Shared.Onboarding.IOnboardingSignal, Onboarding.DemandOnboardingSignal>();
         // Lookups asks every checker before it deletes a currency or changes its code.
         services.AddScoped<ILookupReferenceChecker, DemandCurrencyReferenceChecker>();
 

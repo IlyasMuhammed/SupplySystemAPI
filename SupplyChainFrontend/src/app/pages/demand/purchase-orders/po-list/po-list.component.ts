@@ -16,6 +16,8 @@ import { TableLazyLoadEvent } from 'primeng/table';
 import { DemandService, PoListItemModel, PoListFilter } from '../../../../services/demand.service';
 import { FLOW } from '../../../../shared/flow';
 
+import { DemoBadgeComponent } from '../../../../shared/components/demo-badge/demo-badge.component';
+
 @Component({
   selector: 'app-po-list',
   standalone: true,
@@ -24,7 +26,7 @@ import { FLOW } from '../../../../shared/flow';
     TableModule, ButtonModule, InputTextModule,
     InputIconModule, IconFieldModule, TagModule,
     TooltipModule, ToastModule, DropdownModule,
-    ...FLOW
+    DemoBadgeComponent, ...FLOW
   ],
   templateUrl: './po-list.component.html',
   styleUrls: ['./po-list.component.scss'],

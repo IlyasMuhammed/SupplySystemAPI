@@ -102,9 +102,11 @@ internal sealed class QuickBooksStatusRefresher
                 : originals.GetValueOrDefault($"{row.Posting.SourceModule}:{row.Posting.DocumentType}:{row.Posting.SourceDocumentUuid}") ?? row.Posting;
             if (KindOf(source) is not { } kind) continue;
             // A49 G-12: a journal entry's undo is its own entry, so a void asks about that one, not the original.
-            var externalId = kind == SyncKind.JournalEntry && row.Posting.Kind != PostingKinds.Post
-                ? $"{row.Posting.SourceDocumentUuid}:void"
-                : ExternalIdOf(source);
+            // QA49C-1: a journal entry's key carries the payment types' DocType (JournalEntryKeys), never the bare uuid for both.
+            var externalId = kind != SyncKind.JournalEntry ? ExternalIdOf(source)
+                : row.Posting.Kind != PostingKinds.Post
+                    ? JournalEntryKeys.Root(row.Posting.SourceDocumentUuid, row.Posting.DocumentType) + ":void"
+                    : JournalEntryKeys.Root(source.SourceDocumentUuid, source.DocumentType);
             keyed.Add((row, kind, externalId));
         }
 

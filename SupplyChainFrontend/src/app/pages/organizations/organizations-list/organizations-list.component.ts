@@ -16,11 +16,15 @@ import { ConfirmDialogModule } from 'primeng/confirmdialog';
 import { TooltipModule } from 'primeng/tooltip';
 import { MessageService, ConfirmationService } from 'primeng/api';
 import {
-  OrganizationsService, OrganizationListItemModel, OrgPlan, OrgUserSummary, ORG_ADMIN_ROLE_ID, baseCurrencyChange
+  OrganizationsService, OrganizationListItemModel, OrgPlan, OrgUserSummary, ORG_ADMIN_ROLE_ID, baseCurrencyChange, planLabel
 } from '../../../services/organizations.service';
 import { CountriesService } from '../../../services/countries.service';
 import { CurrenciesService } from '../../../services/currencies.service';
 import { UserService } from '../../../services/user.service';
+import { FeaturesService, FeatureDefinitionModel } from '../../../services/features.service';
+import { CheckboxModule } from 'primeng/checkbox';
+import { forkJoin, Observable, of } from 'rxjs';
+import { tap } from 'rxjs/operators';
 import { PasswordModule } from 'primeng/password';
 import { isStrongPassword, passwordChecks, PasswordCheck } from '../../../shared/password-rule';
 
@@ -30,7 +34,7 @@ import { isStrongPassword, passwordChecks, PasswordCheck } from '../../../shared
   imports: [
     CommonModule, FormsModule, ReactiveFormsModule,
     TableModule, ButtonModule, InputTextModule, InputIconModule, IconFieldModule, DropdownModule,
-    DialogModule, TagModule, ToastModule, ConfirmDialogModule, TooltipModule, PasswordModule, ...FLOW
+    DialogModule, TagModule, ToastModule, ConfirmDialogModule, TooltipModule, PasswordModule, CheckboxModule, ...FLOW
   ],
   templateUrl: './organizations-list.component.html',
   styleUrls: ['./organizations-list.component.scss'],
@@ -66,7 +70,7 @@ export class OrganizationsListComponent implements OnInit {
   setPasswordError = '';
 
   planOptions: { label: string; value: OrgPlan }[] = [
-    { label: 'Basic',      value: 'BASIC' },
+    { label: 'Default',    value: 'BASIC' },
     { label: 'Standard',   value: 'STANDARD' },
     { label: 'Enterprise', value: 'ENTERPRISE' }
   ];
@@ -89,6 +93,7 @@ export class OrganizationsListComponent implements OnInit {
     private userService: UserService,
     private countriesService: CountriesService,
     private currenciesService: CurrenciesService,
+    private featuresService: FeaturesService,
     private messageService: MessageService,
     private confirmationService: ConfirmationService,
     private router: Router
@@ -207,8 +212,59 @@ export class OrganizationsListComponent implements OnInit {
     });
   }
 
+  // ── Features chosen at creation ──────────────────────────────────────────
+  showFeaturesDialog = false;
+  moduleChoices: FeatureDefinitionModel[] = [];
+  selectedModules = new Set<string>();
+  private planDefaults = new Map<string, Set<string>>();
+
+  /** Create step 1 → 2: the profile is valid, so ask which features the organization gets before anything is saved. */
+  private openFeaturePicker() {
+    const load$: Observable<unknown> = this.moduleChoices.length
+      ? of(null)
+      : forkJoin([this.featuresService.getCatalog(), this.featuresService.getPlanTemplates()]).pipe(
+          tap(([catalog, templates]) => {
+            this.moduleChoices = (catalog.result ?? [])
+              .filter(f => f.category === 'MODULE' && !f.isCore && f.isAvailable !== false)
+              .sort((a, b) => a.displayOrder - b.displayOrder);
+            this.planDefaults = new Map((templates.result ?? []).map(t =>
+              [t.plan.toUpperCase(), new Set(t.features.filter(x => x.isEnabledByDefault).map(x => x.featureCode))]));
+          }));
+    load$.subscribe({
+      next: () => {
+        this.useAllPlanDefaults();
+        this.showFeaturesDialog = true;
+      },
+      error: () => this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Failed to load the feature list' })
+    });
+  }
+
+  /** Tick what the chosen plan includes by default; the super admin then adjusts. */
+  useAllPlanDefaults() {
+    const defaults = this.planDefaults.get(String(this.form.get('plan')?.value ?? '').toUpperCase());
+    this.selectedModules = new Set(this.moduleChoices.filter(m => defaults?.has(m.featureCode)).map(m => m.featureCode));
+  }
+
+  clearModules() { this.selectedModules = new Set(); }
+
+  toggleModule(code: string, on: boolean) {
+    const next = new Set(this.selectedModules);
+    if (on) next.add(code); else next.delete(code);
+    this.selectedModules = next;
+  }
+
+  confirmCreate() {
+    this.showFeaturesDialog = false;
+    this.createOrEdit();
+  }
+
   save() {
     if (this.form.invalid) { this.form.markAllAsTouched(); return; }
+    if (!this.isEditing) { this.openFeaturePicker(); return; }
+    this.createOrEdit();
+  }
+
+  private createOrEdit() {
     this.isSaving = true;
     const v = this.form.getRawValue();
 
@@ -242,6 +298,7 @@ export class OrganizationsListComponent implements OnInit {
       }).subscribe({ next: onNext, error: onError });
     } else {
       this.service.create({
+        moduleCodes:    [...this.selectedModules],
         orgCode:        v.orgCode,
         orgName:        v.orgName,
         plan:           v.plan,
@@ -452,6 +509,8 @@ export class OrganizationsListComponent implements OnInit {
       }
     });
   }
+
+  readonly planLabel = planLabel;
 
   planSeverity(plan: string): 'success' | 'info' | 'warn' {
     switch (plan) {

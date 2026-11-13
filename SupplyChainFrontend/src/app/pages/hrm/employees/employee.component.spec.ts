@@ -40,7 +40,7 @@ describe('EmployeeNewComponent (080)', () => {
     const nav = spyOn(TestBed.inject(Router), 'navigate').and.resolveTo(true);
     m.c.save();
     expect(m.c.error).toBe('First name is required.');
-    Object.assign(m.c.values, { firstName: 'Ali', departmentUuid: 'd', designationUuid: 'x', branchUuid: 'b', cnic: '35202-1234567-3' });
+    Object.assign(m.c.values, { firstName: 'Ali', lastName: 'Khan', departmentUuid: 'd', designationUuid: 'x', branchUuid: 'b', cnic: '35202-1234567-3' });
     m.c.save();
     const req = m.expectReq('hrm/employees', 'POST');
     expect(req.request.body.employment).toEqual(jasmine.objectContaining({ departmentUuid: 'd', changeReason: 'Hire' }));
@@ -54,7 +54,7 @@ describe('EmployeeNewComponent (080)', () => {
   it('shows the duplicate CNIC sentence', async () => {
     const m = await mountHrm(EmployeeNewComponent, { perms: ['HRM_EMPLOYEE_EDIT'] });
     drain(m.http);
-    Object.assign(m.c.values, { firstName: 'Ali', departmentUuid: 'd', designationUuid: 'x', branchUuid: 'b' });
+    Object.assign(m.c.values, { firstName: 'Ali', lastName: 'Khan', departmentUuid: 'd', designationUuid: 'x', branchUuid: 'b' });
     m.c.save();
     m.refuse('hrm/employees', 409, 'EMPLOYEE_CNIC_DUPLICATE: This CNIC is already on file.', 'POST');
     expect(m.text('error')).toBe('This CNIC is already on file.');

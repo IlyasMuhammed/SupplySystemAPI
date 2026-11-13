@@ -96,6 +96,13 @@ internal sealed class EntitySyncGateway : IEntitySyncGateway
 
         if (results.Count == 0)
             return new EntitySyncResult { Success = true, Outcome = EntitySyncOutcome.NoTargetConfigured };
+        // A50 REV50-3 — a listener that only observes (the onboarding checklist target answers Success + NoTargetConfigured
+        // with nothing queued) never changes what the real targets answered.
+        if (results.Count > 1)
+        {
+            var real = results.Where(x => !(x.Result.Success && x.Result.Outcome == EntitySyncOutcome.NoTargetConfigured && x.Result.TargetsQueued == 0)).ToList();
+            if (real.Count > 0) results = real;
+        }
         if (results.Count == 1) return results[0].Result;
 
         var failures = results.Where(x => !x.Result.Success).ToList();

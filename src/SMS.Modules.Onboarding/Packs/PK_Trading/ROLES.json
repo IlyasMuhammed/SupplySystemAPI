@@ -1,0 +1,283 @@
+{
+  "roles": [
+    {
+      "code": "ORG_ADMIN",
+      "name": "Organization Admin",
+      "description": "Full owner/operator of the organization.",
+      "permissions": [
+        "ALL"
+      ],
+      "requiredModules": []
+    },
+    {
+      "code": "SALES_MANAGER",
+      "name": "Sales Manager",
+      "description": "Runs sales: inquiries, quotations, orders, customers and the sales team.",
+      "requiredModules": [
+        "MODULE_DEMAND"
+      ],
+      "permissions": [
+        "SALE_INQUIRY_VIEW",
+        "SALE_INQUIRY_CREATE",
+        "SALE_INQUIRY_EDIT",
+        "SALE_QUOTATION_VIEW",
+        "SALE_QUOTATION_CREATE",
+        "SALE_QUOTATION_EDIT",
+        "SALE_QUOTATION_SEND",
+        "SALE_ORDER_VIEW",
+        "SALE_ORDER_CREATE",
+        "SALE_ORDER_EDIT",
+        "SALE_ORDER_CONFIRM",
+        "SALE_ORDER_CANCEL",
+        "SALE_ORDER_RESERVE",
+        "CUSTOMER_VIEW",
+        "CUSTOMER_CREATE",
+        "CUSTOMER_EDIT",
+        "SALES_INVOICE_VIEW",
+        "CUSTOMER_LEDGER_VIEW",
+        "INVENTORY_VIEW",
+        "CRM_VIEW_LEADS",
+        "CRM_ASSIGN_LEAD",
+        "CRM_VIEW_OPPORTUNITIES",
+        "CRM_EDIT_OPPORTUNITY",
+        "REPORT_VIEW",
+        "REPORT_EXPORT"
+      ]
+    },
+    {
+      "code": "SALES_REP",
+      "name": "Sales Representative",
+      "description": "Captures leads and enters quotations and sale orders.",
+      "requiredModules": [
+        "MODULE_DEMAND"
+      ],
+      "permissions": [
+        "SALE_INQUIRY_VIEW",
+        "SALE_INQUIRY_CREATE",
+        "SALE_QUOTATION_VIEW",
+        "SALE_QUOTATION_CREATE",
+        "SALE_ORDER_VIEW",
+        "SALE_ORDER_CREATE",
+        "CUSTOMER_VIEW",
+        "INVENTORY_VIEW",
+        "CRM_VIEW_LEADS",
+        "CRM_CREATE_LEAD",
+        "CRM_EDIT_LEAD",
+        "CRM_CREATE_ACTIVITY"
+      ]
+    },
+    {
+      "code": "PURCHASE_OFFICER",
+      "name": "Purchase Officer",
+      "description": "Raises requisitions and purchase orders and tracks deliveries.",
+      "requiredModules": [
+        "MODULE_DEMAND"
+      ],
+      "permissions": [
+        "REQUISITION_CREATE",
+        "REQUISITION_VIEW_ALL",
+        "PO_VIEW",
+        "PO_CREATE",
+        "PO_EDIT",
+        "RFQ_VIEW",
+        "RFQ_CREATE",
+        "SUPPLIER_VIEW",
+        "INVENTORY_VIEW",
+        "DELIVERY_TRACK"
+      ]
+    },
+    {
+      "code": "PROCUREMENT_MANAGER",
+      "name": "Procurement Manager",
+      "description": "Approves purchase orders and manages suppliers, RFQs and contracts.",
+      "requiredModules": [
+        "MODULE_DEMAND"
+      ],
+      "permissions": [
+        "REQUISITION_VIEW_ALL",
+        "REQUISITION_APPROVE",
+        "PO_VIEW",
+        "PO_CREATE",
+        "PO_EDIT",
+        "PO_APPROVE",
+        "PO_CANCEL",
+        "RFQ_VIEW",
+        "RFQ_CREATE",
+        "RFQ_MANAGE",
+        "CONTRACT_VIEW",
+        "CONTRACT_MANAGE",
+        "SUPPLIER_VIEW",
+        "SUPPLIER_CREATE",
+        "SUPPLIER_EDIT",
+        "SUPPLIER_MANAGE",
+        "BUDGET_VIEW",
+        "INVENTORY_VIEW",
+        "REPORT_VIEW",
+        "REPORT_EXPORT"
+      ]
+    },
+    {
+      "code": "WAREHOUSE_OPERATOR",
+      "name": "Warehouse Operator",
+      "description": "Receives, puts away, picks and dispatches goods.",
+      "requiredModules": [
+        "MODULE_INVENTORY"
+      ],
+      "permissions": [
+        "INVENTORY_VIEW",
+        "GOODS_RECEIVE",
+        "PUTAWAY",
+        "PICKING",
+        "DISPATCH",
+        "STOCK_LOCATION_UPDATE"
+      ]
+    },
+    {
+      "code": "INVENTORY_MANAGER",
+      "name": "Inventory Manager",
+      "description": "Manages stock, adjustments, transfers, reorder rules and goods receipts (the FSD \"Warehouse Manager\").",
+      "requiredModules": [
+        "MODULE_INVENTORY"
+      ],
+      "permissions": [
+        "INVENTORY_VIEW",
+        "STOCK_MANAGE",
+        "STOCK_ADJUST",
+        "REORDER_MANAGE",
+        "WAREHOUSE_TRANSFER",
+        "GOODS_RECEIVE",
+        "PUTAWAY",
+        "PICKING",
+        "DISPATCH",
+        "STOCK_LOCATION_UPDATE",
+        "GRN_QC_CONFIRM",
+        "GRN_APPROVE",
+        "REPORT_VIEW",
+        "REPORT_EXPORT"
+      ]
+    },
+    {
+      "code": "FINANCE_OFFICER",
+      "name": "Finance Officer",
+      "description": "Processes invoices, payments and reconciliation.",
+      "requiredModules": [
+        "MODULE_FINANCE"
+      ],
+      "permissions": [
+        "INVOICE_VIEW",
+        "INVOICE_PROCESS",
+        "PAYMENT_VIEW",
+        "PAYMENT_PROCESS",
+        "RECONCILIATION",
+        "SALES_INVOICE_VIEW",
+        "SALES_INVOICE_MANAGE",
+        "CUSTOMER_PAYMENT_VIEW",
+        "CUSTOMER_PAYMENT_RECORD",
+        "CUSTOMER_LEDGER_VIEW",
+        "AR_VIEW",
+        "AP_VIEW",
+        "GL_VIEW",
+        "CURRENCY_VIEW",
+        "INTEGRATION_VIEW",
+        "REPORT_VIEW"
+      ]
+    },
+    {
+      "code": "HR_MANAGER",
+      "name": "HR Manager",
+      "description": "Runs the whole HR module: employees, leave, attendance, salaries, payroll, recruitment, performance, loans and expenses.",
+      "requiredModules": [
+        "MODULE_HRM"
+      ],
+      "permissions": [
+        "HRM_SETTINGS_MANAGE",
+        "HRM_ACCOUNT_MAPPING_VIEW",
+        "HRM_ACCOUNT_MAPPING_EDIT",
+        "HRM_ORG_VIEW",
+        "HRM_ORG_MANAGE",
+        "HRM_EMPLOYEE_VIEW",
+        "HRM_EMPLOYEE_EDIT",
+        "HRM_EMPLOYEE_SENSITIVE_VIEW",
+        "HRM_EMPLOYMENT_MANAGE",
+        "HRM_BANK_VIEW",
+        "HRM_BANK_EDIT",
+        "HRM_SCOPE_ALL",
+        "HRM_SCOPE_BRANCH",
+        "HRM_SCOPE_DEPARTMENT",
+        "HRM_SELF_SERVICE",
+        "HRM_SHIFT_MANAGE",
+        "HRM_ATTENDANCE_VIEW",
+        "HRM_ATTENDANCE_MANAGE",
+        "HRM_OVERTIME_APPROVE",
+        "HRM_LEAVE_VIEW",
+        "HRM_LEAVE_APPROVE",
+        "HRM_LEAVE_MANAGE",
+        "HRM_SALARY_VIEW",
+        "HRM_SALARY_EDIT",
+        "HRM_SALARY_APPROVE",
+        "HRM_PAYROLL_CONFIG",
+        "HRM_STATUTORY_VERIFY",
+        "HRM_PAYROLL_VIEW",
+        "HRM_PAYROLL_RUN",
+        "HRM_PAYROLL_APPROVE",
+        "HRM_PAYROLL_FINALIZE",
+        "HRM_PAYROLL_PAY",
+        "HRM_PAYROLL_REVERSE",
+        "HRM_RECRUITMENT_VIEW",
+        "HRM_RECRUITMENT_MANAGE",
+        "HRM_PERFORMANCE_VIEW",
+        "HRM_PERFORMANCE_MANAGE",
+        "HRM_TRAINING_VIEW",
+        "HRM_TRAINING_MANAGE",
+        "HRM_LOAN_VIEW",
+        "HRM_LOAN_MANAGE",
+        "HRM_LOAN_APPROVE",
+        "HRM_SETTLEMENT_VIEW",
+        "HRM_SETTLEMENT_MANAGE",
+        "HRM_INCREMENT_MANAGE",
+        "HRM_INCREMENT_APPROVE",
+        "HRM_LETTER_ISSUE",
+        "HRM_TAX_CERT_VIEW",
+        "HRM_EXPENSE_VIEW",
+        "HRM_EXPENSE_APPROVE",
+        "HRM_EXPENSE_PAY",
+        "HRM_REMITTANCE_VIEW",
+        "HRM_REMITTANCE_MANAGE",
+        "HRM_REPORTS_VIEW",
+        "HRM_PAYSLIP_EMAIL"
+      ]
+    },
+    {
+      "code": "HR_OFFICER",
+      "name": "HR Officer",
+      "description": "Day-to-day employee records, attendance, leave and recruitment; no salaries, payroll or unmasked identity numbers.",
+      "requiredModules": [
+        "MODULE_HRM"
+      ],
+      "permissions": [
+        "HRM_ORG_VIEW",
+        "HRM_EMPLOYEE_VIEW",
+        "HRM_EMPLOYEE_EDIT",
+        "HRM_EMPLOYMENT_MANAGE",
+        "HRM_SCOPE_ALL",
+        "HRM_SELF_SERVICE",
+        "HRM_SHIFT_MANAGE",
+        "HRM_ATTENDANCE_VIEW",
+        "HRM_ATTENDANCE_MANAGE",
+        "HRM_OVERTIME_APPROVE",
+        "HRM_LEAVE_VIEW",
+        "HRM_LEAVE_APPROVE",
+        "HRM_LEAVE_MANAGE",
+        "HRM_RECRUITMENT_VIEW",
+        "HRM_RECRUITMENT_MANAGE",
+        "HRM_PERFORMANCE_VIEW",
+        "HRM_TRAINING_VIEW",
+        "HRM_TRAINING_MANAGE",
+        "HRM_LETTER_ISSUE",
+        "HRM_EXPENSE_VIEW",
+        "HRM_REPORTS_VIEW"
+      ]
+    }
+  ],
+  "notes": "All 10 codes are global roles: they are reused, not copied (D-20). Permission lists apply only if a code has no global role. HR_MANAGER and HR_OFFICER (D-92) need MODULE_HRM."
+}

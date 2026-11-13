@@ -18,6 +18,9 @@ internal sealed class OrgUserDirectory : IOrgUserDirectory
     public async Task<IReadOnlyList<OrgUserInfo>> SearchAsync(Guid organizationId, string? search, int limit, CancellationToken ct = default) =>
         Map(await _users.SearchUsersAsync(organizationId, search, limit, ct));
 
+    public async Task<IReadOnlyList<OrgUserInfo>> FindByPermissionAsync(Guid organizationId, string permission, int limit, CancellationToken ct = default) =>
+        Map(await _users.FindUsersByPermissionAsync(organizationId, permission, limit, ct));
+
     private static IReadOnlyList<OrgUserInfo> Map(IReadOnlyList<PosUserInfo> users) =>
         users.Select(u => new OrgUserInfo(u.UserId, u.Name, u.Email, u.IsActive, u.Permissions)).ToList();
 }

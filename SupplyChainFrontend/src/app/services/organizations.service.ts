@@ -21,6 +21,16 @@ export interface PaginatedResponse<T> {
 
 export type OrgPlan = 'BASIC' | 'STANDARD' | 'ENTERPRISE';
 
+/** The name shown for a plan. The stored code of the entry plan stays BASIC; it is presented as "Default". */
+export function planLabel(plan?: string | null): string {
+  switch ((plan ?? '').toUpperCase()) {
+    case 'BASIC':      return 'Default';
+    case 'STANDARD':   return 'Standard';
+    case 'ENTERPRISE': return 'Enterprise';
+    default:           return plan ?? '';
+  }
+}
+
 export interface OrganizationListItemModel {
   id: string;
   orgCode: string;
@@ -74,6 +84,8 @@ export interface CreateOrganizationRequest {
   adminFirstName: string;
   adminLastName: string;
   adminEmail: string;
+  /** Modules to license at creation. Omitted = the plan's defaults; an empty list = none (the admin can only manage users). */
+  moduleCodes?: string[];
 }
 
 export interface CreateOrganizationResult {

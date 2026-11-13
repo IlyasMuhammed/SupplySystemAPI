@@ -133,6 +133,12 @@ public static class InventoryModuleExtensions
         services.AddScoped<IImportTarget, Import.OpeningStockImportTarget>();
         // A40 QA-R1 (TFIN) — Finance's opening-date guard asks for the latest posted opening stock date.
         services.AddScoped<IOpeningStockDateSource, Import.OpeningStockDateSource>();
+        // A50 D-17 / D-21 — the setup wizard's PRODUCT_CATEGORIES and WAREHOUSE categories (Onboarding enumerates them).
+        services.AddScoped<SMS.Shared.Onboarding.ISetupCategorySeeder, Onboarding.CategorySetupSeeder>();
+        services.AddScoped<SMS.Shared.Onboarding.ISetupCategorySeeder, Onboarding.WarehouseSetupSeeder>();
+        // A50 D-27/D-28 — demo products (+ opening stock where its rules allow) and the ADD_PRODUCT checklist signal.
+        services.AddScoped<SMS.Shared.Onboarding.ISampleDataContributor, Onboarding.InventorySampleDataContributor>();
+        services.AddScoped<SMS.Shared.Onboarding.IOnboardingSignal, Onboarding.InventoryOnboardingSignal>();
         services.AddScoped<InventoryDataSeeder>();
         services.AddScoped<StaleRateAlertJob>();
         services.AddScoped<RateExpiryNotificationJob>();

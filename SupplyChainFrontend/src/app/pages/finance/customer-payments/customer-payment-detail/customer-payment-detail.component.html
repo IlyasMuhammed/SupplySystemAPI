@@ -18,6 +18,8 @@
   <div sfCmd class="sf-cmd" role="toolbar" aria-label="Commands">
     <span class="sf-mu sf-sm" *ngIf="!canApply">Payment received {{ p.paymentDate | date:'dd MMM yyyy' }}</span>
     <span class="sf-mu sf-sm" *ngIf="canApply">{{ p.unallocatedAmount | number:'1.2-2' }} {{ p.currencyCode }} still on account — apply it below</span>
+    <p-button *ngIf="canDownloadReceipt" label="Download PDF" icon="pi pi-file-pdf" [text]="true" [loading]="isDownloadingPdf"
+              (onClick)="downloadReceipt()" data-testid="action-pdf"></p-button>
     <span class="sf-end">
       <!-- A44 D-19 / D-30 -->
       <app-qbo-sync-badge kind="Payment" [externalId]="p.uuid || uuid" label="QuickBooks"></app-qbo-sync-badge>

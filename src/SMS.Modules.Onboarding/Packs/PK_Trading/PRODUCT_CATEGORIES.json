@@ -1,0 +1,44 @@
+{
+  "categories": [
+    {
+      "code": "RAW",
+      "name": "Raw Materials",
+      "description": "Materials bought to be processed or assembled."
+    },
+    {
+      "code": "FG",
+      "name": "Finished Goods",
+      "description": "Goods ready for sale."
+    },
+    {
+      "code": "PKG",
+      "name": "Packaging",
+      "description": "Boxes, cartons, labels and wrapping."
+    },
+    {
+      "code": "CONS",
+      "name": "Consumables",
+      "description": "Items used up in day-to-day operations."
+    },
+    {
+      "code": "SRV",
+      "name": "Services",
+      "description": "Non-stock service items."
+    },
+    {
+      "code": "SPARE",
+      "name": "Spare Parts",
+      "description": "Spare and replacement parts."
+    },
+    {
+      "code": "TRD",
+      "name": "Trading Goods",
+      "description": "Goods bought for resale without processing."
+    },
+    {
+      "code": "OTH",
+      "name": "Other",
+      "description": "Anything that fits no other category."
+    }
+  ]
+}

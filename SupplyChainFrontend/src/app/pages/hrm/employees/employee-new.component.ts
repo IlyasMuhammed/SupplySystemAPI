@@ -49,7 +49,7 @@ export class EmployeeNewComponent implements OnInit {
   busy = false;
   error = '';
 
-  ngOnInit(): void { this.lookups.need(lookupsOf(HIRE_FIELDS)).subscribe(() => { this.ready = true; }); }
+  ngOnInit(): void { this.lookups.need(lookupsOf([...PERSONAL_FIELDS, ...HIRE_FIELDS])).subscribe(() => { this.ready = true; }); }
 
   save(): void {
     const all = [...PERSONAL_FIELDS, ...IDENTITY_FIELDS, ...HIRE_FIELDS];

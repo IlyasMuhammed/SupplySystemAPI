@@ -1,0 +1,15 @@
+{
+  "verified": false,
+  "verificationNote": "Placeholder only — add the tax codes of your country and check them with your tax adviser.",
+  "taxCodes": [
+    {
+      "code": "NOTAX",
+      "name": "No Tax 0%",
+      "description": "No tax applies.",
+      "rate": 0,
+      "usage": "BOTH",
+      "type": "None",
+      "isDefault": true
+    }
+  ]
+}

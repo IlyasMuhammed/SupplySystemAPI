@@ -99,6 +99,8 @@ public static class AttachmentAccessPolicy
             [PermissionCodes.PO_EDIT], [PermissionCodes.PO_CREATE]),
         // The organization's PO letterhead logo — PoDocumentTemplateController is PO_TEMPLATE_MANAGE throughout.
         Rule("PO_TEMPLATE_LOGO", [PermissionCodes.PO_TEMPLATE_MANAGE], [PermissionCodes.PO_TEMPLATE_MANAGE], [PermissionCodes.PO_TEMPLATE_MANAGE]),
+        // A50 (D-25) — a document template's logo, keyed by the template's uuid; the template editor is DOC_TEMPLATE_MANAGE throughout.
+        Rule("DOC_TEMPLATE_LOGO", [PermissionCodes.DOC_TEMPLATE_MANAGE], [PermissionCodes.DOC_TEMPLATE_MANAGE], [PermissionCodes.DOC_TEMPLATE_MANAGE]),
 
         // Receiving is GOODS_RECEIVE; the Inventory Manager's GRN_APPROVE is the say over a GRN.
         Rule("GRN",
@@ -152,7 +154,7 @@ public static class AttachmentAccessPolicy
     /// Kinds of attachment the app shows straight from their public URL in an <c>&lt;img&gt;</c> — a product's
     /// picture, the PO letterhead's logo — so nothing but a picture may be uploaded there.
     /// </summary>
-    public static bool TakesPicturesOnly(string interfaceCode) => interfaceCode is "PRODUCT_IMAGE" or "PO_TEMPLATE_LOGO";
+    public static bool TakesPicturesOnly(string interfaceCode) => interfaceCode is "PRODUCT_IMAGE" or "PO_TEMPLATE_LOGO" or "DOC_TEMPLATE_LOGO";
 
     /// <summary>
     /// A49 — uploads that must not land under wwwroot, where static files serve them to anyone holding the URL: HR files (identity

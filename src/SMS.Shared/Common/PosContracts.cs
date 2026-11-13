@@ -140,6 +140,12 @@ public interface IPosPinService
     Task<IReadOnlyList<PosPinHash>> GetPinHashesAsync(Guid organizationId, IReadOnlyCollection<int> userIds, CancellationToken ct = default);
     Task<IReadOnlyList<PosUserInfo>> GetUsersAsync(Guid organizationId, IReadOnlyCollection<int> userIds, CancellationToken ct = default);
     Task<IReadOnlyList<PosUserInfo>> SearchUsersAsync(Guid organizationId, string? search, int limit, CancellationToken ct = default);
+    /// <summary>
+    /// REV49-7 — up to <paramref name="limit"/> active users (lowest user id first) whose effective permissions include
+    /// <paramref name="permission"/>, found across the whole organization. The default is the capped search (fakes).
+    /// </summary>
+    async Task<IReadOnlyList<PosUserInfo>> FindUsersByPermissionAsync(Guid organizationId, string permission, int limit, CancellationToken ct = default) =>
+        (await SearchUsersAsync(organizationId, null, 100, ct)).Where(u => u.IsActive && u.Permissions.Contains(permission)).OrderBy(u => u.UserId).Take(limit).ToList();
     /// <summary>Normal JWT + refresh pair for the user (active user, active organization), as a password sign-in would give.</summary>
     Task<PosTokenPair> IssueTokensAsync(Guid organizationId, int userId, CancellationToken ct = default);
 }

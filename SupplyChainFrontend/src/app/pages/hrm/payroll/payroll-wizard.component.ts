@@ -42,6 +42,28 @@ export function postingProblem(postings: { status: string }[] | undefined): bool
   return (postings ?? []).some(p => p.status === 'Failed' || p.status === 'Pending' || p.status === 'Held');
 }
 
+/** `PayrollPostingModel.targetResultsJson`: `[{ target, status, internalId, externalId, error }]` as the run service writes it. */
+export interface PostingTargetResult { target?: string; status?: string; internalId?: string | null; externalId?: string | null; error?: string | null }
+
+export function postingTargets(p: { targetResultsJson?: string | null } | null | undefined): PostingTargetResult[] {
+  if (!p?.targetResultsJson) return [];
+  try {
+    const parsed = JSON.parse(p.targetResultsJson);
+    return Array.isArray(parsed) ? parsed.filter(x => x && typeof x === 'object') : [];
+  } catch { return []; }
+}
+
+/** "QBO: Posted, GL: Posted", or '—'. */
+export function postingTargetText(p: { targetResultsJson?: string | null } | null | undefined): string {
+  const t = postingTargets(p).map(x => [x.target, x.status].filter(Boolean).join(': ')).filter(Boolean);
+  return t.length ? t.join(', ') : '—';
+}
+
+/** The posting's `lastError`, else the first target error. */
+export function postingNote(p: { lastError?: string | null; targetResultsJson?: string | null } | null | undefined): string | null {
+  return p?.lastError || postingTargets(p).map(x => x.error).find(e => !!e) || null;
+}
+
 type Dlg = 'pay' | 'reverse' | 'adjust';
 
 const PAY_FIELDS: Field[] = [
@@ -146,6 +168,13 @@ export class PayrollWizardComponent implements OnInit, OnDestroy {
   get reached(): number { return stepFor(this.run?.status); }
   get noTargetPosting(): boolean { return (this.run?.postings ?? []).some((p: any) => p.status === 'NoTarget'); }
   get postingNeedsRetry(): boolean { return postingProblem(this.run?.postings); }
+  /** The run model has no note of its own: the first problem posting's error. */
+  get problemNote(): string | null {
+    const p = (this.run?.postings ?? []).find((x: any) => postingProblem([x]) && postingNote(x));
+    return p ? postingNote(p) : null;
+  }
+  readonly postingTargetText = postingTargetText;
+  readonly postingNote = postingNote;
   get progressPct(): number { const p = this.progress; return p && p.total ? Math.min(100, Math.round((p.processed / p.total) * 100)) : 0; }
   get warningTexts(): string[] { return (this.run?.warnings ?? []).map((x: any) => typeof x === 'string' ? x : (x?.message ?? '')).filter(Boolean); }
   get blockReasonCount(): number { return Number(this.run?.blockedEmployees ?? 0); }

@@ -9,6 +9,8 @@ using SMS.Modules.Lookups.Models;
 using SMS.Modules.Lookups.Services;
 using SMS.Shared.Common;
 using SMS.Shared.Exceptions;
+using SMS.Modules.Demand.Services.Documents;
+using SMS.Shared.Onboarding;
 
 namespace SMS.Modules.Logistics.Services;
 
@@ -38,26 +40,82 @@ public interface IDeliveryDocumentService
 /// </summary>
 internal sealed class DeliveryDocumentService : IDeliveryDocumentService
 {
-    // The same palette as the PO, MIR, MIV and invoice documents.
-    private const string BrandColor     = "#6C63FF";
-    private const string BrandColorDark = "#4A42CC";
-    private const string BrandColorTint = "#F4F3FF";
+    // The same palette as the PO, MIR, MIV and invoice documents (DocumentPalette.House).
+    // A50 (D-25) — a packing list of an org with a DeliveryNote template takes its colour / header / footer / terms. The compose
+    // methods are static, so the render's branding is held per thread for the length of one render: QuestPDF composes the
+    // document synchronously inside GeneratePdf, on the calling thread (and PdfRenderGate allows one render at a time anyway).
+    [ThreadStatic] private static DocumentPalette? _palette;
+    [ThreadStatic] private static DocumentBranding? _brand;
+    private static string BrandColor     => (_palette ?? DocumentPalette.House).Primary;
+    private static string BrandColorDark => (_palette ?? DocumentPalette.House).Dark;
+    private static string BrandColorTint => (_palette ?? DocumentPalette.House).Tint;
 
     private readonly IDeliveryService           _deliveries;
     private readonly IPackageRepository         _packages;
     private readonly IPoDocumentTemplateService _templates;
     private readonly IWebHostEnvironment        _env;
+    private readonly IDocumentBrandingProvider  _branding;
+    private readonly ITemplatedDocumentRenderer _templated;
 
     public DeliveryDocumentService(
         IDeliveryService deliveries,
         IPackageRepository packages,
         IPoDocumentTemplateService templates,
-        IWebHostEnvironment env)
+        IWebHostEnvironment env,
+        TimeProvider? clock = null,
+        IDocumentBrandingProvider? branding = null,
+        ITemplatedDocumentRenderer? templated = null)
     {
         _deliveries = deliveries;
         _packages   = packages;
         _templates  = templates;
         _env        = env;
+        _clock      = clock ?? TimeProvider.System;
+        _branding   = branding ?? new NullDocumentBrandingProvider();
+        _templated  = templated ?? new NullTemplatedDocumentRenderer();
+    }
+
+    private readonly TimeProvider _clock;
+
+    /// <summary>Renders with this branding (null = the house look) held for the composition; always through PdfRenderGate.</summary>
+    private static byte[] Render(QuestPDF.Fluent.Document document, DocumentBranding? brand)
+    {
+        _brand = brand;
+        _palette = brand is null ? null : DocumentPalette.Resolve(brand, DocumentPalette.House);
+        try { return PdfRenderGate.Run(document.GeneratePdf); }
+        finally { _brand = null; _palette = null; }
+    }
+
+    /// <summary>A50 — the packing list for a BodyHtml template: one row per item of every live package.</summary>
+    private static TemplatedDocument Templated(
+        DeliveryDetailModel delivery, DeliveryPackingModel packing, IReadOnlyList<PackageModel> live, Parties parties, DateTime now)
+    {
+        var doc = new TemplatedDocument
+        {
+            TemplateType = DocumentTemplateTypes.DeliveryNote, Title = "PACKING LIST", GeneratedAt = now,
+            Values = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["DocumentNumber"] = delivery.DeliveryNumber, ["DocumentDate"] = now.ToString("dd MMM yyyy"),
+                ["DeliveryNumber"] = delivery.DeliveryNumber, ["SourceNumber"] = delivery.SourceNumber ?? "",
+                ["CustomerName"] = parties.To.Name ?? "", ["ShipFrom"] = string.Join(", ", parties.From.AddressLines),
+                ["ShipTo"] = string.Join(", ", parties.To.AddressLines),
+                ["PromisedDate"] = delivery.PromisedDate is { } d ? d.ToString("dd MMM yyyy") : "",
+                ["PackageCount"] = live.Count.ToString(), ["TotalPieces"] = packing.QtyPacked.ToString("N3"),
+                ["GrossWeight"] = $"{packing.TotalGrossWeightKg:N3} kg", ["Status"] = Title(delivery.Status), ["Notes"] = delivery.Notes ?? "",
+                ["PartyLabel"] = "Ship To:", ["PartyName"] = parties.To.Name ?? "-", ["PartyAddress"] = string.Join("\n", parties.To.AddressLines),
+                ["HeaderFacts"] = delivery.PromisedDate is { } pd ? $"Promised: {pd:dd MMM yyyy}" : "",
+            },
+        };
+        doc.LineColumns.AddRange([new("Package", 1.4f), new("Ln", 0.4f), new("Item Description", 3f), new("Batch", 1.2f), new("Serial", 1.2f),
+                                  new("UOM", 0.7f), new("Qty", 0.9f, true)]);
+        foreach (var package in live)
+        foreach (var c in package.Contents)
+            doc.LineRows.Add([package.PackageBarcode, c.DeliveryLineNo.ToString(), c.ItemDescription, c.BatchNumber ?? "-", c.SerialNumber ?? "-",
+                              c.UnitOfMeasure ?? "-", c.Qty.ToString("N3")]);
+        doc.Totals.AddRange([new("Packages", live.Count.ToString()), new("Total Pieces", packing.QtyPacked.ToString("N3")),
+                             new("Gross Weight", $"{packing.TotalGrossWeightKg:N3} kg", true)]);
+        doc.SignatureLabels.AddRange(["Packed By", "Received By", "Date & Time"]);
+        return doc;
     }
 
     /// <summary>One side of the movement as printed: who, which site of theirs, and where.</summary>
@@ -73,6 +131,7 @@ internal sealed class DeliveryDocumentService : IDeliveryDocumentService
         var (delivery, packing, template, logo, parties) = await LoadAsync(deliveryUuid);
 
         var live = packing.Packages.Where(p => !p.IsVoided).ToList();
+        var now  = _clock.GetLocalNow().DateTime;
 
         // A packing list with no cartons describes nothing. Better to refuse than to hand someone
         // a sheet of paper that implies the goods are ready when they are still on the floor.
@@ -80,6 +139,17 @@ internal sealed class DeliveryDocumentService : IDeliveryDocumentService
             throw new ConflictException(
                 $"Delivery {delivery.DeliveryNumber} has no packages, so there is nothing to list. " +
                 "Pack it first.");
+
+        var fileName = $"PackingList-{delivery.DeliveryNumber}.pdf";
+        var brand = await _branding.GetAsync(DocumentTemplateTypes.DeliveryNote);
+        if (brand is not null)
+        {
+            brand = BrandedDocumentKit.WithLetterhead(brand, template?.CompanyName, template?.CompanyAddress, template?.CompanyPhone,
+                template?.CompanyEmail, template?.CompanyTaxId);
+            if (!string.IsNullOrWhiteSpace(brand.BodyHtml) && _templated.Render(brand, Templated(delivery, packing, live, parties, now)) is { } body)
+                return (body, fileName);
+            logo = brand.LogoBytes ?? logo;
+        }
 
         var document = QuestPDF.Fluent.Document.Create(container =>
         {
@@ -89,13 +159,13 @@ internal sealed class DeliveryDocumentService : IDeliveryDocumentService
                 page.Margin(32);
                 page.DefaultTextStyle(x => x.FontSize(9.5f).LineHeight(1.35f));
 
-                page.Header().Element(c => ComposeHeader(c, template, delivery, logo, "PACKING LIST"));
+                page.Header().Element(c => ComposeHeader(c, template, delivery, logo, "PACKING LIST", now));
                 page.Content().Element(c => ComposePackingContent(c, template, delivery, packing, live, parties));
-                page.Footer().Element(c => ComposeFooter(c, template, delivery));
+                page.Footer().Element(c => ComposeFooter(c, template, delivery, now));
             });
         });
 
-        return (document.GeneratePdf(), $"PackingList-{delivery.DeliveryNumber}.pdf");
+        return (Render(document, brand), fileName);
     }
 
     private static void ComposePackingContent(
@@ -118,6 +188,9 @@ internal sealed class DeliveryDocumentService : IDeliveryDocumentService
 
             if (!string.IsNullOrWhiteSpace(delivery.Notes))
                 ComposeNotes(column, delivery.Notes!);
+
+            if (_brand is not null)
+                BrandedDocumentKit.ComposeTerms(column, _brand, BrandColorDark);
 
             ComposeReceiptBlock(column, template);
         });
@@ -224,6 +297,7 @@ internal sealed class DeliveryDocumentService : IDeliveryDocumentService
         var (delivery, packing, template, logo, parties) = await LoadAsync(deliveryUuid);
 
         var live = packing.Packages.Where(p => !p.IsVoided).ToList();
+        var now  = _clock.GetLocalNow().DateTime;
 
         // A gate pass authorises goods to leave. Before staging, nothing is at the barrier, and a
         // pass printed early is a pass someone can walk out with while the goods are still being
@@ -250,17 +324,18 @@ internal sealed class DeliveryDocumentService : IDeliveryDocumentService
                 page.Margin(32);
                 page.DefaultTextStyle(x => x.FontSize(9.5f).LineHeight(1.35f));
 
-                page.Header().Element(c => ComposeHeader(c, template, delivery, logo, "GATE PASS"));
+                page.Header().Element(c => ComposeHeader(c, template, delivery, logo, "GATE PASS", now));
                 page.Content().Element(c =>
                 {
                     if (isCollection) ComposeCollectionContent(c, template, delivery, packing, live, parties);
                     else              ComposeGatePassContent(c, template, delivery, packing, live, parties);
                 });
-                page.Footer().Element(c => ComposeFooter(c, template, delivery));
+                page.Footer().Element(c => ComposeFooter(c, template, delivery, now));
             });
         });
 
-        return (document.GeneratePdf(), $"GatePass-{delivery.DeliveryNumber}.pdf");
+        // A gate pass is not a template type: always the house look, now through PdfRenderGate.
+        return (Render(document, null), $"GatePass-{delivery.DeliveryNumber}.pdf");
     }
 
     // ── Collection gate pass (self-pickup, A29 §8.3) ─────────────────────────
@@ -589,15 +664,21 @@ internal sealed class DeliveryDocumentService : IDeliveryDocumentService
         PoDocumentTemplateModel? template,
         DeliveryDetailModel delivery,
         byte[]? logoBytes,
-        string title)
+        string title,
+        DateTime now)
     {
         container.Column(column =>
         {
             column.Item().Row(row =>
             {
-                row.RelativeItem().Column(col =>
+                var letterhead = row.RelativeItem();
+                var branded = _brand is not null && BrandedDocumentKit.TryComposeHeader(letterhead, _brand,
+                    BrandedDocumentKit.HeaderValues(_brand, title, delivery.DeliveryNumber, now), BrandColorDark);
+
+                if (!branded)
+                letterhead.Column(col =>
                 {
-                    col.Item().Text(template?.CompanyName ?? "Company Name")
+                    col.Item().Text(template?.CompanyName ?? _brand?.CompanyName ?? "Company Name")
                               .FontSize(16).Bold().FontColor(BrandColorDark);
 
                     if (!string.IsNullOrWhiteSpace(template?.CompanyAddress))
@@ -635,7 +716,7 @@ internal sealed class DeliveryDocumentService : IDeliveryDocumentService
 
                 row.ConstantItem(180).Column(col =>
                 {
-                    col.Item().AlignRight().Text($"Date: {DateTime.Now:dd MMM yyyy}").FontSize(9);
+                    col.Item().AlignRight().Text($"Date: {now:dd MMM yyyy}").FontSize(9);
                     col.Item().PaddingTop(2).AlignRight()
                        .Text($"Status: {Title(delivery.Status)}").FontSize(9);
 
@@ -744,19 +825,22 @@ internal sealed class DeliveryDocumentService : IDeliveryDocumentService
     }
 
     private static void ComposeFooter(
-        IContainer container, PoDocumentTemplateModel? template, DeliveryDetailModel delivery)
+        IContainer container, PoDocumentTemplateModel? template, DeliveryDetailModel delivery, DateTime now)
     {
         container.Column(column =>
         {
             column.Item().PaddingBottom(4).LineHorizontal(0.5f).LineColor(Colors.Grey.Lighten2);
 
-            if (!string.IsNullOrWhiteSpace(template?.FooterText))
+            var branded = _brand is not null && BrandedDocumentKit.TryComposeFooter(column, _brand,
+                BrandedDocumentKit.HeaderValues(_brand, "PACKING LIST", delivery.DeliveryNumber, now));
+
+            if (!branded && !string.IsNullOrWhiteSpace(template?.FooterText))
                 column.Item().AlignCenter().Text(template.FooterText)
                       .FontSize(7).FontColor(Colors.Grey.Medium);
 
             column.Item().PaddingTop(2).Row(row =>
             {
-                row.RelativeItem().Text($"{delivery.DeliveryNumber}  ·  Generated {DateTime.Now:yyyy-MM-dd HH:mm}")
+                row.RelativeItem().Text($"{delivery.DeliveryNumber}  ·  Generated {now:yyyy-MM-dd HH:mm}")
                    .FontSize(7).FontColor(Colors.Grey.Medium);
 
                 row.RelativeItem().AlignRight().Text(text =>

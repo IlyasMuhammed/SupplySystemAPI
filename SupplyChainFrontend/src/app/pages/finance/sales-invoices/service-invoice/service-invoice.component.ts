@@ -1,9 +1,11 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, DestroyRef, OnInit, inject } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
 import { ButtonModule } from 'primeng/button';
 import { SelectModule } from 'primeng/select';
+import { Subject, catchError, debounceTime, distinctUntilChanged, of, switchMap } from 'rxjs';
 
 import { FLOW } from '../../../../shared/flow';
 import { HrmApi, rowsOf } from '../../../hrm/core/hrm.api';
@@ -36,7 +38,7 @@ const FIELDS: Field[] = [
     <div class="gl-note er" *ngIf="error" role="alert" data-testid="error"><i class="pi pi-exclamation-triangle"></i><div>{{ error }}</div></div>
     <section class="sf-card">
       <div class="sf-fld" style="max-width:28rem;margin-bottom:0.85rem"><label for="si-customer" class="sf-req">Customer</label>
-        <p-select inputId="si-customer" [options]="customers" optionLabel="label" optionValue="value" [(ngModel)]="customerUuid" [filter]="true" placeholder="Select" appendTo="body" data-testid="customer" [style]="{ width: '100%' }"></p-select></div>
+        <p-select inputId="si-customer" [options]="customers" optionLabel="label" optionValue="value" [(ngModel)]="customerUuid" [filter]="true" filterBy="label" (onFilter)="onCustomerFilter($event.filter)" placeholder="Select" appendTo="body" data-testid="customer" [style]="{ width: '100%' }"></p-select></div>
       <hrm-form [fields]="fields" [values]="values" idPrefix="si"></hrm-form>
     </section>
   </div>
@@ -51,6 +53,8 @@ const FIELDS: Field[] = [
 export class ServiceInvoiceComponent implements OnInit {
   private readonly api = inject(HrmApi);
   private readonly router = inject(Router);
+  private readonly destroyRef = inject(DestroyRef);
+  private readonly search$ = new Subject<string>();
 
   readonly fields = FIELDS;
   readonly listRoute = '/portal/pages/finance/sales-invoices';
@@ -64,11 +68,33 @@ export class ServiceInvoiceComponent implements OnInit {
     return money(((this.values['lines'] ?? []) as any[]).reduce((s, l) => s + Number(l.quantity || 0) * Number(l.unitPrice || 0), 0));
   }
 
+  /**
+   * REV49B-10: the customer master (`api/customers`, MODULE_CUSTOMERS + CUSTOMER_VIEW), not `partners` (MODULE_SUPPLIERS), because
+   * this page is for an organization with customers and no sales module (P2-S). The list caps at 100 per page, so beyond the
+   * first page the picker searches the server (`customers/search`, at most 50) from two typed characters.
+   */
   ngOnInit(): void {
-    this.api.get<any>('partners', { isCustomer: true, pageSize: 200 }).subscribe({
-      next: r => { this.customers = rowsOf<any>(r).map(p => ({ label: p.companyName, value: p.uuid })); },
+    this.api.get<any>('customers', { pageSize: 100 }).subscribe({
+      next: r => { this.customers = this.toOpts(rowsOf<any>(r)); },
       error: err => { this.error = hrmError(err, 'The customers could not be loaded.'); }
     });
+    this.search$.pipe(debounceTime(300), distinctUntilChanged(), switchMap(q => this.api.get<any>('customers/search', { q, limit: 50 }).pipe(catchError(() => of(null)))), takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: r => {
+        if (r === null) return;
+        const found = this.toOpts(rowsOf<any>(r));
+        const keep = this.customers.filter(o => o.value === this.customerUuid && !found.some(f => f.value === o.value));
+        this.customers = [...keep, ...found];
+      }
+    });
+  }
+
+  onCustomerFilter(term: string | null | undefined): void {
+    const q = (term ?? '').trim();
+    if (q.length >= 2) this.search$.next(q);
+  }
+
+  private toOpts(rows: any[]): Opt[] {
+    return rows.filter(c => c.isActive !== false).map(c => ({ label: c.code ? `${c.name} (${c.code})` : c.name, value: c.uuid }));
   }
 
   save(): void {

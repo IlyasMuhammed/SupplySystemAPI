@@ -1,4 +1,4 @@
-﻿<p-toast></p-toast>
+<p-toast></p-toast>
 <p-confirmDialog></p-confirmDialog>
 
 <sf-page [crumbs]="['Inventory', 'Products']">
@@ -129,7 +129,7 @@
             </div>
           </td>
           <td>
-            <a class="product-name" href="javascript:void(0)" (click)="viewProduct(product.id)">{{ product.name }}</a>
+            <a class="product-name" href="javascript:void(0)" (click)="viewProduct(product.id)">{{ product.name }}</a> <app-demo-badge entityType="Product" [entityRef]="product.uuid"></app-demo-badge>
             <span *ngIf="product.brand" class="product-brand">{{ product.brand }}</span>
           </td>
           <td>

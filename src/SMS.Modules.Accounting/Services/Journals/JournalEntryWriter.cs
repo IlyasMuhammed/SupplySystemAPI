@@ -357,7 +357,10 @@ internal sealed class JournalEntryWriter
 
         // Step 4 — lines (BR-JE-002 / 003).
         if (draft.Lines.Count < 2) errors.Add(new JournalError(JournalErrorCodes.TooFewLines, JournalMessages.TooFewLines));
-        if (draft.Lines.Count > JournalLimits.MaxLines) errors.Add(new JournalError(JournalErrorCodes.TooFewLines, JournalMessages.TooManyLines));
+        var maxLines = JournalLimits.MaxLinesFor(draft.IsManual, draft.SourceModule); // QA49C-2
+        if (draft.Lines.Count > maxLines)
+            errors.Add(new JournalError(JournalErrorCodes.TooFewLines,
+                maxLines == JournalLimits.MaxLines ? JournalMessages.TooManyLines : $"An entry can have at most {maxLines} lines"));
 
         var built = new List<BuiltLine>();
         var n = 0;

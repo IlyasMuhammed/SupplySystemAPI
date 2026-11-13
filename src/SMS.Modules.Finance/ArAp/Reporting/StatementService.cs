@@ -57,14 +57,19 @@ internal sealed class StatementService : IStatementService, IVendorReconciliatio
     private readonly ArApReportingService        _reports;
     private readonly IEmailSender?               _email;
     private readonly IPoDocumentTemplateService? _templates;
+    private readonly SMS.Shared.Onboarding.IDocumentBrandingProvider? _branding;
+    private readonly SMS.Shared.Onboarding.ITemplatedDocumentRenderer? _templated;
 
     public StatementService(
-        FinanceDbContext db, ArApReportingService reports, IEmailSender? email = null, IPoDocumentTemplateService? templates = null)
+        FinanceDbContext db, ArApReportingService reports, IEmailSender? email = null, IPoDocumentTemplateService? templates = null,
+        SMS.Shared.Onboarding.IDocumentBrandingProvider? branding = null, SMS.Shared.Onboarding.ITemplatedDocumentRenderer? templated = null)
     {
         _db        = db;
         _reports   = reports;
         _email     = email;
         _templates = templates;
+        _branding  = branding;
+        _templated = templated;
     }
 
     // ══ Generation ══════════════════════════════════════════════════════════
@@ -91,8 +96,12 @@ internal sealed class StatementService : IStatementService, IVendorReconciliatio
         return new StatementOutput(statement, pdf, FileName(statement));
     }
 
+    // A50 (D-25) — customer statements take the org's CustomerStatement template; vendor statements keep the house look.
     private async Task<byte[]> RenderAsync(StatementResult statement) =>
-        StatementPdfRenderer.Render(statement, _templates is null ? null : await _templates.GetActiveAsync());
+        StatementPdfRenderer.Render(statement, _templates is null ? null : await _templates.GetActiveAsync(),
+            _branding is null || statement.PartnerType == "Vendor"
+                ? null : await _branding.GetAsync(SMS.Shared.Onboarding.DocumentTemplateTypes.CustomerStatement),
+            _templated);
 
     internal static string FileName(StatementResult s)
     {

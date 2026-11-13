@@ -28,6 +28,9 @@ public interface IOrgUserDirectory
     Task<IReadOnlyList<OrgUserInfo>> GetUsersAsync(Guid organizationId, IReadOnlyCollection<int> userIds, CancellationToken ct = default);
     /// <summary>Active users whose name or email contains <paramref name="search"/>, by name.</summary>
     Task<IReadOnlyList<OrgUserInfo>> SearchAsync(Guid organizationId, string? search, int limit, CancellationToken ct = default);
+    /// <summary>REV49-7 — active users holding <paramref name="permission"/>, lowest user id first, across the whole organization (not just the first page of a search). Default: the first 200 of <see cref="SearchAsync"/>.</summary>
+    async Task<IReadOnlyList<OrgUserInfo>> FindByPermissionAsync(Guid organizationId, string permission, int limit, CancellationToken ct = default) =>
+        (await SearchAsync(organizationId, null, 200, ct)).Where(u => u.IsActive && u.Permissions.Contains(permission)).OrderBy(u => u.UserId).Take(limit).ToList();
 }
 
 // ─── Accounts & contacts (Suppliers implements) ─────────────────────────────────────────────────────────────────────

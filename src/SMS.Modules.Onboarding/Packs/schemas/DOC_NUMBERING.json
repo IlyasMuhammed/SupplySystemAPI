@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "sms://onboarding/schemas/DOC_NUMBERING.json",
+  "title": "DOC_NUMBERING",
+  "description": "Per-org document prefixes (Logistics document_number_formats, D-19). prefix = the org prefix; defaultPrefix = what the code passes today. Year and 5-digit padding never change; pattern is informational.",
+  "type": "object",
+  "properties": {
+    "sequences": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "documentType": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 50
+          },
+          "defaultPrefix": {
+            "type": "string",
+            "pattern": "^[A-Z0-9]{1,10}$"
+          },
+          "prefix": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9]{1,10}$"
+          },
+          "pattern": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 50
+          },
+          "startNumber": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "resetYearly": {
+            "type": "boolean"
+          },
+          "sharedGenerator": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "documentType",
+          "prefix",
+          "pattern"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 1
+    },
+    "displayName": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 200
+    },
+    "notes": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 2000
+    }
+  },
+  "required": [
+    "sequences"
+  ],
+  "additionalProperties": false
+}

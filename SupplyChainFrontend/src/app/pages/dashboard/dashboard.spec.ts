@@ -10,6 +10,10 @@ import { InventoryService } from '../../services/inventory.service';
 import { SaleOrderService } from '../../services/sale-order.service';
 import { AuthService } from '../service/auth.service';
 import { LayoutService } from '../../layout/service/layout.service';
+import { signal } from '@angular/core';
+import { OnboardingSetupService } from '../../services/onboarding-setup.service';
+import { TenantService } from '../service/tenant.service';
+import { OnboardingDemoService } from '../../services/onboarding-demo.service';
 
 describe('Dashboard', () => {
   let fixture: ComponentFixture<Dashboard>;
@@ -18,6 +22,7 @@ describe('Dashboard', () => {
   let demand: jasmine.SpyObj<DemandService>;
   let saleOrders: jasmine.SpyObj<SaleOrderService>;
   let permissions: string[];
+  let checklistSvc: jasmine.SpyObj<OnboardingDemoService>;
 
   const page = { result: { data: [], totalRecords: 0 } } as any;
 
@@ -74,6 +79,14 @@ describe('Dashboard', () => {
     const auth = jasmine.createSpyObj<AuthService>('AuthService', ['hasPermission', 'hasAnyPermission']);
     auth.hasPermission.and.callFake((c: string) => permissions.includes(c));
     auth.hasAnyPermission.and.callFake((...c: string[]) => c.some(x => permissions.includes(x)));
+    checklistSvc = jasmine.createSpyObj<OnboardingDemoService>('OnboardingDemoService', ['getChecklist', 'completeStep', 'dismissChecklist']);
+    checklistSvc.getChecklist.and.returnValue(of({ success: true, message: '', result: {
+      dismissed: false, completedCount: 1, totalCount: 2, isComplete: false,
+      steps: [
+        { stepCode: 'COMPLETE_SETUP', title: 'Complete the setup wizard', link: '/portal/pages/onboarding/setup', sortOrder: 10, completed: true },
+        { stepCode: 'ADD_CUSTOMER', title: 'Add your first customer', link: '/portal/pages/customers', sortOrder: 20, completed: false }
+      ]
+    } } as any));
 
     await TestBed.configureTestingModule({
       imports: [Dashboard],
@@ -86,7 +99,12 @@ describe('Dashboard', () => {
         { provide: InventoryService, useValue: inventory },
         { provide: SaleOrderService, useValue: saleOrders },
         { provide: AuthService, useValue: auth },
-        { provide: LayoutService, useValue: { configUpdate$: new Subject<void>() } }
+        { provide: LayoutService, useValue: { configUpdate$: new Subject<void>() } },
+        // A50 — the "Setup incomplete" banner reads the setup status (none here: hidden).
+        { provide: OnboardingSetupService, useValue: { status: signal(null), loadStatus: () => of(null) } },
+        { provide: TenantService, useValue: { isSuperAdmin: () => false, tenant: signal(null), hasFeature: () => true } },
+        // A50 — the getting-started checklist (FE-B50); shown only with ONBOARDING_VIEW.
+        { provide: OnboardingDemoService, useValue: checklistSvc }
       ]
     }).compileComponents();
 
@@ -166,5 +184,21 @@ describe('Dashboard', () => {
 
     expect(q('dashboard-error')).not.toBeNull();
     expect(component.heroCards.length).toBe(0);
+  });
+
+  // A50 tasks 313–317 (FE-B50)
+  it('shows the getting-started checklist under the setup banner for ONBOARDING_VIEW', async () => {
+    await setup(full(), ['ONBOARDING_VIEW']);
+    expect(checklistSvc.getChecklist).toHaveBeenCalledTimes(1);
+    expect(q('checklist-progress').textContent).toContain('1 of 2 done');
+    const body = fixture.nativeElement.querySelector('.sf-body') as HTMLElement;
+    const tags = Array.from(body.children).map(c => c.tagName.toLowerCase());
+    expect(tags.indexOf('app-onboarding-checklist-widget')).toBe(tags.indexOf('app-setup-incomplete-banner') + 1);
+  });
+
+  it('does not ask for the checklist without ONBOARDING_VIEW', async () => {
+    await setup(full(), []);
+    expect(checklistSvc.getChecklist).not.toHaveBeenCalled();
+    expect(q('onboarding-checklist')).toBeNull();
   });
 });

@@ -126,11 +126,11 @@
       <div class="sf-ch"><h2>Pay</h2></div>
       <div class="gl-note ok" *ngIf="run.status === 'Paid'" data-testid="paid"><i class="pi pi-check"></i><div>Paid<ng-container *ngIf="run.paidAt"> on {{ run.paidAt | date:'dd MMM yyyy' }}</ng-container><ng-container *ngIf="run.paymentReference">, reference {{ run.paymentReference }}</ng-container>.</div></div>
       <div class="gl-note" *ngIf="noTargetPosting" data-testid="no-posting"><i class="pi pi-info-circle"></i><div>No posting required: this organization has no active accounting target. The journal can be exported for your books.</div></div>
-      <div class="gl-note er" *ngIf="postingNeedsRetry" data-testid="posting-problem"><i class="pi pi-exclamation-triangle"></i><div>Posting did not finish.<ng-container *ngIf="run.postingNote"> {{ run.postingNote }}</ng-container></div></div>
+      <div class="gl-note er" *ngIf="postingNeedsRetry" data-testid="posting-problem"><i class="pi pi-exclamation-triangle"></i><div>Posting did not finish.<ng-container *ngIf="problemNote"> {{ problemNote }}</ng-container></div></div>
 
       <div class="gl-scroll" *ngIf="run.postings?.length"><table class="hrm-table hrm-stack" data-testid="postings">
         <thead><tr><th>Kind</th><th>Target</th><th>State</th><th>Note</th></tr></thead>
-        <tbody><tr *ngFor="let p of run.postings"><td data-label="Kind">{{ hrmLabel(p.kind) }}</td><td data-label="Target">{{ p.target || p.targetSystem || '—' }}</td><td data-label="State"><span class="sf-pill" [ngClass]="hrmTone(p.status)">{{ hrmLabel(p.status) }}</span></td><td data-label="Note">{{ p.note || p.message || p.errorMessage || '—' }}</td></tr></tbody>
+        <tbody><tr *ngFor="let p of run.postings"><td data-label="Kind">{{ hrmLabel(p.kind) }}</td><td data-label="Target">{{ postingTargetText(p) }}</td><td data-label="State"><span class="sf-pill" [ngClass]="hrmTone(p.status)">{{ hrmLabel(p.status) }}</span></td><td data-label="Note">{{ postingNote(p) || '—' }}</td></tr></tbody>
       </table></div>
 
       <div class="hrm-actions" style="justify-content:flex-start;margin-top:0.75rem">

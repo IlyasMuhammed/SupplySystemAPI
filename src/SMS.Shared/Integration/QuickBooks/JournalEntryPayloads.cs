@@ -28,7 +28,7 @@ public sealed class JournalEntryPayloadLine
 
 public sealed class JournalEntryPayload : IAccountingDocument
 {
-    /// <summary>Source uuid, then ":void" for a reversal, then ":batch{N}" for a split entry.</summary>
+    /// <summary><see cref="JournalEntryKeys.Root(Guid, FinDocType)"/>, then ":void" for a reversal, then ":batch{N}" for a split entry.</summary>
     public string   ExternalId   { get; set; } = string.Empty;
     /// <summary>"hrm:{DocType}:{uuid}[:void][:batch{N}]" (BR-G1-003).</summary>
     public string   IdempotencyKey { get; set; } = string.Empty;
@@ -57,6 +57,27 @@ public static class HrmPostingProperties
 public static class ServiceInvoiceLines
 {
     public const string ItemExternalId = "SERVICE-ITEM";
+}
+
+/// <summary>
+/// QA49C-1: the record key of a journal entry at the accounting system. A payment carries the uuid of the document it pays
+/// (run, claim, settlement), so keyed on the uuid alone it overwrote that document's entry. The payment types get their own key
+/// "{uuid}:{DocType}" and DocNumber "{number}-P"; every other type keeps the bare uuid, so the maps already stored stay valid.
+/// The builder, the poster's reversal, the gateway status and the Accounting status refresher all derive it here.
+/// </summary>
+public static class JournalEntryKeys
+{
+    public const string PaymentDocNumberSuffix = "-P";
+
+    /// <summary>A type that only ever pays a document posted under the same uuid.</summary>
+    public static bool IsPaymentOfAnother(FinDocType type) => type is FinDocType.PayrollPayment or FinDocType.ExpensePayment;
+
+    public static string Root(Guid sourceDocumentId, FinDocType type) =>
+        IsPaymentOfAnother(type) ? $"{sourceDocumentId}:{type}" : sourceDocumentId.ToString();
+
+    /// <summary>The FinDocType name as stored on a posting; an unknown name keys on the bare uuid.</summary>
+    public static string Root(Guid sourceDocumentId, string? documentType) =>
+        Enum.TryParse<FinDocType>(documentType, ignoreCase: true, out var type) ? Root(sourceDocumentId, type) : sourceDocumentId.ToString();
 }
 
 /// <summary>The FinDocTypes that go to an accounting system as a journal entry (BR-G1-001, G-2).</summary>

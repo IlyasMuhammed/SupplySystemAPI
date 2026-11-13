@@ -76,7 +76,7 @@ export const SETTLEMENTS: RecordsConfig = {
   ],
   form: { noun: 'Settlement line edits', editPerm: ['HRM_SETTLEMENT_MANAGE'], canEdit: r => r.status === 'Draft', load: r => `hrm/settlements/${r.uuid}`, wide: true, fields: [
     { key: 'notes', label: 'Notes', type: 'textarea', maxLength: 1000 },
-    { key: 'lines', label: 'Lines', type: 'rows', rows: [{ key: 'code', label: 'Code', required: true, maxLength: 30 }, { key: 'description', label: 'Description', required: true, maxLength: 200 }, { key: 'type', label: 'Type', type: 'select', options: [{ label: 'Earning', value: 'Earning' }, { label: 'Deduction', value: 'Deduction' }], required: true }, { key: 'amount', label: 'Amount', type: 'number', required: true, min: 0 }] }
+    { key: 'lines', label: 'Lines', type: 'rows', rows: [{ key: 'code', label: 'Code', required: true, maxLength: 20 }, { key: 'description', label: 'Description', required: true, maxLength: 200 }, { key: 'type', label: 'Type', type: 'select', options: [{ label: 'Earning', value: 'Earning' }, { label: 'Deduction', value: 'Deduction' }], required: true }, { key: 'amount', label: 'Amount', type: 'number', required: true, min: 0 }] }
   ] },
   commands: [{ id: 'compute', label: 'Compute settlement', icon: 'pi pi-calculator', primary: true, perm: ['HRM_SETTLEMENT_MANAGE'], path: 'hrm/settlements/compute', done: r => `Draft ${r?.settlementNumber ?? ''} computed.`, fields: [employee, { key: 'lastWorkingDay', label: 'Last working day', type: 'date', required: true, def: today() }] }]
 };
@@ -110,7 +110,7 @@ export const LETTER_TEMPLATES: RecordsConfig = {
   listPath: 'hrm/letter-templates', empty: 'No templates yet.',
   columns: [{ key: 'code', label: 'Code', kind: 'mono' }, { key: 'name', label: 'Name', sub: r => r.isSystem ? 'System' : '' }, { key: 'kind', label: 'Kind', kind: 'pill' }, { key: 'subject', label: 'Subject' }, { key: 'isActive', label: 'Status', kind: 'pill', value: r => r.isActive ? 'Active' : 'Inactive' }],
   form: { noun: 'Template', createPerm: ['HRM_LETTER_ISSUE'], editPerm: ['HRM_LETTER_ISSUE'], wide: true, fields: [
-    { key: 'code', label: 'Code', required: true, maxLength: 30 }, { key: 'name', label: 'Name', required: true, maxLength: 150 }, { key: 'kind', label: 'Kind', type: 'select', options: ENUMS.letterKind, required: true, def: 'Custom' },
+    { key: 'code', label: 'Code', required: true, maxLength: 30 }, { key: 'name', label: 'Name', required: true, maxLength: 100 }, { key: 'kind', label: 'Kind', type: 'select', options: ENUMS.letterKind, required: true, def: 'Custom' },
     { key: 'subject', label: 'Subject', required: true, maxLength: 200, full: true }, { key: 'body', label: 'Body', type: 'textarea', required: true, maxLength: 8000 }
   ] }
 };

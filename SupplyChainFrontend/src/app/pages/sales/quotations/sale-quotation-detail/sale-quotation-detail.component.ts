@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -37,6 +37,8 @@ import { DocCurrencyPanelComponent } from '../../../../shared/doc-currency/doc-c
 import { DocCurrencyInfo, cachedDocCurrency, hasBaseAmounts, missingRateOf, sumDifferences } from '../../../../shared/doc-currency/doc-currency';
 import { MoneyPipe } from '../../../../shared/money/money.pipe';
 import { FLOW, FlowStage, flowStagesFrom } from '../../../../shared/flow';
+import { DocumentEmailDialogComponent, emailSentToast } from '../../../../shared/components/document-email-dialog/document-email-dialog.component';
+import { DocumentEmailResult, OnboardingTemplatesService, errorMessageOf, saveBlob } from '../../../../services/onboarding-templates.service';
 
 const TAB_LINES = 1;
 
@@ -61,7 +63,7 @@ export interface ConvertForm {
     TableModule, ButtonModule, TagModule, TooltipModule, ToastModule, DialogModule, DropdownModule, CalendarModule,
     InputTextModule, SelectButtonModule, TabViewModule,
     AttachmentListComponent, SaleQuotationLineEditorComponent, SaleQuotationResponsePanelComponent,
-    DocCurrencyPanelComponent, MoneyPipe, ...FLOW
+    DocCurrencyPanelComponent, MoneyPipe, DocumentEmailDialogComponent, ...FLOW
   ],
   templateUrl: './sale-quotation-detail.component.html',
   styleUrls: ['./sale-quotation-detail.component.scss'],
@@ -184,6 +186,29 @@ export class SaleQuotationDetailComponent implements OnInit {
   get canConvert(): boolean {
     return this.quotation?.status === 'ACCEPTED' && this.allows('CONVERT') && this.can('SALE_ORDER_CREATE');
   }
+
+  // ── A50 D-25 / D-26 — Download PDF (SALE_QUOTATION_VIEW) and Email to customer (SALE_QUOTATION_SEND) ──
+  private readonly templates = inject(OnboardingTemplatesService);
+  emailVisible = false;
+  isDownloadingPdf = false;
+  get canDownloadPdf(): boolean { return !!this.quotation && this.can('SALE_QUOTATION_VIEW'); }
+  get canEmail(): boolean { return !!this.quotation && this.can('SALE_QUOTATION_SEND'); }
+
+  downloadPdf(): void {
+    const q = this.quotation;
+    if (!q || this.isDownloadingPdf) return;
+    this.isDownloadingPdf = true;
+    this.templates.downloadQuotationPdf(q.uuid).subscribe({
+      next: blob => { this.isDownloadingPdf = false; saveBlob(blob, `${q.quotationNumber || q.uuid}.pdf`); },
+      error: async err => {
+        this.isDownloadingPdf = false;
+        this.messageService.add({ severity: 'error', summary: 'No PDF', detail: await errorMessageOf(err, 'The quotation PDF could not be generated.') });
+      }
+    });
+  }
+
+  onEmailSent(r: DocumentEmailResult | null): void { this.messageService.add({ ...emailSentToast(r), life: 6000 }); }
+  onEmailFailed(message: string): void { this.messageService.add({ severity: 'error', summary: 'Not sent', detail: message, life: 8000 }); }
 
   get canCopy(): boolean {
     return this.allows('COPY') && this.can('SALE_QUOTATION_CREATE');

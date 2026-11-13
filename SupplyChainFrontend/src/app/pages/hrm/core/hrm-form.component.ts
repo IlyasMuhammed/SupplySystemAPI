@@ -51,6 +51,9 @@ export function formProblem(fields: Field[], v: Record<string, any>): string | n
     if (f.type === 'info' || (f.visible && !f.visible(v))) continue;
     const value = v[f.key];
     if (f.required && empty(value) && f.type !== 'bool') return `${f.label} is required.`;
+    if (f.required && typeof value === 'string' && !value.trim()) return `${f.label} is required.`;
+    // REV49B-9: the input's maxlength stops typing, not a loaded or pasted value; the server's limits are the same numbers.
+    if (f.maxLength !== undefined && typeof value === 'string' && value.trim().length > f.maxLength) return `${f.label} can be at most ${f.maxLength} characters.`;
     if (f.type === 'number' && !empty(value)) {
       if (!Number.isFinite(Number(value))) return `${f.label} must be a number.`;
       if (f.min !== undefined && Number(value) < f.min) return `${f.label} cannot be below ${f.min}.`;

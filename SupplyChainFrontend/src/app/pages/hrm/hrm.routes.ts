@@ -1,7 +1,7 @@
 import { CanActivateFn, Route, Routes } from '@angular/router';
 
 import { permissionGuard } from '../gaurds/permission.guard';
-import { hrmFeatureGuard } from './core/hrm.guards';
+import { hrmAnyFeatureGuard, hrmFeatureGuard } from './core/hrm.guards';
 import { F, HRM_PAGES, HrmPage } from './core/hrm.nav';
 import { RecordsConfig } from './core/hrm-records.component';
 import * as ATT from './configs/att.config';
@@ -43,15 +43,18 @@ const LOADERS: Record<string, () => Promise<any>> = {
   settings: () => import('./setup/hr-settings.component').then(m => m.HrSettingsComponent)
 };
 
-function guards(perms: string[], feature?: string): CanActivateFn[] {
-  return feature ? [hrmFeatureGuard(feature), permissionGuard(...perms)] : [permissionGuard(...perms)];
+function guards(perms: string[], feature?: string, anyFeature?: string[]): CanActivateFn[] {
+  const gates: CanActivateFn[] = [];
+  if (feature) gates.push(hrmFeatureGuard(feature));
+  if (anyFeature?.length) gates.push(hrmAnyFeatureGuard(...anyFeature));
+  return [...gates, permissionGuard(...perms)];
 }
 
 function pageRoute(p: HrmPage): Route {
   const config = CONFIGS[p.path];
   return config
-    ? { path: p.path, loadComponent: records, data: { config }, canActivate: guards(p.perms, p.feature) }
-    : { path: p.path, loadComponent: LOADERS[p.path], canActivate: guards(p.perms, p.feature) };
+    ? { path: p.path, loadComponent: records, data: { config }, canActivate: guards(p.perms, p.feature, p.anyFeature) }
+    : { path: p.path, loadComponent: LOADERS[p.path], canActivate: guards(p.perms, p.feature, p.anyFeature) };
 }
 
 /** Routes that are no menu entry: new, detail, sub-lists. */

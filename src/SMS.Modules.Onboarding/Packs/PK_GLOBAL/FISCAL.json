@@ -1,0 +1,6 @@
+{
+  "startMonth": 7,
+  "periodType": "Monthly",
+  "dateFormat": "DD/MM/YYYY",
+  "yearNamePattern": "FY {YYYY}-{YY}"
+}

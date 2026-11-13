@@ -3,12 +3,14 @@ using Microsoft.AspNetCore.Hosting;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
+using SMS.Modules.Demand.Services.Documents;
 using SMS.Modules.Finance.Domain;
 using SMS.Modules.Finance.Models;
 using SMS.Modules.Lookups.Models;
 using SMS.Modules.Lookups.Services;
 using SMS.Shared.Common;
 using SMS.Shared.Exceptions;
+using SMS.Shared.Onboarding;
 
 namespace SMS.Modules.Finance.Services;
 
@@ -20,6 +22,11 @@ namespace SMS.Modules.Finance.Services;
 /// The direction is the mirror of <see cref="InvoiceDocumentService"/>: the letterhead company is now
 /// who is billing, and the customer is who is billed.
 /// </para>
+/// <para>
+/// A50 (D-25) — the org's default SalesInvoice document template, when it has one, brands the built-in layout (colour, logo,
+/// header / footer, bank details, terms); one with a BodyHtml is rendered by Onboarding's templated renderer instead. Without
+/// a template the PDF is the pre-A50 one, byte for byte. Rendered through <see cref="PdfRenderGate"/>.
+/// </para>
 /// </summary>
 internal sealed class SalesInvoiceDocumentService : ISalesInvoiceDocumentService
 {
@@ -28,23 +35,25 @@ internal sealed class SalesInvoiceDocumentService : ISalesInvoiceDocumentService
     private readonly ISupplierContactLookupService   _contacts;
     private readonly IWebHostEnvironment             _env;
     private readonly TimeProvider                    _clock;
+    private readonly IDocumentBrandingProvider       _branding;
+    private readonly ITemplatedDocumentRenderer      _templated;
 
-    private const string BrandColor     = "#6C63FF";
-    private const string BrandColorDark = "#4A42CC";
-    private const string BrandColorTint = "#F4F3FF";
     private const string WarningColor   = "#B45309";
 
     private static readonly CultureInfo Culture = CultureInfo.InvariantCulture;
 
     public SalesInvoiceDocumentService(
         ISalesInvoiceService invoices, IPoDocumentTemplateService templates,
-        ISupplierContactLookupService contacts, IWebHostEnvironment env, TimeProvider? clock = null)
+        ISupplierContactLookupService contacts, IWebHostEnvironment env, TimeProvider? clock = null,
+        IDocumentBrandingProvider? branding = null, ITemplatedDocumentRenderer? templated = null)
     {
         _invoices  = invoices;
         _templates = templates;
         _contacts  = contacts;
         _env       = env;
         _clock     = clock ?? TimeProvider.System;
+        _branding  = branding ?? new NullDocumentBrandingProvider();
+        _templated = templated ?? new NullTemplatedDocumentRenderer();
     }
 
     public async Task<SalesInvoicePdf> GeneratePdfAsync(Guid invoiceUuid)
@@ -54,9 +63,22 @@ internal sealed class SalesInvoiceDocumentService : ISalesInvoiceDocumentService
 
         var template = await _templates.GetActiveAsync();
         var customer = await _contacts.GetContactInfoAsync(invoice.PartnerId);
-        var logo     = TryLoadLogoBytes(template?.CompanyLogoUrl);
+        var brand    = await _branding.GetAsync(DocumentTemplateTypes.SalesInvoice);
+        var logo     = brand?.LogoBytes ?? TryLoadLogoBytes(template?.CompanyLogoUrl);
         var printed  = _clock.GetUtcNow().UtcDateTime;
+        var fileName = $"{invoice.InvoiceNumber}.pdf";
 
+        if (brand is not null)
+            brand = BrandedDocumentKit.WithLetterhead(brand, template?.CompanyName, template?.CompanyAddress, template?.CompanyPhone,
+                template?.CompanyEmail, template?.CompanyTaxId);
+
+        if (brand is not null && !string.IsNullOrWhiteSpace(brand.BodyHtml))
+        {
+            var bytes = _templated.Render(brand, Templated(invoice, customer, template, printed));
+            if (bytes is not null) return new SalesInvoicePdf(fileName, bytes);
+        }
+
+        var p = DocumentPalette.Resolve(brand, DocumentPalette.House);
         var document = Document.Create(container =>
         {
             container.Page(page =>
@@ -65,13 +87,56 @@ internal sealed class SalesInvoiceDocumentService : ISalesInvoiceDocumentService
                 page.Margin(32);
                 page.DefaultTextStyle(x => x.FontSize(9.5f).LineHeight(1.35f));
 
-                page.Header().Element(c => ComposeHeader(c, template, invoice, customer, logo));
-                page.Content().Element(c => ComposeContent(c, invoice, template));
-                page.Footer().Element(c => ComposeFooter(c, template, printed));
+                page.Header().Element(c => ComposeHeader(c, template, invoice, customer, logo, p, brand));
+                page.Content().Element(c => ComposeContent(c, invoice, template, p, brand));
+                page.Footer().Element(c => ComposeFooter(c, template, printed, brand, invoice));
             });
         });
 
-        return new SalesInvoicePdf($"{invoice.InvoiceNumber}.pdf", document.GeneratePdf());
+        return new SalesInvoicePdf(fileName, PdfRenderGate.Run(document.GeneratePdf));
+    }
+
+    /// <summary>A50 — the invoice for a BodyHtml template (TEMPLATE-PLACEHOLDERS.md).</summary>
+    internal static TemplatedDocument Templated(
+        SalesInvoiceDetailModel invoice, SupplierContactInfo? customer, PoDocumentTemplateModel? template, DateTime printed)
+    {
+        var anyCode = invoice.Lines.Any(l => !string.IsNullOrWhiteSpace(l.TaxCode));
+        var doc = new TemplatedDocument
+        {
+            TemplateType = DocumentTemplateTypes.SalesInvoice,
+            Title = invoice.Status == SalesInvoiceStatuses.Draft ? "DRAFT INVOICE" : "INVOICE",
+            GeneratedAt = printed,
+            Values = new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["DocumentNumber"] = invoice.InvoiceNumber, ["DocumentDate"] = Date(invoice.InvoiceDate),
+                ["InvoiceNumber"] = invoice.InvoiceNumber, ["InvoiceDate"] = Date(invoice.InvoiceDate), ["DueDate"] = Date(invoice.DueDate),
+                ["PaymentTerms"] = PaymentTerms(invoice), ["SaleOrderNumber"] = invoice.SaleOrderNumber, ["DeliveryNumber"] = invoice.DeliveryNumber ?? "-",
+                ["Status"] = StatusLabel(invoice.Status), ["CurrencyCode"] = invoice.CurrencyCode,
+                ["CustomerName"] = invoice.PartnerName, ["CustomerAddress"] = customer?.Address ?? "", ["CustomerEmail"] = customer?.Email ?? "",
+                ["CustomerPhone"] = customer?.Phone ?? "",
+                ["Subtotal"] = BrandedDocumentKit.Money(invoice.Subtotal), ["DiscountAmount"] = BrandedDocumentKit.Money(invoice.DiscountAmount),
+                ["TaxAmount"] = BrandedDocumentKit.Money(invoice.TaxAmount), ["TotalAmount"] = BrandedDocumentKit.Money(invoice.GrandTotal),
+                ["AmountPaid"] = BrandedDocumentKit.Money(invoice.AmountPaid), ["BalanceDue"] = BrandedDocumentKit.Money(invoice.BalanceDue),
+                ["AmountInWords"] = AmountInWords.Format(invoice.GrandTotal, invoice.CurrencyCode), ["Notes"] = invoice.Notes ?? "",
+                ["PartyLabel"] = "Billed To:", ["PartyName"] = invoice.PartnerName, ["PartyAddress"] = customer?.Address ?? "",
+                ["HeaderFacts"] = $"Due Date: {Date(invoice.DueDate)}\nStatus: {StatusLabel(invoice.Status)}",
+            },
+            SignatureDisclaimer = template?.SignatureDisclaimer,
+        };
+        doc.LineColumns.AddRange([new("#", 0.4f), new("Description", 3f), new("Qty", 0.9f, true), new("Unit Price", 1.1f, true),
+                                  new("Disc %", 0.7f, true), new(anyCode ? "Tax" : "Tax %", anyCode ? 1.2f : 0.7f, true), new("Amount", 1.3f, true)]);
+        foreach (var l in invoice.Lines)
+            doc.LineRows.Add([l.LineNo.ToString(Culture), l.Description, l.Quantity.ToString("N2", Culture), l.UnitPrice.ToString("N2", Culture),
+                              l.DiscountPercent.ToString("0.##", Culture), TaxLabel(l, anyCode), l.LineTotal.ToString("N2", Culture)]);
+        foreach (var g in invoice.Lines.Where(l => l.TaxPercent != 0m).GroupBy(l => TaxLabel(l, true)))
+            doc.TaxSummary.Add(new(g.Key, Money(g.Sum(l => l.LineTotal - l.LineTotal / (1 + l.TaxPercent / 100m)), invoice.CurrencyCode)));
+        doc.Totals.Add(new("Subtotal", Money(invoice.Subtotal, invoice.CurrencyCode)));
+        if (invoice.DiscountAmount != 0m) doc.Totals.Add(new("Discount", "-" + Money(invoice.DiscountAmount, invoice.CurrencyCode)));
+        doc.Totals.Add(new("Tax", Money(invoice.TaxAmount, invoice.CurrencyCode)));
+        doc.Totals.Add(new("Total", Money(invoice.GrandTotal, invoice.CurrencyCode), true));
+        if (invoice.AmountPaid != 0m) doc.Totals.Add(new("Paid", "-" + Money(invoice.AmountPaid, invoice.CurrencyCode)));
+        doc.Totals.Add(new("Balance Due", Money(invoice.BalanceDue, invoice.CurrencyCode), true));
+        return doc;
     }
 
     private byte[]? TryLoadLogoBytes(string? logoUrl)
@@ -96,26 +161,31 @@ internal sealed class SalesInvoiceDocumentService : ISalesInvoiceDocumentService
 
     private static void ComposeHeader(
         IContainer container, PoDocumentTemplateModel? template, SalesInvoiceDetailModel invoice,
-        SupplierContactInfo? customer, byte[]? logo)
+        SupplierContactInfo? customer, byte[]? logo, DocumentPalette p, DocumentBranding? brand)
     {
         container.Column(column =>
         {
             column.Item().Row(row =>
             {
-                row.RelativeItem().Column(col =>
-                {
-                    col.Item().Text(template?.CompanyName ?? "Company Name").FontSize(16).Bold().FontColor(BrandColorDark);
-                    if (!string.IsNullOrWhiteSpace(template?.CompanyAddress))
-                        col.Item().PaddingTop(2).Text(template.CompanyAddress).FontSize(8);
-                    var contactLine = string.Join("   |   ", new[]
+                var letterhead = row.RelativeItem();
+                var branded = brand is not null && BrandedDocumentKit.TryComposeHeader(letterhead, brand,
+                    BrandedDocumentKit.HeaderValues(brand, "INVOICE", invoice.InvoiceNumber, invoice.InvoiceDate), p.Dark);
+
+                if (!branded)
+                    letterhead.Column(col =>
                     {
-                        !string.IsNullOrWhiteSpace(template?.CompanyPhone) ? $"Tel: {template.CompanyPhone}" : null,
-                        !string.IsNullOrWhiteSpace(template?.CompanyEmail) ? $"Email: {template.CompanyEmail}" : null,
-                        !string.IsNullOrWhiteSpace(template?.CompanyTaxId) ? $"Tax ID: {template.CompanyTaxId}" : null,
-                    }.Where(s => s is not null));
-                    if (!string.IsNullOrWhiteSpace(contactLine))
-                        col.Item().PaddingTop(2).Text(contactLine).FontSize(8);
-                });
+                        col.Item().Text(template?.CompanyName ?? brand?.CompanyName ?? "Company Name").FontSize(16).Bold().FontColor(p.Dark);
+                        if (!string.IsNullOrWhiteSpace(template?.CompanyAddress))
+                            col.Item().PaddingTop(2).Text(template.CompanyAddress).FontSize(8);
+                        var contactLine = string.Join("   |   ", new[]
+                        {
+                            !string.IsNullOrWhiteSpace(template?.CompanyPhone) ? $"Tel: {template.CompanyPhone}" : null,
+                            !string.IsNullOrWhiteSpace(template?.CompanyEmail) ? $"Email: {template.CompanyEmail}" : null,
+                            !string.IsNullOrWhiteSpace(template?.CompanyTaxId) ? $"Tax ID: {template.CompanyTaxId}" : null,
+                        }.Where(s => s is not null));
+                        if (!string.IsNullOrWhiteSpace(contactLine))
+                            col.Item().PaddingTop(2).Text(contactLine).FontSize(8);
+                    });
 
                 if (logo is not null)
                     row.ConstantItem(80).Height(50).Image(logo).FitArea();
@@ -145,11 +215,11 @@ internal sealed class SalesInvoiceDocumentService : ISalesInvoiceDocumentService
                     col.Item().PaddingTop(2).AlignRight().Text($"Due Date: {Date(invoice.DueDate)}").FontSize(9);
                     col.Item().PaddingTop(2).AlignRight().Text($"Status: {StatusLabel(invoice.Status)}").FontSize(9).Bold()
                        .FontColor(invoice.Status is SalesInvoiceStatuses.Overdue or SalesInvoiceStatuses.Cancelled
-                           ? WarningColor : BrandColorDark);
+                           ? WarningColor : p.Dark);
                 });
             });
 
-            column.Item().PaddingTop(14).LineHorizontal(1.5f).LineColor(BrandColor);
+            column.Item().PaddingTop(14).LineHorizontal(1.5f).LineColor(p.Primary);
         });
     }
 
@@ -167,7 +237,8 @@ internal sealed class SalesInvoiceDocumentService : ISalesInvoiceDocumentService
     private static bool AwaitsPayment(SalesInvoiceDetailModel invoice) =>
         invoice.BalanceDue > 0m && invoice.Status != SalesInvoiceStatuses.Cancelled;
 
-    private static void ComposeContent(IContainer container, SalesInvoiceDetailModel invoice, PoDocumentTemplateModel? template)
+    private static void ComposeContent(
+        IContainer container, SalesInvoiceDetailModel invoice, PoDocumentTemplateModel? template, DocumentPalette p, DocumentBranding? brand)
     {
         container.PaddingTop(14).Column(column =>
         {
@@ -179,20 +250,23 @@ internal sealed class SalesInvoiceDocumentService : ISalesInvoiceDocumentService
                       .Text("CANCELLED — this invoice is void.").FontSize(9).Bold().FontColor(WarningColor);
 
             ComposeReferenceStrip(column, invoice);
-            ComposeLineItemsTable(column, invoice);
-            ComposeSummaryBox(column, invoice);
+            ComposeLineItemsTable(column, invoice, p);
+            ComposeSummaryBox(column, invoice, p);
 
             if (invoice.Payments.Count > 0)
-                ComposePaymentsTable(column, invoice);
+                ComposePaymentsTable(column, invoice, p);
 
             if (AwaitsPayment(invoice))
-                ComposePaymentDetails(column, invoice, template);
+                ComposePaymentDetails(column, invoice, template, p, brand);
 
             if (!string.IsNullOrWhiteSpace(invoice.Notes))
             {
-                column.Item().PaddingBottom(6).Text("NOTES").FontSize(9).Bold().FontColor(BrandColorDark);
-                column.Item().Background(BrandColorTint).Padding(8).Text(invoice.Notes).FontSize(8.5f);
+                column.Item().PaddingBottom(6).Text("NOTES").FontSize(9).Bold().FontColor(p.Dark);
+                column.Item().Background(p.Tint).Padding(8).Text(invoice.Notes).FontSize(8.5f);
             }
+
+            if (brand is not null)
+                BrandedDocumentKit.ComposeTerms(column, brand, p.Dark);
         });
     }
 
@@ -229,7 +303,7 @@ internal sealed class SalesInvoiceDocumentService : ISalesInvoiceDocumentService
         return anyCode ? $"{percent}%" : percent;
     }
 
-    private static void ComposeLineItemsTable(ColumnDescriptor column, SalesInvoiceDetailModel invoice)
+    private static void ComposeLineItemsTable(ColumnDescriptor column, SalesInvoiceDetailModel invoice, DocumentPalette p)
     {
         var anyCode = invoice.Lines.Any(l => !string.IsNullOrWhiteSpace(l.TaxCode));
 
@@ -257,8 +331,8 @@ internal sealed class SalesInvoiceDocumentService : ISalesInvoiceDocumentService
                 header.Cell().Element(HeaderCell).AlignRight().Text(anyCode ? "Tax" : "Tax %");
                 header.Cell().Element(HeaderCell).AlignRight().Text("Amount");
 
-                static IContainer HeaderCell(IContainer c) =>
-                    c.Background(BrandColor)
+                IContainer HeaderCell(IContainer c) =>
+                    c.Background(p.Primary)
                      .DefaultTextStyle(x => x.Bold().FontSize(8.5f).FontColor(Colors.White))
                      .PaddingVertical(8).PaddingHorizontal(4);
             });
@@ -278,15 +352,15 @@ internal sealed class SalesInvoiceDocumentService : ISalesInvoiceDocumentService
                 table.Cell().Element(c => BodyCell(c, isLast, isEven)).AlignRight().Text(TaxLabel(line, anyCode));
                 table.Cell().Element(c => BodyCell(c, isLast, isEven)).AlignRight().Text(line.LineTotal.ToString("N2", Culture));
 
-                static IContainer BodyCell(IContainer c, bool isLast, bool isEven) =>
-                    c.Background(isEven ? BrandColorTint : Colors.White)
+                IContainer BodyCell(IContainer c, bool isLast, bool isEven) =>
+                    c.Background(isEven ? p.Tint : Colors.White)
                      .PaddingVertical(6).PaddingHorizontal(4)
                      .BorderBottom(isLast ? 0 : 0.5f).BorderColor(Colors.Grey.Lighten2);
             }
         });
     }
 
-    private static void ComposeSummaryBox(ColumnDescriptor column, SalesInvoiceDetailModel invoice)
+    private static void ComposeSummaryBox(ColumnDescriptor column, SalesInvoiceDetailModel invoice, DocumentPalette p)
     {
         column.Item().PaddingBottom(14).AlignRight().Width(240).Column(col =>
         {
@@ -295,7 +369,7 @@ internal sealed class SalesInvoiceDocumentService : ISalesInvoiceDocumentService
                 SummaryRow(col, "Discount", "-" + Money(invoice.DiscountAmount, invoice.CurrencyCode));
             SummaryRow(col, "Tax", Money(invoice.TaxAmount, invoice.CurrencyCode));
 
-            col.Item().PaddingTop(4).BorderTop(1.5f).BorderColor(BrandColor).PaddingTop(6).Row(row =>
+            col.Item().PaddingTop(4).BorderTop(1.5f).BorderColor(p.Primary).PaddingTop(6).Row(row =>
             {
                 row.RelativeItem().Text("Total").FontSize(10.5f).Bold();
                 row.ConstantItem(120).AlignRight().Text(Money(invoice.GrandTotal, invoice.CurrencyCode)).FontSize(10.5f).Bold();
@@ -312,7 +386,7 @@ internal sealed class SalesInvoiceDocumentService : ISalesInvoiceDocumentService
             {
                 row.RelativeItem().Text("Balance Due").FontSize(11).Bold();
                 row.ConstantItem(120).AlignRight().Text(Money(invoice.BalanceDue, invoice.CurrencyCode))
-                   .FontSize(12).Bold().FontColor(BrandColorDark);
+                   .FontSize(12).Bold().FontColor(p.Dark);
             });
         });
     }
@@ -324,9 +398,9 @@ internal sealed class SalesInvoiceDocumentService : ISalesInvoiceDocumentService
             row.ConstantItem(120).AlignRight().Text(value).FontSize(9.5f).FontColor("#111827");
         });
 
-    private static void ComposePaymentsTable(ColumnDescriptor column, SalesInvoiceDetailModel invoice)
+    private static void ComposePaymentsTable(ColumnDescriptor column, SalesInvoiceDetailModel invoice, DocumentPalette p)
     {
-        column.Item().PaddingBottom(6).Text("PAYMENTS RECEIVED").FontSize(9).Bold().FontColor(BrandColorDark);
+        column.Item().PaddingBottom(6).Text("PAYMENTS RECEIVED").FontSize(9).Bold().FontColor(p.Dark);
 
         column.Item().PaddingBottom(14).Table(table =>
         {
@@ -356,14 +430,14 @@ internal sealed class SalesInvoiceDocumentService : ISalesInvoiceDocumentService
             var payments = invoice.Payments;
             for (var i = 0; i < payments.Count; i++)
             {
-                var p      = payments[i];
+                var pay    = payments[i];
                 var isLast = i == payments.Count - 1;
 
-                table.Cell().Element(c => Cell(c, isLast)).Text(p.PaymentNumber);
-                table.Cell().Element(c => Cell(c, isLast)).Text(Date(p.PaymentDate));
-                table.Cell().Element(c => Cell(c, isLast)).Text(StatusLabel(p.PaymentMethod));
-                table.Cell().Element(c => Cell(c, isLast)).AlignRight().Text(Money(p.AllocatedAmount, invoice.CurrencyCode));
-                table.Cell().Element(c => Cell(c, isLast)).Text(StatusLabel(p.PaymentStatus));
+                table.Cell().Element(c => Cell(c, isLast)).Text(pay.PaymentNumber);
+                table.Cell().Element(c => Cell(c, isLast)).Text(Date(pay.PaymentDate));
+                table.Cell().Element(c => Cell(c, isLast)).Text(StatusLabel(pay.PaymentMethod));
+                table.Cell().Element(c => Cell(c, isLast)).AlignRight().Text(Money(pay.AllocatedAmount, invoice.CurrencyCode));
+                table.Cell().Element(c => Cell(c, isLast)).Text(StatusLabel(pay.PaymentStatus));
 
                 static IContainer Cell(IContainer c, bool isLast) =>
                     c.DefaultTextStyle(x => x.FontSize(8.5f))
@@ -377,15 +451,18 @@ internal sealed class SalesInvoiceDocumentService : ISalesInvoiceDocumentService
     /// Where and by when to pay. The bank details are the company's own, from the organization's
     /// document template; where none are configured the box still says how much is owed, by when and
     /// under what reference, rather than naming an account nobody has entered.
+    /// A50 — a SalesInvoice template decides: its bank text (else the letterhead's), or none when it hides bank details.
     /// </summary>
-    private static void ComposePaymentDetails(ColumnDescriptor column, SalesInvoiceDetailModel invoice, PoDocumentTemplateModel? template)
+    private static void ComposePaymentDetails(
+        ColumnDescriptor column, SalesInvoiceDetailModel invoice, PoDocumentTemplateModel? template, DocumentPalette p, DocumentBranding? brand)
     {
-        var bankLines = (template?.BankDetails ?? string.Empty)
-            .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        var bankLines = BrandedDocumentKit.BankLines(brand, template?.BankDetails)
+            ?? (template?.BankDetails ?? string.Empty)
+                .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
-        column.Item().PaddingBottom(6).Text("PAYMENT DETAILS").FontSize(9).Bold().FontColor(BrandColorDark);
+        column.Item().PaddingBottom(6).Text("PAYMENT DETAILS").FontSize(9).Bold().FontColor(p.Dark);
 
-        column.Item().PaddingBottom(14).Background(BrandColorTint).Padding(8).Column(box =>
+        column.Item().PaddingBottom(14).Background(p.Tint).Padding(8).Column(box =>
         {
             box.Item().Text($"Please pay {Money(invoice.BalanceDue, invoice.CurrencyCode)} by {Date(invoice.DueDate)}, quoting {invoice.InvoiceNumber}.")
                .FontSize(8.5f).Bold();
@@ -399,13 +476,17 @@ internal sealed class SalesInvoiceDocumentService : ISalesInvoiceDocumentService
         });
     }
 
-    private static void ComposeFooter(IContainer container, PoDocumentTemplateModel? template, DateTime printed)
+    private static void ComposeFooter(
+        IContainer container, PoDocumentTemplateModel? template, DateTime printed, DocumentBranding? brand, SalesInvoiceDetailModel invoice)
     {
         container.Column(column =>
         {
             column.Item().PaddingBottom(4).LineHorizontal(0.5f).LineColor(Colors.Grey.Lighten2);
 
-            if (!string.IsNullOrWhiteSpace(template?.FooterText))
+            var branded = brand is not null && BrandedDocumentKit.TryComposeFooter(column, brand,
+                BrandedDocumentKit.HeaderValues(brand, "INVOICE", invoice.InvoiceNumber, invoice.InvoiceDate));
+
+            if (!branded && !string.IsNullOrWhiteSpace(template?.FooterText))
                 column.Item().AlignCenter().Text(template.FooterText).FontSize(7).FontColor(Colors.Grey.Medium);
 
             column.Item().PaddingTop(2).Row(row =>
