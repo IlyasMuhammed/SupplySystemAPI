@@ -66,16 +66,27 @@ namespace SMS.Modules.Tenancy.Migrations
                         .HasColumnType("bit")
                         .HasDefaultValue(false);
 
+                    b.Property<bool>("IsVisible")
+                        .HasColumnType("bit");
+
                     b.Property<string>("ParentModuleCode")
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
 
                     b.HasKey("Id");
 
                     b.HasIndex("FeatureCode")
                         .IsUnique();
 
-                    b.ToTable("FeatureDefinitions", "tenant");
+                    b.ToTable("FeatureDefinitions", "tenant", t =>
+                        {
+                            t.HasCheckConstraint("CK_FeatureDefinitions_Status", "[Status] IN ('Live','Beta','ComingSoon','Deprecated')");
+                        });
                 });
 
             modelBuilder.Entity("SMS.Modules.Tenancy.Domain.FeatureDependency", b =>
@@ -242,6 +253,9 @@ namespace SMS.Modules.Tenancy.Migrations
                         .HasColumnType("bit")
                         .HasDefaultValue(false);
 
+                    b.Property<bool>("IsGrandfathered")
+                        .HasColumnType("bit");
+
                     b.Property<bool>("IsLicensed")
                         .HasColumnType("bit");
 
@@ -332,6 +346,82 @@ namespace SMS.Modules.Tenancy.Migrations
                     b.HasKey("OrganizationId");
 
                     b.ToTable("OrganizationSettings", "tenant");
+                });
+
+            modelBuilder.Entity("SMS.Modules.Tenancy.Domain.Plan", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime>("ModifiedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("ModifiedBy")
+                        .HasColumnType("int");
+
+                    b.Property<decimal?>("MonthlyPrice")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique()
+                        .HasDatabaseName("UQ_Plans_Code");
+
+                    b.ToTable("Plans", "tenant");
+                });
+
+            modelBuilder.Entity("SMS.Modules.Tenancy.Domain.PlanFeature", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+                    b.Property<string>("FeatureCode")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<bool>("IsIncluded")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("PlanCode")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PlanCode", "FeatureCode")
+                        .IsUnique()
+                        .HasDatabaseName("UQ_PlanFeatures_Key");
+
+                    b.ToTable("PlanFeatures", "tenant");
                 });
 
             modelBuilder.Entity("SMS.Modules.Tenancy.Domain.PlanFeatureTemplate", b =>

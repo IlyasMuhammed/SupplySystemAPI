@@ -114,6 +114,31 @@ describe('SetupDefaultEditorComponent', () => {
     expect(c.payload.groups[0].units[0].code).toBe('PCS');
   });
 
+  it('PRODUCT_CATEGORIES uses the tree editor and blocks Save on a duplicate code', async () => {
+    await setup({ uuid: 'u1' }, of({ success: true, message: '', result: detail('PRODUCT_CATEGORIES', { categories: [{ code: 'A', name: 'Alpha' }] }) }));
+    fixture.detectChanges();
+    expect(c.hasEditor).toBeTrue();
+    expect(q('pc-editor')).toBeTruthy();
+    expect(c.problem).toBeNull();
+    c.onPayload({ categories: [{ code: 'A', name: 'Alpha' }, { code: 'a', name: 'Again' }] });
+    expect(c.problem).toContain('used twice');
+  });
+
+  it('JSON mode shows the syntax state and formats valid JSON', async () => {
+    await setup({ uuid: 'u1' }, of({ success: true, message: '', result: detail('FISCAL', { startMonth: 7 }) }));
+    fixture.detectChanges();
+    expect(q('json-status').textContent).toContain('JSON is valid');
+    c.jsonText = '{"startMonth":1}';
+    c.onJsonText();
+    c.formatJson();
+    expect(c.jsonText).toBe('{\n  "startMonth": 1\n}');
+    c.jsonText = '{ nope';
+    c.onJsonText();
+    fixture.detectChanges();
+    expect(q('json-status').textContent).toContain('Invalid JSON');
+    expect(c.jsonError).toContain('Not valid JSON');
+  });
+
   it('Check calls the server validation and lists the errors', async () => {
     await setup({ uuid: 'u1' }, of({ success: true, message: '', result: detail('TAX', { taxCodes: [] }) }));
     api.validate.and.returnValue(of({ success: true, message: '', result: { valid: false, errors: ['$.taxCodes: required'] } }));

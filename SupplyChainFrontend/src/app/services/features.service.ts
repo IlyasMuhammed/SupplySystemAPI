@@ -21,6 +21,9 @@ export interface FeatureDefinitionModel {
   displayOrder: number;
   /** False for modules that are listed but not built yet ("Coming soon"). */
   isAvailable?: boolean;
+  /** Live | Beta | ComingSoon | Deprecated. */
+  status?: string;
+  isVisible?: boolean;
 }
 
 export interface PlanFeatureTemplateItem {

@@ -73,6 +73,8 @@ export interface SetupDefaultsImportResult {
   created: number;
   updated: number;
   unchanged: number;
+  /** Records that failed validation (A51 P5). */
+  invalid?: number;
   errors: { index: number; key: string; errors: string[] }[];
   items: { key: string; action: 'Created' | 'Updated' | 'Unchanged' | 'Invalid' }[];
 }
@@ -130,9 +132,10 @@ export class SetupDefaultsService {
     return this.http.post<ApiResponse<SetupDefaultValidation>>(`${this.base}/validate`, { dataCategory, dataPayload });
   }
 
-  import(body: SetupDefaultPackFile | SetupDefaultPackItem[], dryRun: boolean, mode: 'upsert' | 'insertOnly' = 'upsert'):
+  import(body: SetupDefaultPackFile | SetupDefaultPackItem[], dryRun: boolean, mode: 'upsert' | 'insertOnly' = 'upsert', skipInvalid = false):
     Observable<ApiResponse<SetupDefaultsImportResult>> {
-    const params = new HttpParams().set('dryRun', String(dryRun)).set('mode', mode);
+    let params = new HttpParams().set('dryRun', String(dryRun)).set('mode', mode);
+    if (skipInvalid) params = params.set('skipInvalid', 'true');
     return this.http.post<ApiResponse<SetupDefaultsImportResult>>(`${this.base}/import`, body, { params });
   }
 

@@ -2,6 +2,7 @@ using System.Data.Common;
 using Hangfire;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using SMS.Modules.Auth.Data;
 using SMS.Modules.Auth.Domain;
 using SMS.Shared.Authorization;
@@ -21,11 +22,20 @@ internal sealed class OrgUserProvisioningService : IOrgUserProvisioningService
     private readonly IPasswordHasher<UserAccount> _hasher;
     private readonly IEmailService _emailService;
 
-    public OrgUserProvisioningService(AuthDbContext db, IPasswordHasher<UserAccount> hasher, IEmailService emailService)
+    // A51 P7 — the checked send path for SendInvitationAsync; optional so the older constructions (tests) still compile.
+    private readonly IEmailSender? _sender;
+    private readonly AppSettings? _settings;
+    private readonly IEmailStatusProvider? _status;
+
+    public OrgUserProvisioningService(AuthDbContext db, IPasswordHasher<UserAccount> hasher, IEmailService emailService,
+        IEmailSender? sender = null, IOptions<AppSettings>? settings = null, IEmailStatusProvider? status = null)
     {
         _db = db;
         _hasher = hasher;
         _emailService = emailService;
+        _sender = sender;
+        _settings = settings?.Value;
+        _status = status;
     }
 
     public async Task<int> CreateOrgAdminUserAsync(CreateOrgAdminUserRequest req, DbTransaction sharedTransaction)
@@ -63,8 +73,10 @@ internal sealed class OrgUserProvisioningService : IOrgUserProvisioningService
 
         // Enqueued after SaveChangesAsync, outside the shared transaction — matches the existing
         // AdminCreateUserAsync precedent (fire-and-forget email job, not part of the DB atomicity).
-        BackgroundJob.Enqueue(() =>
-            _emailService.SendOrgAdminInviteEmail(user.Email, user.FirstName, req.OrganizationName, token));
+        // A51 P7: the create-organization flow sends it itself afterwards (SendInvitationAsync) so the super admin learns whether it went out.
+        if (req.SendInviteEmail)
+            BackgroundJob.Enqueue(() =>
+                _emailService.SendOrgAdminInviteEmail(user.Email, user.FirstName, req.OrganizationName, token));
 
         return user.UserID;
     }
@@ -130,6 +142,95 @@ internal sealed class OrgUserProvisioningService : IOrgUserProvisioningService
         return new OrgUserSummary(user.UserID, user.FirstName, user.LastName, user.Email, user.RoleID, roleName, user.IsActive,
             true, user.InviteTokenExpiresAt);
     }
+
+    /// <summary>A51 P8 — how long a request waits for the invitation mail before answering "still sending" (with the link).</summary>
+    public TimeSpan InvitationWaitBudget { get; init; } = TimeSpan.FromSeconds(4);
+
+    public async Task<OrgInviteSendResult?> SendInvitationAsync(Guid organizationId, int userId, string? newEmail, string organizationName,
+        bool issueNewToken, CancellationToken ct = default)
+    {
+        // The create-organization flow joined this scoped context to its shared transaction (CreateOrgAdminUserAsync); once that is
+        // committed the context must stop reporting it, or every later query in the scope fails.
+        if (_db.Database.CurrentTransaction is not null) _db.Database.UseTransaction(null);
+
+        var user = await _db.UserAccounts.SingleOrDefaultAsync(u => u.UserID == userId && u.OrganizationId == organizationId && !u.IsDelete, ct)
+            ?? throw new BadRequestException("Selected user was not found in this organization.");
+
+        if (user.InviteToken == null && (user.IsActive || user.LastLoginAt != null))
+            throw new BadRequestException(
+                $"{user.Email} has already set up their account, so a new invite is not sent. Use Set password instead.");
+
+        if (!string.IsNullOrWhiteSpace(newEmail))
+        {
+            var normalized = newEmail.Trim().ToLowerInvariant();
+            if (normalized.Length > 150 || !System.Net.Mail.MailAddress.TryCreate(normalized, out var parsed) || parsed.Address != normalized)
+                throw new BadRequestException($"'{newEmail.Trim()}' is not a valid e-mail address.");
+            if (normalized != user.Email
+                && await _db.UserAccounts.AnyAsync(u => u.Email == normalized && !u.IsDelete && u.UserID != user.UserID, ct))
+                throw new BadRequestException($"An account with email '{normalized}' already exists.");
+            if (normalized != user.Email) issueNewToken = true; // a corrected address gets its own link
+            user.Email = normalized;
+        }
+
+        var expired = user.InviteTokenExpiresAt is { } ends && ends <= DateTime.UtcNow;
+        if (issueNewToken || string.IsNullOrEmpty(user.InviteToken) || expired)
+        {
+            user.InviteToken          = Guid.NewGuid().ToString("N");
+            user.InviteTokenExpiresAt = DateTime.UtcNow.AddDays(7);
+        }
+        user.UpdateDate = DateTime.UtcNow;
+        await _db.SaveChangesAsync(ct);
+
+        var token = user.InviteToken!;
+        var link = $"{_settings?.BaseUrl}/auth/accept-invite?token={token}";
+        var configured = _status?.IsConfigured ?? false;
+        var sent = false;
+        string? error = null;
+        if (_sender is null) error = "E-mail sending is not available in this host.";
+        else if (!configured) error = "E-mail is not configured (see the e-mail status); the invitation was not sent.";
+        else
+        {
+            var body = $"<p>Hi {System.Net.WebUtility.HtmlEncode(user.FirstName)},</p>" +
+                       $"<p>You've been set up as the administrator for <strong>{System.Net.WebUtility.HtmlEncode(organizationName)}</strong> on the Supply Management System.</p>" +
+                       "<p>Click the link below to set your password and activate your account:</p>" +
+                       $"<p><a href='{link}'>{link}</a></p>" +
+                       "<p>This link expires in 7 days.</p>";
+            try
+            {
+                // The checked path: the result says whether the mail went out (never assumed).
+                // A51 P8: the send runs on its own thread (SmtpClient.Send blocks) and the request waits for it only up to
+                // InvitationWaitBudget; a slow / dead mail host then reports "still sending" WITH the link, and the send
+                // carries on in the background (never tied to the request token).
+                var to = user.Email;
+                var subject = SingleLine($"You've been invited to administer {organizationName} on SMS");
+                var sendTask = Task.Run(() => _sender.SendWithResultAsync(to, subject, body, null, CancellationToken.None));
+                var finished = await Task.WhenAny(sendTask, Task.Delay(InvitationWaitBudget, ct));
+                if (finished == sendTask)
+                {
+                    var result = await sendTask;
+                    sent = result?.Success == true;
+                    error = sent ? null : result?.Error ?? "The e-mail could not be sent.";
+                }
+                else
+                {
+                    ct.ThrowIfCancellationRequested();
+                    _ = sendTask.ContinueWith(t => { _ = t.Exception; }, TaskScheduler.Default); // observed; the sender logs its own outcome
+                    error = $"The e-mail is still being sent (no answer after {InvitationWaitBudget.TotalSeconds:0} s). If it does not arrive, pass on the link.";
+                }
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                error = ex.Message; // the exception text never contains the link
+            }
+        }
+
+        var roleName = await _db.Roles.Where(r => r.RoleID == user.RoleID).Select(r => r.Name).FirstOrDefaultAsync(ct) ?? string.Empty;
+        var summary = new OrgUserSummary(user.UserID, user.FirstName, user.LastName, user.Email, user.RoleID, roleName, user.IsActive, true, user.InviteTokenExpiresAt);
+        // The link is handed back ONLY when the mail did not go out (the Super Admin passes it on); it is never logged.
+        return new OrgInviteSendResult(user.UserID, user.Email, sent, error, configured, sent ? null : link, user.InviteTokenExpiresAt, summary);
+    }
+
+    private static string SingleLine(string s) => s.Replace('\r', ' ').Replace('\n', ' ');
 
     // A50 D-22 — the setup wizard's invites. Same account shape and e-mail as CreateOrgAdminUserAsync (inactive, 7-day
     // token, accept-invite sets the password), but with the wizard's role and no shared transaction. Reports instead of

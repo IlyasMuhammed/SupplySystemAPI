@@ -22,6 +22,7 @@ public static class LookupsModuleExtensions
 
         services.AddScoped<ILookupsRepository, LookupsRepository>();
         services.AddScoped<ILookupsService, LookupsService>();
+        services.AddScoped<ICountryAdminService, CountryAdminService>();
         services.AddScoped<IPoDocumentTemplateRepository, PoDocumentTemplateRepository>();
         services.AddScoped<IPoDocumentTemplateService, PoDocumentTemplateService>();
         // A50 TPL (D-25) — the saved letterhead for Onboarding's document templates (one-time PO copy, company block).
@@ -33,6 +34,7 @@ public static class LookupsModuleExtensions
         services.AddScoped<ICityLookupService, CityLookupService>();
         // Same arrangement for currency codes — consumed by the QuickBooks gateway's preflight.
         services.AddScoped<ICurrencyCodeLookup, CurrencyCodeLookup>();
+        services.AddScoped<ICountryLookup, CountryLookup>();   // A51 P3 — Create Organization validates the country
         // A37 §6 — tax codes and units of measure for Inventory's catalog sync.
         services.AddScoped<ISyncLookupReader, SyncLookupReader>();
         // A40 (TINV) — units of measure are importable (the Import module resolves every IImportTarget).

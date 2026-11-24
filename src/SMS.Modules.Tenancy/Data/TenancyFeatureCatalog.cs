@@ -1,4 +1,5 @@
-﻿using SMS.Shared.Common;
+﻿using SMS.Modules.Tenancy.Domain;
+using SMS.Shared.Common;
 
 namespace SMS.Modules.Tenancy.Data;
 
@@ -87,6 +88,18 @@ internal static class TenancyFeatureCatalog
             ModuleCodes.Hrm,
             HrmFeatureCodes.Attendance, HrmFeatureCodes.Leave, HrmFeatureCodes.Payroll, HrmFeatureCodes.Recruitment, HrmFeatureCodes.Performance,
             HrmFeatureCodes.Training, HrmFeatureCodes.Loans, HrmFeatureCodes.Expenses,
+        };
+
+    /// <summary>
+    /// A51 P2 (D-2) — modules a brand-new installation lists as ComingSoon and hidden. Only applied when the row is first
+    /// inserted (an existing row keeps what the super admin set; the A51 migration moved the existing HRM/POS rows the same way
+    /// and grandfathered the organizations licensed for them). There is no FEATURE_API_ACCESS code in this system (D-6), so it is not listed.
+    /// </summary>
+    internal static readonly IReadOnlyDictionary<string, (string Status, bool IsVisible)> NewRowStatusDefaults =
+        new Dictionary<string, (string, bool)>(StringComparer.OrdinalIgnoreCase)
+        {
+            [ModuleCodes.Hrm] = (FeatureStatuses.ComingSoon, false),
+            [ModuleCodes.Pos] = (FeatureStatuses.ComingSoon, false),
         };
 
     /// <summary>A37 MOD-08 — switched on by the system while any of these modules is on.</summary>

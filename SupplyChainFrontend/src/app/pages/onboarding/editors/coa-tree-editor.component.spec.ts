@@ -4,7 +4,7 @@ import { CoaTreeEditorComponent } from './coa-tree-editor.component';
 import { allCoa } from '../onboarding.shared';
 import { sampleCoa } from '../onboarding.testing';
 
-/** A50 tasks 128â€“130 â€” COA tree: rename, add, remove, role badges, move, drag-and-drop validation. */
+/** A50 tasks 128–130 — COA tree: rename, add, remove, role badges, move, drag-and-drop validation. */
 describe('CoaTreeEditorComponent', () => {
   let fixture: ComponentFixture<CoaTreeEditorComponent>;
   let c: CoaTreeEditorComponent;
@@ -34,6 +34,31 @@ describe('CoaTreeEditorComponent', () => {
     c.expandAll(true);
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('[data-testid="coa-role-1111"]').textContent).toContain('DEFAULT_CASH');
+  });
+
+  it('role dropdown: only in role-edit mode; a role moves to the new account and can be cleared', () => {
+    c.expandAll(true);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('[data-testid="coa-role-select-1111"]')).toBeNull();
+    fixture.componentRef.setInput('allowRoleEdit', true);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('[data-testid="coa-role-select-1111"]')).toBeTruthy();
+    expect(fixture.nativeElement.querySelector('[data-testid="coa-role-select-111"]')).toBeNull();
+    expect(c.roleOptions.length).toBe(17);
+
+    c.setRole(node('1112'), 'DEFAULT_CASH');
+    let accounts = allCoa(emitted[emitted.length - 1].accounts);
+    expect(accounts.find((a: any) => a.code === '1112')!.default_account_key).toBe('DEFAULT_CASH');
+    expect(accounts.find((a: any) => a.code === '1112')!.is_default_account).toBeTrue();
+    expect(accounts.find((a: any) => a.code === '1111')!.default_account_key).toBeUndefined();
+    expect(accounts.filter((a: any) => a.default_account_key === 'DEFAULT_CASH').length).toBe(1);
+
+    c.setRole(node('1112'), '');
+    accounts = allCoa(emitted[emitted.length - 1].accounts);
+    expect(accounts.some((a: any) => a.default_account_key === 'DEFAULT_CASH')).toBeFalse();
+    const before = emitted.length;
+    c.setRole(node('111'), 'DEFAULT_CASH');
+    expect(emitted.length).toBe(before);
   });
 
   it('renames an account and emits the payload, keeping the template fields', () => {
@@ -67,7 +92,7 @@ describe('CoaTreeEditorComponent', () => {
     expect(c.problem).toContain('DEFAULT_CASH');
   });
 
-  it('"Move toâ€¦" offers same-level groups of the same root and moves the account', () => {
+  it('"Move to…" offers same-level groups of the same root and moves the account', () => {
     const n = node('1112');
     const targets = c.moveTargets(n).map(t => t.label);
     expect(targets).toEqual(['112 Receivables']);

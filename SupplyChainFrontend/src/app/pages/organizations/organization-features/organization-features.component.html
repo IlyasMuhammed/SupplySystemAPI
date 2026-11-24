@@ -33,6 +33,21 @@
           switch licensed modules off and on again in <strong>Settings › Modules</strong> (status column).</span>
       </div>
 
+      <!-- A51 P7: what the last reset skipped -->
+      <div class="sf-card flat lic-note" *ngIf="lastReset" data-testid="reset-result">
+        <i class="pi pi-info-circle"></i>
+        <span>
+          Reset done: {{ lastReset.added.length }} added, {{ lastReset.removed.length }} removed.
+          <ng-container *ngIf="resetComingSoon.length">
+            <br /><span data-testid="reset-coming-soon">Not licensed because Coming Soon:
+              <b>{{ resetNames(resetComingSoon) }}</b>.</span>
+          </ng-container>
+          <ng-container *ngIf="resetOtherSkipped.length">
+            <br /><span data-testid="reset-other-skipped">Left as they were: <ng-container *ngFor="let s of resetOtherSkipped; let last = last">{{ s.featureName }} ({{ s.detail || s.reason }})<ng-container *ngIf="!last">, </ng-container></ng-container></span>
+          </ng-container>
+        </span>
+      </div>
+
       <div *ngIf="isLoading" class="sf-card sf-empty">
         <i class="pi pi-spin pi-spinner"></i> Loading features…
       </div>
@@ -131,6 +146,9 @@
           <i class="pi pi-lock"></i> Always on
         </span>
         <span class="sf-pill in" *ngIf="r.comingSoon">Coming soon</span>
+        <span class="sf-pill in" *ngIf="r.platformComingSoon" [attr.data-testid]="'cs-note-' + r.f.featureCode"
+              pTooltip="The platform marks this feature Coming Soon, so plans do not license it to this organization. You can still license it by hand."
+              tooltipPosition="top">Not licensed — Coming Soon</span>
         <span class="feature-code">{{ r.f.featureCode }}</span>
       </div>
       <p class="feature-description" *ngIf="r.f.description">{{ r.f.description }}</p>

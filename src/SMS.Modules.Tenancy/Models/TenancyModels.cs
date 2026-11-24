@@ -14,6 +14,15 @@ public class CreateOrganizationRequest
     public string? TimeZone { get; set; }
     public Guid? BaseCurrency { get; set; }
 
+    // A51 P3 — chosen at creation. All optional: without a country/industry the organization behaves exactly as before (setup
+    // NotStarted, the wizard asks on the admin's first login). CountryCode is an alpha-2 code of the Lookups countries master and
+    // sets Country (the NAME) and, when TimeZone is empty, the country's default timezone. IndustryType needs a CountryCode and
+    // must be offered in that country (Industries / CountryIndustries masters).
+    public string? CountryCode { get; set; }
+    public string? IndustryType { get; set; }
+    /// <summary>Optional alias of <see cref="Plan"/> (the A51 spec's name for it); wins over Plan when both are sent.</summary>
+    public string? PlanCode { get; set; }
+
     // Initial Admin user, created atomically with the organization — receives an email
     // invitation to set their own password (see IOrgUserProvisioningService).
     public string AdminFirstName { get; set; } = string.Empty;
@@ -32,6 +41,54 @@ public class CreateOrganizationResult
 {
     public Guid OrganizationId { get; set; }
     public int AdminUserId { get; set; }
+
+    // A51 P3 — what was stored, so the form can show it.
+    public string? Plan { get; set; }
+    public string? Country { get; set; }
+    public string? CountryCode { get; set; }
+    public string? IndustryType { get; set; }
+    public string? TimeZone { get; set; }
+    /// <summary>True when the timezone came from the country's default rather than from the request.</summary>
+    public bool TimeZoneFromCountry { get; set; }
+
+    /// <summary>
+    /// Null when no country/industry was chosen (nothing to apply). Otherwise what applying the A50 default data did: best effort,
+    /// the organization exists whatever the outcome.
+    /// </summary>
+    public SMS.Shared.Onboarding.OrganizationDefaultsOutcome? Defaults { get; set; }
+
+    /// <summary>A51 P7 — plan features NOT licensed to the new organization because they are Coming Soon or not visible (reason ComingSoon / NotVisible).</summary>
+    public List<PlanApplyFeatureItem> SkippedFeatures { get; set; } = new();
+
+    /// <summary>A51 P7 (A51-D12) — did the initial admin's invitation e-mail go out? The invite link is present ONLY when it did not.</summary>
+    public OrganizationInvitationOutcome? Invitation { get; set; }
+}
+
+public class OrganizationInvitationOutcome
+{
+    public string? AdminEmail { get; set; }
+    public bool EmailSent { get; set; }
+    public bool EmailConfigured { get; set; }
+    public string? Error { get; set; }
+    /// <summary>Set only when the e-mail was not sent (failed or not configured): the Super Admin hands it to the admin. Never logged.</summary>
+    public string? InviteLink { get; set; }
+    public DateTime? InviteExpiresAt { get; set; }
+}
+
+public class ResendInvitationRequest
+{
+    /// <summary>Optional corrected address (only for an account that is not set up yet).</summary>
+    public string? Email { get; set; }
+}
+
+public class ResendInvitationResult
+{
+    public SMS.Shared.Common.OrgUserSummary? User { get; set; }
+    public bool EmailSent { get; set; }
+    public bool EmailConfigured { get; set; }
+    public string? Error { get; set; }
+    /// <summary>Set only when the e-mail was not sent. Never logged.</summary>
+    public string? InviteLink { get; set; }
 }
 
 // Profile-only edit — deliberately excludes Plan/IsActive, which are separate, deliberate
@@ -156,6 +213,11 @@ public class OrganizationListItemModel
     public bool IsActive { get; set; }
     public string? ContactEmail { get; set; }
     public DateTime CreatedDate { get; set; }
+    /// <summary>A51 P7 — from the organization's setup row (Onboarding); null when it has none.</summary>
+    public string? CountryCode { get; set; }
+    public string? IndustryType { get; set; }
+    /// <summary>NotStarted / InProgress / Completed / Skipped; null when the organization has no setup row.</summary>
+    public string? SetupStatus { get; set; }
 }
 
 public class OrganizationDetailModel
@@ -175,6 +237,10 @@ public class OrganizationDetailModel
     public DateTime CreatedDate { get; set; }
     public int? ModifiedBy { get; set; }
     public DateTime? ModifiedDate { get; set; }
+    /// <summary>A51 P7 — see <see cref="OrganizationListItemModel"/>. Read-only: changing country or industry later does not re-run the default data.</summary>
+    public string? CountryCode { get; set; }
+    public string? IndustryType { get; set; }
+    public string? SetupStatus { get; set; }
 }
 
 public class OrganizationFilter
@@ -199,6 +265,10 @@ public class FeatureDefinitionModel
     public int DisplayOrder { get; set; }
     /// <summary>False for catalog entries that are listed but not built ("Coming soon").</summary>
     public bool IsAvailable { get; set; } = true;
+    /// <summary>A51 P2 — Live | Beta | ComingSoon | Deprecated.</summary>
+    public string Status { get; set; } = "Live";
+    public bool IsVisible { get; set; } = true;
+    public string? Icon { get; set; }
 }
 
 // Merged catalog + one org's toggle state — backs the feature-management screen.
@@ -221,6 +291,11 @@ public class OrganizationFeatureModel
     public bool IsAvailable { get; set; }
     /// <summary>Usable now: licensed, on, and its module usable too (what the menu and the API gates go by).</summary>
     public bool IsUsable { get; set; }
+    /// <summary>A51 P7 — the platform status of the feature (Live / Beta / ComingSoon / Deprecated), so the page can say "not licensed because Coming Soon".</summary>
+    public string FeatureStatus { get; set; } = "Live";
+    public bool IsVisible { get; set; } = true;
+    /// <summary>The organization keeps access whatever the status / visibility say.</summary>
+    public bool IsGrandfathered { get; set; }
 }
 
 public class PlanFeatureTemplateModel
@@ -368,6 +443,15 @@ public class ToggleModuleFeatureRequest
     public string? RowVersion { get; set; }
 }
 
+public class CurrentTenantFeatureState
+{
+    public string Code { get; set; } = string.Empty;
+    public string Status { get; set; } = string.Empty;
+    public bool IsVisible { get; set; }
+    public bool Usable { get; set; }
+    public bool IncludedInPlan { get; set; }
+}
+
 // ── GET /api/tenant/current ──────────────────────────────────────────────────
 // Consumed by the React sidebar on every page load to render/hide menu items — feature codes and
 // permissions come straight from JWT claims (no extra query), org info from a single lookup.
@@ -380,6 +464,8 @@ public class CurrentTenantModel
     /// <summary>The organization's base currency (a lookups.Currencies id); null when none is configured.</summary>
     public Guid? BaseCurrency { get; set; }
     public List<string> EnabledFeatureCodes { get; set; } = new();
+    /// <summary>A51 P4 — per feature: status, visibility, usable, includedInPlan (the menu's greyed Coming Soon item).</summary>
+    public List<CurrentTenantFeatureState> FeatureStates { get; set; } = new();
     public bool IsSuperAdmin { get; set; }
     public string RoleName { get; set; } = string.Empty;
     public List<string> Permissions { get; set; } = new();

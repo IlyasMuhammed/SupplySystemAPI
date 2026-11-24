@@ -8,6 +8,7 @@ import { ForgotPassword } from './app/pages/auth/Forgot';
 import { authGuard } from './app/pages/gaurds/auth.guard';
 import { noAuthGuard } from './app/pages/gaurds/no-auth.guard';
 import { platformScopeGuard } from './app/pages/gaurds/platform-scope.guard';
+import { featureVisibilityGuard } from './app/pages/gaurds/feature-visibility.guard';
 import { setupWizardRedirectGuard } from './app/pages/onboarding/onboarding.guards';
 import { AccessDeniedComponent } from './app/pages/access-denied/access-denied.component';
 import { RfqPageComponent } from './app/pages/supplier-portal/rfq-page/rfq-page.component';
@@ -19,7 +20,8 @@ export const appRoutes: Routes = [
         path: 'portal',
         component: AppLayout,
         canActivate: [authGuard],
-        canActivateChild: [platformScopeGuard],
+        // A51 P4 - featureVisibilityGuard: a hidden / ComingSoon / not-in-plan feature's URL goes to the dashboard.
+        canActivateChild: [platformScopeGuard, featureVisibilityGuard],
         children: [
             // A50 D-7 — the first login of a setup admin (setup NotStarted) opens the setup wizard instead.
             { path: 'dashboard', component: Dashboard, canActivate: [setupWizardRedirectGuard] },

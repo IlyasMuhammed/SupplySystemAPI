@@ -13,6 +13,7 @@ internal sealed class LookupsDataSeeder
     {
         await _db.Database.EnsureCreatedAsync();
         await EnsureModifiedAtColumnAsync();
+        await EnsureCountryMasterColumnsAsync();
 
         var types = new[]
         {
@@ -116,6 +117,56 @@ internal sealed class LookupsDataSeeder
         });
 
         await SeedCurrenciesAsync();
+        await SeedCountryMasterAsync();
+    }
+
+    /// <summary>A51 P1 — the country-master columns, guarded and idempotent (same SQL as migration A51_CountryMaster).</summary>
+    internal async Task EnsureCountryMasterColumnsAsync()
+    {
+        if (!_db.Database.IsRelational()) return;
+        await _db.Database.ExecuteSqlRawAsync(CountryMasterSql.Up);
+    }
+
+    /// <summary>A51 P1 — the four launch countries.</summary>
+    internal static readonly (string Code, string Name, string Currency, string Timezone, int FiscalStart, string Phone, int Sort)[] SeedCountries =
+    [
+        ("PK", "Pakistan",             "PKR", "Asia/Karachi",      7, "+92",  1),
+        ("AE", "United Arab Emirates", "AED", "Asia/Dubai",        1, "+971", 2),
+        ("SA", "Saudi Arabia",         "SAR", "Asia/Riyadh",       1, "+966", 3),
+        ("US", "United States",        "USD", "America/New_York",  1, "+1",   4),
+    ];
+
+    /// <summary>
+    /// A51 P1 — makes sure PK / AE / SA / US exist as configured countries. Matched by code (case-insensitive), then by name for a
+    /// row with no code (which gets the code). A matching row is filled in only while its currency is still empty, so a super
+    /// admin's later edits are never overwritten by the next start; a row that already has a (different) code keeps it. Never duplicates.
+    /// </summary>
+    internal async Task SeedCountryMasterAsync()
+    {
+        var existing = await _db.Countries.ToListAsync();
+        foreach (var (code, name, currency, tz, fiscal, phone, sort) in SeedCountries)
+        {
+            var row = existing.FirstOrDefault(c => string.Equals(c.Code?.Trim(), code, StringComparison.OrdinalIgnoreCase))
+                      ?? existing.FirstOrDefault(c => string.IsNullOrWhiteSpace(c.Code)
+                                                      && string.Equals(c.Name.Trim(), name, StringComparison.OrdinalIgnoreCase));
+            if (row is null)
+            {
+                _db.Countries.Add(new Country
+                {
+                    Id = Guid.NewGuid(), Code = code, Name = name, IsActive = true, CurrencyCode = currency, DefaultTimezone = tz,
+                    FiscalYearStartMonth = fiscal, DateFormat = "DD/MM/YYYY", PhoneCode = phone, SortOrder = sort
+                });
+                continue;
+            }
+            if (string.IsNullOrWhiteSpace(row.Code)) row.Code = code;
+            if (!string.IsNullOrWhiteSpace(row.CurrencyCode)) continue; // already configured
+            row.CurrencyCode = currency;
+            row.DefaultTimezone ??= tz;
+            row.FiscalYearStartMonth = fiscal;
+            row.PhoneCode ??= phone;
+            if (row.SortOrder == 0) row.SortOrder = sort;
+        }
+        await _db.SaveChangesAsync();
     }
 
     /// <summary>

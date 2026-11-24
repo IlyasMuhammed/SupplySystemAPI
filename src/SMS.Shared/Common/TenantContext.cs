@@ -12,6 +12,9 @@ internal sealed class TenantContext : ITenantContext
     {
         get
         {
+            // A51 P3 — an explicit "run as this organization" scope beats the caller's own claim.
+            if (TenantOverrideScope.OrganizationId is { } overridden) return overridden;
+
             var claim = _accessor.HttpContext?.User?.FindFirst("organizationId")?.Value;
             if (Guid.TryParse(claim, out var id)) return id;
 
@@ -30,6 +33,8 @@ internal sealed class TenantContext : ITenantContext
     {
         get
         {
+            if (TenantOverrideScope.OrganizationId is not null) return false;
+
             var user = _accessor.HttpContext?.User;
             if (user?.Identity?.IsAuthenticated == true)
             {

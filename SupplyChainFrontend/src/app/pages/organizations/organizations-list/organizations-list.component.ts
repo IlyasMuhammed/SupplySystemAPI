@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FLOW } from '../../../shared/flow';
 import { Router } from '@angular/router';
@@ -16,17 +16,37 @@ import { ConfirmDialogModule } from 'primeng/confirmdialog';
 import { TooltipModule } from 'primeng/tooltip';
 import { MessageService, ConfirmationService } from 'primeng/api';
 import {
-  OrganizationsService, OrganizationListItemModel, OrgPlan, OrgUserSummary, ORG_ADMIN_ROLE_ID, baseCurrencyChange, planLabel
+  OrganizationsService, OrganizationListItemModel, OrgPlan, OrgUserSummary, ORG_ADMIN_ROLE_ID, baseCurrencyChange, planLabel,
+  CreateOrganizationResult, OrgDefaultsCategoryResult, OrgDefaultsStatus, DefaultsRunStatus, ResendInvitationResult,
+  packLevelLabel, setupStatusLabel, setupStatusSeverity
 } from '../../../services/organizations.service';
+import { CountriesAdminService } from '../../../services/countries-admin.service';
+import { IndustriesService } from '../../../services/industries.service';
+import { FeaturesAdminService } from '../../../services/features-admin.service';
+import { TimezoneOption, timezoneOptions } from '../../../shared/timezones';
 import { CountriesService } from '../../../services/countries.service';
 import { CurrenciesService } from '../../../services/currencies.service';
 import { UserService } from '../../../services/user.service';
 import { FeaturesService, FeatureDefinitionModel } from '../../../services/features.service';
 import { CheckboxModule } from 'primeng/checkbox';
-import { forkJoin, Observable, of } from 'rxjs';
-import { tap } from 'rxjs/operators';
+import { forkJoin, Observable, of, Subscription, timer } from 'rxjs';
+import { catchError, switchMap, tap } from 'rxjs/operators';
 import { PasswordModule } from 'primeng/password';
 import { isStrongPassword, passwordChecks, PasswordCheck } from '../../../shared/password-rule';
+
+/** What the create-result dialog shows of the default-data apply: the create call's answer, overlaid by the polled status (A51 P7). */
+export interface DefaultsView {
+  /** Queued or running in the background: show "Applying default data…" and the per-category checklist. */
+  running: boolean;
+  status?: DefaultsRunStatus;
+  attempted: boolean;
+  completed: boolean;
+  failed: boolean;
+  packLevel: string;
+  fallbackUsed: boolean;
+  message?: string | null;
+  categories: OrgDefaultsCategoryResult[];
+}
 
 @Component({
   selector: 'app-organizations-list',
@@ -40,7 +60,13 @@ import { isStrongPassword, passwordChecks, PasswordCheck } from '../../../shared
   styleUrls: ['./organizations-list.component.scss'],
   providers: [MessageService, ConfirmationService]
 })
-export class OrganizationsListComponent implements OnInit {
+export class OrganizationsListComponent implements OnInit, OnDestroy {
+  /** A51 P7: how often the open create-result dialog asks for progress while the default data is being applied. */
+  static readonly POLL_MS = 3000;
+  static readonly POLL_FIRST_MS = 1500;
+  /** After this many failed reads in a row the dialog stops asking and says so. */
+  static readonly POLL_MAX_FAILURES = 5;
+
   orgs: OrganizationListItemModel[] = [];
   isLoading = true;
   showDialog = false;
@@ -59,6 +85,8 @@ export class OrganizationsListComponent implements OnInit {
   selectedNewAdminId: number | null = null;
 
   // Resend invite (only while the admin's invite is pending or the account is not active)
+  /** A51 P7: what the last resend did - whether the mail went out and, only when it did not, the link to copy. */
+  resendResult: ResendInvitationResult | null = null;
   reinviteEmail = '';
   isReinviting = false;
   reinviteError = '';
@@ -69,11 +97,40 @@ export class OrganizationsListComponent implements OnInit {
   isSettingPassword = false;
   setPasswordError = '';
 
-  planOptions: { label: string; value: OrgPlan }[] = [
+  // Replaced by the Plans master (active plans) once it loads; BASIC is always shown as "Default".
+  planOptions: { label: string; value: OrgPlan | string }[] = [
     { label: 'Default',    value: 'BASIC' },
     { label: 'Standard',   value: 'STANDARD' },
     { label: 'Enterprise', value: 'ENTERPRISE' }
   ];
+
+  // ── A51 P3: country, industry and timezone chosen at creation ────────────
+  // Active countries of the P1 master (value = alpha-2 code). Industries are those the chosen country offers.
+  newCountryOptions: { label: string; value: string; timezone: string | null }[] = [];
+  industryOptions: { label: string; value: string }[] = [];
+  isLoadingIndustries = false;
+  industriesError = '';
+  /** The zone the chosen country defaults to - offered first in the timezone list. */
+  countryTimezone: string | null = null;
+  /** What the server did right after creating the organization (shown in the result dialog). */
+  showResultDialog = false;
+  createResult: CreateOrganizationResult | null = null;
+  createdOrgName = '';
+  readonly packLevelLabel = packLevelLabel;
+  readonly setupStatusLabel = setupStatusLabel;
+  readonly setupStatusSeverity = setupStatusSeverity;
+
+  // A51 P7: the background apply of the default data - the latest polled status and the poll itself.
+  defaultsStatus: OrgDefaultsStatus | null = null;
+  pollStopped = false;
+  private poll: Subscription | null = null;
+  private pollFailures = 0;
+  inviteCopied = false;
+
+  // A51 P7: read-only facts shown in the edit form (not editable here; changing them later does not re-run default data).
+  editIndustry: string | null = null;
+  editSetupStatus: string | null = null;
+  editCountryCode: string | null = null;
 
   // Sourced from the same managed Countries list every other address form in the app uses
   // (Suppliers, Warehouses) — value is the country name itself, matching this form's existing
@@ -92,6 +149,9 @@ export class OrganizationsListComponent implements OnInit {
     private service: OrganizationsService,
     private userService: UserService,
     private countriesService: CountriesService,
+    private countriesAdmin: CountriesAdminService,
+    private industriesService: IndustriesService,
+    private featuresAdmin: FeaturesAdminService,
     private currenciesService: CurrenciesService,
     private featuresService: FeaturesService,
     private messageService: MessageService,
@@ -107,7 +167,9 @@ export class OrganizationsListComponent implements OnInit {
       contactEmail:   ['', [Validators.maxLength(150)]],
       contactPhone:   ['', [Validators.maxLength(30)]],
       address:        ['', [Validators.maxLength(500)]],
-      country:        ['', [Validators.maxLength(100)]],
+      country:        ['', [Validators.maxLength(100)]],   // edit only (the organization's country name)
+      countryCode:    [null as string | null],              // create only
+      industryType:   [null as string | null],              // create only; needs a country
       timeZone:       ['', [Validators.maxLength(50)]],
       baseCurrency:   [null as string | null],
       // Initial Admin — only collected at creation; the org+admin are created atomically and
@@ -116,9 +178,180 @@ export class OrganizationsListComponent implements OnInit {
       adminLastName:  ['', [Validators.maxLength(100)]],
       adminEmail:     ['', [Validators.required, Validators.email, Validators.maxLength(150)]]
     });
+    this.form.get('countryCode')!.valueChanges.subscribe(code => this.onCountryChanged(code));
     this.loadCountries();
+    this.loadNewCountries();
+    this.loadPlans();
     this.loadCurrencies();
     this.load();
+  }
+
+  private loadNewCountries() {
+    this.countriesAdmin.list().subscribe({
+      next: (res) => {
+        this.newCountryOptions = (res.result ?? [])
+          .filter(c => c.isActive && !!c.code?.trim())
+          .sort((a, b) => (a.sortOrder - b.sortOrder) || a.name.localeCompare(b.name))
+          .map(c => ({ label: c.name, value: c.code.trim().toUpperCase(), timezone: c.defaultTimezone?.trim() || null }));
+      },
+      error: () => {}
+    });
+  }
+
+  private loadPlans() {
+    this.featuresAdmin.listPlans().subscribe({
+      next: (res) => {
+        const plans = (res.result ?? []).filter(p => p.isActive).sort((a, b) => (a.sortOrder - b.sortOrder) || a.code.localeCompare(b.code));
+        if (plans.length > 0)
+          this.planOptions = plans.map(p => ({ label: p.code.toUpperCase() === 'BASIC' ? 'Default' : p.name, value: p.code }));
+      },
+      error: () => {}
+    });
+  }
+
+  /** Changing the country empties the industry (its list depends on the country) and refills the timezone from the country's default. */
+  private onCountryChanged(code: string | null) {
+    this.form.patchValue({ industryType: null }, { emitEvent: false });
+    this.industryOptions = [];
+    this.industriesError = '';
+    const country = code ? this.newCountryOptions.find(c => c.value === code) : undefined;
+    this.countryTimezone = country?.timezone ?? null;
+    this.form.patchValue({ timeZone: this.countryTimezone ?? '' }, { emitEvent: false });
+    if (!code) return;
+
+    this.isLoadingIndustries = true;
+    this.industriesService.byCountry(code).subscribe({
+      next: (res) => {
+        // A late answer for a country that is no longer the chosen one is ignored.
+        if (this.form.get('countryCode')!.value !== code) return;
+        this.isLoadingIndustries = false;
+        this.industryOptions = (res.result ?? []).filter(i => i.isActive).map(i => ({ label: i.name, value: i.code }));
+      },
+      error: () => {
+        if (this.form.get('countryCode')!.value !== code) return;
+        this.isLoadingIndustries = false;
+        this.industriesError = 'The industries for this country could not be loaded.';
+      }
+    });
+  }
+
+  /** Timezone dropdown: the country's default first, then common zones, plus whatever is already chosen. */
+  get timezoneChoices(): TimezoneOption[] {
+    return timezoneOptions(this.countryTimezone, this.form?.get('timeZone')?.value as string | null);
+  }
+
+  /** The create call's default-data answer overlaid with the polled status; null when no country was chosen. */
+  get defaultsView(): DefaultsView | null {
+    const d = this.createResult?.defaults;
+    if (!d) return null;
+    const s = this.defaultsStatus;
+    const status: DefaultsRunStatus | undefined = s?.status ?? d.status;
+    return {
+      running: status === 'Running',
+      status,
+      attempted: d.attempted,
+      completed: s ? s.status === 'Completed' : d.completed,
+      failed: status === 'Failed',
+      packLevel: s?.packLevel ?? d.packLevel,
+      fallbackUsed: s?.fallbackUsed ?? d.fallbackUsed,
+      message: s?.message ?? d.message,
+      categories: s?.categories ?? d.categories
+    };
+  }
+
+  /** Categories that did not apply (none while it is still running). */
+  get categoryProblems(): OrgDefaultsCategoryResult[] {
+    const v = this.defaultsView;
+    return v && !v.running ? v.categories.filter(c => !c.ok) : [];
+  }
+
+  categoryTone(c: OrgDefaultsCategoryResult): string {
+    return c.ok ? (c.status === 'Applied' ? 'ok' : '') : 'er';
+  }
+
+  /** The checklist icon of a category while the apply runs: done, failed, in turn (the first pending one) or waiting. */
+  checklistIcon(c: OrgDefaultsCategoryResult, index: number): string {
+    if (c.status === 'Applied') return 'pi pi-check-circle';
+    if (c.status === 'Failed' || c.status === 'Invalid') return 'pi pi-times-circle';
+    if (c.status === 'Pending') {
+      const firstPending = (this.defaultsView?.categories ?? []).findIndex(x => x.status === 'Pending');
+      return firstPending === index ? 'pi pi-spin pi-spinner' : 'pi pi-circle';
+    }
+    return 'pi pi-minus-circle';
+  }
+
+  get defaultsHeadline(): string {
+    const v = this.defaultsView;
+    if (!v) return '';
+    if (v.running) return 'Applying default data…';
+    if (v.failed) return 'Could not apply';
+    if (!v.attempted) return 'Wizard pre-filled';
+    return v.completed ? 'Setup complete' : 'Needs attention';
+  }
+
+  /** Plan features left out of the new organization because they are Coming Soon (or not visible yet). */
+  get skippedFeatures() {
+    return this.createResult?.skippedFeatures ?? [];
+  }
+
+  get comingSoonNames(): string {
+    return this.skippedFeatures.filter(f => f.reason === 'ComingSoon').map(f => f.featureName).join(', ');
+  }
+
+  // ── A51 P7: polling the background apply ──────────────────────────────────
+
+  private startDefaultsPolling(orgId: string) {
+    this.stopDefaultsPolling();
+    this.pollFailures = 0;
+    this.pollStopped = false;
+    // One cheap read every few seconds; switchMap drops a read that is still in flight when the next tick comes.
+    this.poll = timer(OrganizationsListComponent.POLL_FIRST_MS, OrganizationsListComponent.POLL_MS).pipe(
+      switchMap(() => this.service.getDefaultsStatus(orgId).pipe(catchError(() => of(null))))
+    ).subscribe(res => {
+      if (!res?.result) {
+        if (++this.pollFailures >= OrganizationsListComponent.POLL_MAX_FAILURES) { this.pollStopped = true; this.stopDefaultsPolling(); }
+        return;
+      }
+      this.pollFailures = 0;
+      this.defaultsStatus = res.result;
+      if (res.result.status !== 'Running') { this.stopDefaultsPolling(); this.load(); }
+    });
+  }
+
+  private stopDefaultsPolling() {
+    this.poll?.unsubscribe();
+    this.poll = null;
+  }
+
+  /** Closing the dialog ends the polling; the apply itself carries on in the background. */
+  closeResult() {
+    this.showResultDialog = false;
+    this.stopDefaultsPolling();
+  }
+
+  ngOnDestroy() {
+    this.stopDefaultsPolling();
+  }
+
+  /** Copies the invite link for the super admin to hand over (only ever shown when the e-mail was not sent). */
+  copyInviteLink(link: string | null | undefined) {
+    if (!link) return;
+    const done = () => {
+      this.inviteCopied = true;
+      this.messageService.add({ severity: 'success', summary: 'Copied', detail: 'Invite link copied.' });
+    };
+    const fallback = () => {
+      const el = document.createElement('textarea');
+      el.value = link;
+      el.style.position = 'fixed';
+      el.style.opacity = '0';
+      document.body.appendChild(el);
+      el.select();
+      try { document.execCommand('copy'); done(); } catch { this.messageService.add({ severity: 'warn', summary: 'Copy failed', detail: 'Select the link and copy it by hand.' }); }
+      document.body.removeChild(el);
+    };
+    if (navigator.clipboard?.writeText) navigator.clipboard.writeText(link).then(done, fallback);
+    else fallback();
   }
 
   private loadCurrencies() {
@@ -168,7 +401,11 @@ export class OrganizationsListComponent implements OnInit {
     this.isEditing = false;
     this.editId = null;
     this.originalBaseCurrency = null;
-    this.form.reset({ plan: 'BASIC', baseCurrency: null });
+    this.form.reset({ plan: 'BASIC', baseCurrency: null, countryCode: null, industryType: null }, { emitEvent: false });
+    this.editIndustry = this.editSetupStatus = this.editCountryCode = null;
+    this.industryOptions = [];
+    this.industriesError = '';
+    this.countryTimezone = null;
     this.form.get('orgCode')!.enable();
     this.form.get('plan')!.enable();
     this.form.get('adminFirstName')!.enable();
@@ -184,6 +421,9 @@ export class OrganizationsListComponent implements OnInit {
         const d = res.result;
         if (!d) return;
         this.originalBaseCurrency = d.baseCurrency ?? null;
+        this.editIndustry = d.industryType ?? null;
+        this.editSetupStatus = d.setupStatus ?? null;
+        this.editCountryCode = d.countryCode ?? null;
         this.form.patchValue({
           orgCode:      d.orgCode,
           orgName:      d.orgName,
@@ -242,13 +482,21 @@ export class OrganizationsListComponent implements OnInit {
   /** Tick what the chosen plan includes by default; the super admin then adjusts. */
   useAllPlanDefaults() {
     const defaults = this.planDefaults.get(String(this.form.get('plan')?.value ?? '').toUpperCase());
-    this.selectedModules = new Set(this.moduleChoices.filter(m => defaults?.has(m.featureCode)).map(m => m.featureCode));
+    this.selectedModules = new Set(this.moduleChoices
+      .filter(m => !this.isComingSoon(m) && defaults?.has(m.featureCode)).map(m => m.featureCode));
+  }
+
+  /** A51 P8: Coming Soon / hidden features are not licensed at creation (the server skips them too). */
+  isComingSoon(m: FeatureDefinitionModel): boolean {
+    return m.status === 'ComingSoon' || m.isVisible === false;
   }
 
   clearModules() { this.selectedModules = new Set(); }
 
   toggleModule(code: string, on: boolean) {
     const next = new Set(this.selectedModules);
+    const m = this.moduleChoices.find(x => x.featureCode === code);
+    if (on && m && this.isComingSoon(m)) return;
     if (on) next.add(code); else next.delete(code);
     this.selectedModules = next;
   }
@@ -268,7 +516,7 @@ export class OrganizationsListComponent implements OnInit {
     this.isSaving = true;
     const v = this.form.getRawValue();
 
-    const onNext = (res: { success: boolean; message: string }) => {
+    const onNext = (res: { success: boolean; message: string; result?: unknown }) => {
       this.isSaving = false;
       if (res.success) {
         this.messageService.add({
@@ -276,6 +524,18 @@ export class OrganizationsListComponent implements OnInit {
           detail: this.isEditing ? 'Organization updated' : 'Organization created'
         });
         this.showDialog = false;
+        // A51 P3: a country was chosen, so the server also applied (or tried to apply) its default data - show what happened.
+        // A51 P7: the apply runs in the background - the dialog says so and polls until it ends. It is also shown when only the
+        // invitation outcome or skipped (Coming Soon) features need saying.
+        const created = this.isEditing ? null : (res.result as CreateOrganizationResult | null | undefined);
+        if (created?.defaults || created?.invitation || created?.skippedFeatures?.length) {
+          this.createResult = created;
+          this.createdOrgName = v.orgName;
+          this.defaultsStatus = null;
+          this.inviteCopied = false;
+          this.showResultDialog = true;
+          if (created.defaults?.status === 'Running' && created.organizationId) this.startDefaultsPolling(created.organizationId);
+        }
         this.load();
       } else {
         this.messageService.add({ severity: 'error', summary: 'Error', detail: res.message || 'Save failed' });
@@ -305,7 +565,8 @@ export class OrganizationsListComponent implements OnInit {
         contactEmail:   v.contactEmail || undefined,
         contactPhone:   v.contactPhone || undefined,
         address:        v.address || undefined,
-        country:        v.country || undefined,
+        countryCode:    v.countryCode || undefined,
+        industryType:   v.countryCode && v.industryType ? v.industryType : undefined,
         timeZone:       v.timeZone || undefined,
         baseCurrency:   v.baseCurrency || undefined,
         adminFirstName: v.adminFirstName,
@@ -373,6 +634,8 @@ export class OrganizationsListComponent implements OnInit {
     this.selectedNewAdminId = null;
     this.reinviteEmail = '';
     this.reinviteError = '';
+    this.resendResult = null;
+    this.inviteCopied = false;
     this.clearPasswordFields();
     this.isLoadingAdmin = true;
     this.showAdminDialog = true;
@@ -430,12 +693,18 @@ export class OrganizationsListComponent implements OnInit {
     const changed = email.toLowerCase() !== (this.currentAdmin.email ?? '').toLowerCase();
     this.reinviteError = '';
     this.isReinviting = true;
-    this.service.reinviteOrgUser(orgId, userId, changed ? email : null).subscribe({
+    this.service.resendInvitation(orgId, userId, changed ? email : null).subscribe({
       next: (res) => {
         this.isReinviting = false;
         if (!res.success) { this.reinviteError = res.message || 'The invite was not sent.'; return; }
-        this.messageService.add({ severity: 'success', summary: 'Invite sent', detail: res.message || `A new invite was sent to ${email}` });
-        const updated = res.result;
+        const outcome = res.result;
+        this.resendResult = outcome ?? null;
+        this.inviteCopied = false;
+        if (outcome?.emailSent !== false)
+          this.messageService.add({ severity: 'success', summary: 'Invitation email sent', detail: res.message || `A new invitation was sent to ${email}` });
+        else
+          this.messageService.add({ severity: 'warn', summary: 'Invitation email NOT sent', detail: 'Copy the invite link and send it to the admin yourself.' });
+        const updated = outcome?.user;
         if (updated && this.currentAdmin?.userId === updated.userId) {
           this.currentAdmin = { ...this.currentAdmin, ...updated };
           this.orgUsers = this.orgUsers.map(u => u.userId === updated.userId ? { ...u, ...updated } : u);

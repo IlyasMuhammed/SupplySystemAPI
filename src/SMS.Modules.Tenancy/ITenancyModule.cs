@@ -27,7 +27,11 @@ public static class TenancyModuleExtensions
 
         services.AddScoped<ITenancyRepository, TenancyRepository>();
         services.AddScoped<ITenancyService, TenancyService>();
-        services.AddScoped<IOrganizationStatusService, OrganizationStatusService>();
+        // A51 P2 — plans (PlanFeatures is the source of truth) and the feature status/visibility switches.
+        services.AddScoped<IPlanService, PlanService>();
+        services.AddScoped<IFeatureAdminService, FeatureAdminService>();
+        services.AddScoped<IFeatureGuard, FeatureGuard>();
+        services.AddScoped<IOrganizationStatusService,OrganizationStatusService>();
         services.AddScoped<ISuperAdminService, SuperAdminService>();
         services.AddScoped<ITenantSnapshotProvider, TenantSnapshotProvider>();
         services.AddScoped<IOrganizationSettingsService, OrganizationSettingsService>();

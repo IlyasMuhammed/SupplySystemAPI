@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using SMS.Modules.Tenancy.Domain;
 using SMS.Shared.Common;
 
@@ -27,6 +27,7 @@ internal sealed class TenancyDataSeeder
         TenancyFeatureCatalog.Validate();
         await SyncFeatureDefinitionsAsync();
         await SyncFeatureDependenciesAsync();
+        await SeedPlansAsync();
         await SyncPlanFeatureTemplatesAsync();
         var demoCreated = await SeedDemoOrganizationAsync();
         // A41 D-6 — before the backfill, so the new module's sub-features are created against its new state.
@@ -91,8 +92,12 @@ internal sealed class TenancyDataSeeder
             }
             else
             {
+                var (status, visible) = TenancyFeatureCatalog.NewRowStatusDefaults.TryGetValue(entry.Code, out var d)
+                    ? d : (FeatureStatuses.Live, true);
                 _db.FeatureDefinitions.Add(new FeatureDefinition
                 {
+                    Status       = status,
+                    IsVisible    = visible,
                     Id           = Guid.NewGuid(),
                     FeatureCode  = entry.Code,
                     FeatureName  = entry.Name,
@@ -111,19 +116,68 @@ internal sealed class TenancyDataSeeder
         await _db.SaveChangesAsync();
     }
 
+    // A51 P2 (D-3) — the plans and what they include, promoted from the in-code templates. Insert-only: a missing plan / (plan,
+    // feature) pair is created, an existing one is never touched, so a super admin's edits survive every restart. A pair is
+    // seeded from the plan template row the previous releases kept (so existing tenants' plan content is carried over exactly),
+    // else from the in-code default. BASIC stays the stored code; it is shown as "Default" (D-3).
+    private static readonly (string Code, string Name, string Description, int Sort)[] PlanSeed =
+    [
+        (TenancyFeatureCatalog.PlanBasic,      "Default",    "Core procurement and inventory for small teams.", 10),
+        (TenancyFeatureCatalog.PlanStandard,   "Standard",   "Adds finance, logistics, manufacturing and notifications.", 20),
+        (TenancyFeatureCatalog.PlanEnterprise, "Enterprise", "Every available module and capability.", 30),
+    ];
+
+    internal async Task SeedPlansAsync()
+    {
+        var now = DateTime.UtcNow;
+        var plans = await _db.Plans.ToListAsync();
+        foreach (var (code, name, description, sort) in PlanSeed)
+        {
+            if (plans.Any(p => string.Equals(p.Code, code, StringComparison.OrdinalIgnoreCase))) continue;
+            _db.Plans.Add(new Plan
+            {
+                Code = code, Name = name, Description = description, IsActive = true, SortOrder = sort,
+                CreatedAt = now, ModifiedAt = now
+            });
+        }
+
+        var features = await _db.FeatureDefinitions.ToListAsync();
+        var legacy = (await _db.PlanFeatureTemplates.ToListAsync())
+            .ToDictionary(t => (t.Plan.ToUpperInvariant(), t.FeatureDefinitionId), t => t.IsEnabledByDefault);
+        var have = (await _db.PlanFeatures.Select(p => new { p.PlanCode, p.FeatureCode }).ToListAsync())
+            .Select(p => (p.PlanCode.ToUpperInvariant(), p.FeatureCode.ToUpperInvariant())).ToHashSet();
+
+        foreach (var plan in TenancyFeatureCatalog.AllPlans)
+        {
+            var defaults = TenancyFeatureCatalog.GetDefaultEnabledCodes(plan);
+            foreach (var feature in features)
+            {
+                if (have.Contains((plan.ToUpperInvariant(), feature.FeatureCode.ToUpperInvariant()))) continue;
+                var included = legacy.TryGetValue((plan.ToUpperInvariant(), feature.Id), out var old)
+                    ? old
+                    : defaults.Contains(feature.FeatureCode);
+                _db.PlanFeatures.Add(new PlanFeature { PlanCode = plan, FeatureCode = feature.FeatureCode, IsIncluded = included });
+            }
+        }
+
+        await _db.SaveChangesAsync();
+    }
+
+    // The PlanFeatureTemplates table is now a mirror of PlanFeatures (the single source of truth): the startup backfill and
+    // older readers still use it, and it is re-mirrored here on every start and on every plan edit (PlanService).
     private async Task SyncPlanFeatureTemplatesAsync()
     {
         var features = await _db.FeatureDefinitions.ToListAsync();
         var existing = await _db.PlanFeatureTemplates.ToListAsync();
         var existingByKey = existing.ToDictionary(t => (t.Plan.ToUpperInvariant(), t.FeatureDefinitionId));
+        var included = (await _db.PlanFeatures.ToListAsync())
+            .ToDictionary(p => (p.PlanCode.ToUpperInvariant(), p.FeatureCode.ToUpperInvariant()), p => p.IsIncluded);
 
         foreach (var plan in TenancyFeatureCatalog.AllPlans)
         {
-            var defaultEnabledCodes = TenancyFeatureCatalog.GetDefaultEnabledCodes(plan);
-
             foreach (var feature in features)
             {
-                var isEnabledByDefault = defaultEnabledCodes.Contains(feature.FeatureCode);
+                var isEnabledByDefault = included.TryGetValue((plan.ToUpperInvariant(), feature.FeatureCode.ToUpperInvariant()), out var inc) && inc;
                 var key = (plan.ToUpperInvariant(), feature.Id);
 
                 if (existingByKey.TryGetValue(key, out var row))
@@ -145,7 +199,6 @@ internal sealed class TenancyDataSeeder
 
         await _db.SaveChangesAsync();
     }
-
     private async Task<bool> SeedDemoOrganizationAsync()
     {
         var exists = await _db.Organizations.AnyAsync(o => o.OrgCode == DemoOrgCode);

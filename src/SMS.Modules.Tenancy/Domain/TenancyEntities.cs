@@ -48,6 +48,37 @@ internal class FeatureDefinition
     // A37 D-2 — false = "Coming soon": cannot be licensed or enabled.
     public bool IsAvailable { get; set; } = true;
     public string? Icon { get; set; }
+    // A51 P2 (D-2) — platform-wide visibility of the feature: Live | Beta | ComingSoon | Deprecated, and whether it is listed
+    // at all. Super-admin editable, never overwritten by the seeder once the row exists. An organization whose row is
+    // IsGrandfathered ignores both (see FeatureStatusRules).
+    public string Status { get; set; } = FeatureStatuses.Live;
+    public bool IsVisible { get; set; } = true;
+}
+
+// A51 P2 — the allowed values of FeatureDefinition.Status (also enforced by CK_FeatureDefinitions_Status).
+internal static class FeatureStatuses
+{
+    public const string Live = "Live";
+    public const string Beta = "Beta";
+    public const string ComingSoon = "ComingSoon";
+    public const string Deprecated = "Deprecated";
+
+    public static readonly IReadOnlyList<string> All = [Live, Beta, ComingSoon, Deprecated];
+
+    /// <summary>The canonical spelling of <paramref name="value"/> (case-insensitive), or null when it is not a status.</summary>
+    public static string? Normalize(string? value) =>
+        All.FirstOrDefault(s => s.Equals(value?.Trim(), StringComparison.OrdinalIgnoreCase));
+}
+
+// A51 P2 — what an organization actually sees of a feature: its Status/IsVisible apply unless the organization already
+// held the licence when the columns were introduced (OrganizationFeature.IsGrandfathered), in which case nothing changes.
+internal static class FeatureStatusRules
+{
+    public static bool IsVisibleTo(bool isVisible, bool grandfathered) => isVisible || grandfathered;
+
+    /// <summary>ComingSoon cannot be used; every other status can (Deprecated still works, it is only a warning).</summary>
+    public static bool IsUsableBy(string status, bool grandfathered) =>
+        grandfathered || !string.Equals(status, FeatureStatuses.ComingSoon, StringComparison.OrdinalIgnoreCase);
 }
 
 // A37 D-1/D-3 — the dependency graph, reconciled from TenancyFeatureCatalog.Dependencies on every start (code is the
@@ -79,6 +110,9 @@ internal class OrganizationFeature
     // A37 MOD-08 — the current state was set by the system (BOM_MANAGEMENT follows Manufacturing / Service Orders);
     // false once an administrator switches it by hand, which the system then leaves alone.
     public bool IsSystemManaged { get; set; }
+    // A51 P2 (D-2) — the organization already held this licence when Status/IsVisible were introduced: it keeps access
+    // whatever the feature's Status/IsVisible say. Set once by the A51_FeatureStatusAndPlans migration, never by code.
+    public bool IsGrandfathered { get; set; }
     public int? ModifiedBy { get; set; }
     public DateTime? ModifiedDate { get; set; }
     public byte[] RowVersion { get; set; } = [];
@@ -118,6 +152,33 @@ internal class PlanFeatureTemplate
     public string Plan { get; set; } = string.Empty;
     public Guid FeatureDefinitionId { get; set; }
     public bool IsEnabledByDefault { get; set; }
+}
+
+// A51 P2 (D-3) — a plan, promoted from the in-code templates. Code is what Organization.Plan stores (BASIC is shown as
+// "Default"). The price is display-only: nothing bills from it. Seeded insert-only, then super-admin edited.
+internal class Plan
+{
+    public int Id { get; set; }
+    public string Code { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string? Description { get; set; }
+    public decimal? MonthlyPrice { get; set; }
+    public bool IsActive { get; set; } = true;
+    public int SortOrder { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public int? CreatedBy { get; set; }
+    public DateTime ModifiedAt { get; set; }
+    public int? ModifiedBy { get; set; }
+}
+
+// A51 P2 — one feature of one plan. The single source of truth for "what a plan includes": new organizations, "apply plan
+// template" and HasFeature all read it (PlanFeatureTemplates is kept as a mirror for the startup backfill).
+internal class PlanFeature
+{
+    public int Id { get; set; }
+    public string PlanCode { get; set; } = string.Empty;
+    public string FeatureCode { get; set; } = string.Empty;
+    public bool IsIncluded { get; set; } = true;
 }
 
 // REQ-4.x — per-organization operational settings, 1:1 with Organization. Deliberately a

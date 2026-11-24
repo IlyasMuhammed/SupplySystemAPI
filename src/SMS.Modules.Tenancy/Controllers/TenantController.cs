@@ -18,10 +18,13 @@ public class TenantController : ControllerBase
     private readonly ITenancyService _svc;
     private readonly ITenantContext _tenantContext;
 
-    public TenantController(ITenancyService svc, ITenantContext tenantContext)
+    private readonly IFeatureGuard? _guard;
+
+    public TenantController(ITenancyService svc, ITenantContext tenantContext, IFeatureGuard? guard = null)
     {
         _svc = svc;
         _tenantContext = tenantContext;
+        _guard = guard;
     }
 
     [HttpGet("current")]
@@ -42,6 +45,11 @@ public class TenantController : ControllerBase
             BaseCurrency        = org.BaseCurrency,
             // A37 D-6 — usable now (licensed, on, its module on; a module in grace is not listed).
             EnabledFeatureCodes = features.Where(f => f.IsUsable).Select(f => f.FeatureCode).ToList(),
+            // A51 P4 — status / visibility / usable / includedInPlan per feature (usable == listed in EnabledFeatureCodes).
+            FeatureStates       = _guard is null ? new() : (await _guard.GetStatesAsync(_tenantContext.OrganizationId))
+                .Select(s => new CurrentTenantFeatureState
+                    { Code = s.Code, Status = s.Status, IsVisible = s.IsVisible, Usable = s.Usable, IncludedInPlan = s.IncludedInPlan })
+                .ToList(),
             IsSuperAdmin        = _tenantContext.IsSuperAdmin,
             RoleName            = User.GetRoleName(),
             Permissions         = User.GetPermissions().ToList()

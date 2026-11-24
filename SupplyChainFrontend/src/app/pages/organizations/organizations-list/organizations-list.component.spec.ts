@@ -11,6 +11,7 @@ import { CountriesService } from '../../../services/countries.service';
 import { CurrenciesService } from '../../../services/currencies.service';
 import { UserService } from '../../../services/user.service';
 import { FeaturesService } from '../../../services/features.service';
+import { a51Providers } from './organizations-list.testing';
 
 const PKR = 'cur-pkr';
 const USD = 'cur-usd';
@@ -88,7 +89,8 @@ describe('OrganizationsListComponent — base currency', () => {
         { provide: UserService, useValue: users },
         { provide: CountriesService, useValue: countries },
         { provide: CurrenciesService, useValue: currencies },
-        { provide: FeaturesService, useValue: features }
+        { provide: FeaturesService, useValue: features },
+        ...a51Providers()
       ]
     }).compileComponents();
 
@@ -287,7 +289,7 @@ describe('OrganizationsListComponent — admin status, resend invite, set passwo
 
   async function setup(orgUsers: OrgUserSummary[]) {
     service = jasmine.createSpyObj<OrganizationsService>('OrganizationsService',
-      ['getList', 'getById', 'update', 'create', 'getOrgUsers', 'updateAdmin', 'reinviteOrgUser']);
+      ['getList', 'getById', 'update', 'create', 'getOrgUsers', 'updateAdmin', 'resendInvitation']);
     service.getList.and.returnValue(of({ success: true, message: '', result: { data: [ORG], totalRecords: 1, page: 1, pageSize: 100, totalPages: 1 } }));
     service.getOrgUsers.and.returnValue(of({ success: true, message: '', result: orgUsers }));
     users = jasmine.createSpyObj<UserService>('UserService', ['setUserPassword']);
@@ -315,7 +317,8 @@ describe('OrganizationsListComponent — admin status, resend invite, set passwo
         { provide: UserService, useValue: users },
         { provide: CountriesService, useValue: countries },
         { provide: CurrenciesService, useValue: currencies },
-        { provide: FeaturesService, useValue: features }
+        { provide: FeaturesService, useValue: features },
+        ...a51Providers()
       ]
     }).compileComponents();
 
@@ -359,16 +362,16 @@ describe('OrganizationsListComponent — admin status, resend invite, set passwo
 
   it('resends to a corrected e-mail and updates the shown admin from the reply', async () => {
     await setup([admin()]);
-    service.reinviteOrgUser.and.returnValue(of({
-      success: true, message: 'A new invite was sent to ada@acme.test',
-      result: admin({ email: 'ada@acme.test', inviteExpiresAt: '2099-02-01T10:00:00Z' })
+    service.resendInvitation.and.returnValue(of({
+      success: true, message: 'A new invitation was sent to ada@acme.test',
+      result: { emailSent: true, emailConfigured: true, user: admin({ email: 'ada@acme.test', inviteExpiresAt: '2099-02-01T10:00:00Z' }) }
     }));
 
     component.reinviteEmail = 'ada@acme.test';
     component.sendReinvite();
     fixture.detectChanges();
 
-    expect(service.reinviteOrgUser).toHaveBeenCalledWith('org-1', 7, 'ada@acme.test');
+    expect(service.resendInvitation).toHaveBeenCalledWith('org-1', 7, 'ada@acme.test');
     expect(component.currentAdmin!.email).toBe('ada@acme.test');
     expect(component.currentAdmin!.inviteExpiresAt).toBe('2099-02-01T10:00:00Z');
     expect(component.reinviteError).toBe('');
@@ -376,16 +379,16 @@ describe('OrganizationsListComponent — admin status, resend invite, set passwo
 
   it('resending to the unchanged address sends no e-mail correction', async () => {
     await setup([admin()]);
-    service.reinviteOrgUser.and.returnValue(of({ success: true, message: 'A new invite was sent to ada@acme.tset', result: admin() }));
+    service.resendInvitation.and.returnValue(of({ success: true, message: 'A new invitation was sent to ada@acme.tset', result: { emailSent: true, emailConfigured: true, user: admin() } }));
 
     component.sendReinvite();
 
-    expect(service.reinviteOrgUser).toHaveBeenCalledWith('org-1', 7, null);
+    expect(service.resendInvitation).toHaveBeenCalledWith('org-1', 7, null);
   });
 
   it('shows the server message inline when the resend is refused', async () => {
     await setup([admin()]);
-    service.reinviteOrgUser.and.returnValue(throwError(() => ({ error: { message: 'That e-mail address is already in use.' } })));
+    service.resendInvitation.and.returnValue(throwError(() => ({ error: { message: 'That e-mail address is already in use.' } })));
 
     component.reinviteEmail = 'taken@acme.test';
     component.sendReinvite();

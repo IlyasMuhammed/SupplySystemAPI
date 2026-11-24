@@ -1,0 +1,50 @@
+{
+  "categories": [
+    {
+      "code": "SRV-PRO",
+      "name": "Professional Services",
+      "description": "Time-based professional work.",
+      "children": [
+        {
+          "code": "SRV-CON",
+          "name": "Consulting"
+        },
+        {
+          "code": "SRV-IMP",
+          "name": "Implementation"
+        },
+        {
+          "code": "SRV-SUP",
+          "name": "Support"
+        }
+      ]
+    },
+    {
+      "code": "SRV-SUB",
+      "name": "Retainers and Subscriptions",
+      "description": "Recurring contract services."
+    },
+    {
+      "code": "SRV-PRJ",
+      "name": "Project Work",
+      "description": "Fixed-price and milestone projects."
+    },
+    {
+      "code": "SRV-EXP",
+      "name": "Reimbursable Expenses",
+      "description": "Costs re-billed to clients."
+    },
+    {
+      "code": "SUPPLIES",
+      "name": "Office Supplies",
+      "description": "Consumables bought for the office."
+    },
+    {
+      "code": "OTH",
+      "name": "Other",
+      "description": "Anything that fits no other category."
+    }
+  ],
+  "displayName": "Services product categories",
+  "notes": "Starting categories; add, rename or remove to suit the business."
+}

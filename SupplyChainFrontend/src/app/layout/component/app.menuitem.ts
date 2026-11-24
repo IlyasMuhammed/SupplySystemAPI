@@ -23,11 +23,14 @@ import { LayoutService } from '../service/layout.service';
                  (keydown.enter)="itemClick($event)"
                  (keydown.space)="$event.preventDefault(); itemClick($event)">
                 <span class="layout-menuitem-root-label">{{ item.label }}</span>
+                <span class="menuitem-coming-soon-badge" *ngIf="item.disabled && item.badge">{{ item.badge }}</span>
                 <i class="pi pi-fw pi-angle-down layout-submenu-toggler" *ngIf="item.items"></i>
             </div>
-            <a *ngIf="!root && (!item.routerLink || item.items) && item.visible !== false" [attr.href]="item.url" (click)="itemClick($event)" [ngClass]="item.styleClass" [attr.target]="item.target" tabindex="0" pRipple>
+            <a *ngIf="!root && (!item.routerLink || item.items) && item.visible !== false" [attr.href]="item.disabled ? null : item.url" (click)="itemClick($event)" [ngClass]="item.styleClass" [attr.target]="item.target"
+               [attr.aria-disabled]="item.disabled ? 'true' : null" [attr.tabindex]="item.disabled ? -1 : 0" pRipple>
                 <i [ngClass]="item.icon" class="layout-menuitem-icon"></i>
                 <span class="layout-menuitem-text">{{ item.label }}</span>
+                <span class="menuitem-coming-soon-badge" *ngIf="item.disabled && item.badge">{{ item.badge }}</span>
                 <i class="pi pi-fw pi-angle-down layout-submenu-toggler" *ngIf="item.items"></i>
             </a>
             <a
@@ -60,6 +63,26 @@ import { LayoutService } from '../service/layout.service';
             </ul>
         </ng-container>
     `,
+    // A51 P4 - a visible ComingSoon entry: greyed, not clickable, with a small badge.
+    styles: [
+        `
+            .menuitem-coming-soon-badge {
+                margin-left: auto;
+                padding: 0 0.5rem;
+                border-radius: 999px;
+                font-size: 0.65rem;
+                line-height: 1.25rem;
+                white-space: nowrap;
+                background: var(--surface-200, #e5e7eb);
+                color: var(--text-color-secondary, #6b7280);
+            }
+            a[aria-disabled='true'] {
+                opacity: 0.6;
+                cursor: not-allowed;
+                pointer-events: auto;
+            }
+        `
+    ],
     animations: [
         trigger('children', [
             state(

@@ -23,10 +23,13 @@ internal sealed class EmailSender : IEmailSender
     internal Func<MailMessage, Task>? SmtpTransport { get; init; }
     internal Func<SendGridMessage, Task<Response>>? SendGridTransport { get; init; }
 
-    public EmailSender(IOptions<AppSettings> settings, ILogger<EmailSender> logger)
+    private readonly EmailSendTracker? _tracker;
+
+    public EmailSender(IOptions<AppSettings> settings, ILogger<EmailSender> logger, EmailSendTracker? tracker = null)
     {
         _settings = settings.Value;
         _logger = logger;
+        _tracker = tracker;
     }
 
     public async Task SendAsync(string to, string subject, string htmlBody, IReadOnlyList<EmailAttachment>? attachments = null) =>
@@ -47,9 +50,11 @@ internal sealed class EmailSender : IEmailSender
                 return Fail("The email subject contains a line break.", to);
         }
 
-        return _settings.Environment == 0
+        var result = _settings.Environment == 0
             ? await SendViaSmtpAsync(to, subject ?? string.Empty, htmlBody, attachments)
             : await SendViaSendGridAsync(to, subject ?? string.Empty, htmlBody, attachments);
+        _tracker?.Record(result.Success, result.Error);
+        return result;
     }
 
     private EmailSendResult Fail(string error, string to)
@@ -78,7 +83,8 @@ internal sealed class EmailSender : IEmailSender
                 using var client = new SmtpClient(_settings.SmtpHost, _settings.SmtpPort)
                 {
                     Credentials = new NetworkCredential(_settings.SmtpUser, _settings.SmtpPass),
-                    EnableSsl = true
+                    EnableSsl = true,
+                    Timeout = 8_000 // A51 P7/P8: a dead SMTP host must not hold anything for long (the default is 100 s)
                 };
                 client.Send(message);
             }

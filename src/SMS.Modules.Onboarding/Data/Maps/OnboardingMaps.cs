@@ -153,3 +153,29 @@ internal sealed class DemoRecordMap : IEntityTypeConfiguration<DemoRecord>
         b.HasIndex(x => new { x.OrganizationId, x.EntityType, x.EntityRef }).IsUnique().HasDatabaseName("UQ_DemoRecords_Ref");
     }
 }
+
+// A51 P1 — industries master. Code is unique; a country offers an industry at most once.
+internal sealed class IndustryMap : IEntityTypeConfiguration<Industry>
+{
+    public void Configure(EntityTypeBuilder<Industry> b)
+    {
+        b.ToTable("Industries");
+        b.HasKey(x => x.Id);
+        b.Property(x => x.Code).HasMaxLength(30).IsRequired();
+        b.Property(x => x.Name).HasMaxLength(100).IsRequired();
+        b.Property(x => x.Description).HasMaxLength(500);
+        b.HasIndex(x => x.Code).IsUnique().HasDatabaseName("UQ_Industries_Code");
+    }
+}
+
+internal sealed class CountryIndustryMap : IEntityTypeConfiguration<CountryIndustry>
+{
+    public void Configure(EntityTypeBuilder<CountryIndustry> b)
+    {
+        b.ToTable("CountryIndustries");
+        b.HasKey(x => x.Id);
+        b.Property(x => x.CountryCode).HasMaxLength(5).IsRequired();
+        b.Property(x => x.IndustryCode).HasMaxLength(30).IsRequired();
+        b.HasIndex(x => new { x.CountryCode, x.IndustryCode }).IsUnique().HasDatabaseName("UQ_CountryIndustries_Key");
+    }
+}

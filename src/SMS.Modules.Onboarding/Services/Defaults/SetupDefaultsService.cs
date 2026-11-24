@@ -21,7 +21,7 @@ public interface ISetupDefaultsService
     Task<SetupDefaultModel> UpdateAsync(Guid uuid, UpdateSetupDefaultRequest request, int? userId, CancellationToken ct = default);
     Task DeleteAsync(Guid uuid, CancellationToken ct = default);
     Task<SetupDefaultModel> SetActiveAsync(Guid uuid, bool active, int? userId, CancellationToken ct = default);
-    Task<SetupDefaultsImportResult> ImportAsync(SetupDefaultsPackFile pack, bool dryRun, string mode, int? userId, CancellationToken ct = default);
+    Task<SetupDefaultsImportResult> ImportAsync(SetupDefaultsPackFile pack, bool dryRun, string mode, int? userId, CancellationToken ct = default, bool skipInvalid = false);
     Task<SetupDefaultsPackFile> ExportAsync(string? country, string? industry, string? category, CancellationToken ct = default);
     ValidateSetupPayloadResult Validate(string? category, JsonElement payload);
     Task<SetupDefaultsMetaModel> MetaAsync(CancellationToken ct = default);
@@ -63,7 +63,7 @@ internal sealed class SetupDefaultsService : ISetupDefaultsService
         foreach (var (c, i) in Chain(country, industry))
             if (candidates.FirstOrDefault(r => r.CountryCode.Equals(c, StringComparison.OrdinalIgnoreCase)
                                             && r.IndustryType.Equals(i, StringComparison.OrdinalIgnoreCase)) is { } hit)
-                return new ResolvedDefault(hit, hit.CountryCode, hit.IndustryType);
+                return new ResolvedDefault(hit, hit.CountryCode, SetupKey.Industry(hit.IndustryType));
         return null;
     }
 
@@ -72,7 +72,7 @@ internal sealed class SetupDefaultsService : ISetupDefaultsService
         var countries = new[] { SetupKey.Country(country), SetupCodes.Global }.Distinct().ToList();
         var industries = new[] { SetupKey.Industry(industry), SetupCodes.Global }.Distinct().ToList();
         return _db.SetupDefaults.AsNoTracking()
-            .Where(r => r.IsActive && countries.Contains(r.CountryCode) && industries.Contains(r.IndustryType))
+            .Where(r => r.IsActive && countries.Contains(r.CountryCode.ToUpper()) && industries.Contains(r.IndustryType.ToUpper()))
             .ToListAsync(ct);
     }
 
@@ -90,9 +90,9 @@ internal sealed class SetupDefaultsService : ISetupDefaultsService
     public async Task<List<SetupDefaultModel>> ListAsync(string? country, string? industry, string? category, bool? active, CancellationToken ct = default)
     {
         var q = _db.SetupDefaults.AsNoTracking().AsQueryable();
-        if (!string.IsNullOrWhiteSpace(country))  { var c = SetupKey.Country(country);   q = q.Where(r => r.CountryCode == c); }
-        if (!string.IsNullOrWhiteSpace(industry)) { var i = SetupKey.Industry(industry); q = q.Where(r => r.IndustryType == i); }
-        if (!string.IsNullOrWhiteSpace(category)) { var k = SetupKey.Category(category); q = q.Where(r => r.DataCategory == k); }
+        if (!string.IsNullOrWhiteSpace(country))  { var c = SetupKey.Country(country);   q = q.Where(r => r.CountryCode.ToUpper() == c); }
+        if (!string.IsNullOrWhiteSpace(industry)) { var i = SetupKey.Industry(industry); q = q.Where(r => r.IndustryType.ToUpper() == i); }
+        if (!string.IsNullOrWhiteSpace(category)) { var k = SetupKey.Category(category); q = q.Where(r => r.DataCategory.ToUpper() == k); }
         if (active is { } a) q = q.Where(r => r.IsActive == a);
 
         var rows = await q.ToListAsync(ct);
@@ -216,11 +216,13 @@ internal sealed class SetupDefaultsService : ISetupDefaultsService
 
     // ── import / export (tasks 034 / 035) ──
 
-    public async Task<SetupDefaultsImportResult> ImportAsync(SetupDefaultsPackFile pack, bool dryRun, string mode, int? userId, CancellationToken ct = default)
+    public async Task<SetupDefaultsImportResult> ImportAsync(SetupDefaultsPackFile pack, bool dryRun, string mode, int? userId, CancellationToken ct = default, bool skipInvalid = false)
     {
         if (pack.Format is { Length: > 0 } format && !format.Equals(SetupDefaultsPackFormat.Name, StringComparison.OrdinalIgnoreCase))
             throw new BadRequestException($"Unknown file format '{format}' (expected '{SetupDefaultsPackFormat.Name}').");
         if (pack.Defaults.Count == 0) throw new BadRequestException("The file has no defaults.");
+        if (pack.Defaults.Count > SetupDefaultsPackFormat.MaxItems)
+            throw new BadRequestException($"The file has {pack.Defaults.Count} defaults; at most {SetupDefaultsPackFormat.MaxItems} are accepted per import.");
         var insertOnly = string.Equals(mode, SetupImportModes.InsertOnly, StringComparison.OrdinalIgnoreCase);
         if (!insertOnly && !string.Equals(mode, SetupImportModes.Upsert, StringComparison.OrdinalIgnoreCase))
             throw new BadRequestException($"Unknown import mode '{mode}' (upsert or insertOnly).");
@@ -239,6 +241,7 @@ internal sealed class SetupDefaultsService : ISetupDefaultsService
             if (errors.Count > 0)
             {
                 result.Errors.Add(new SetupDefaultsImportError(index, key, errors));
+                result.Invalid++;
                 result.Items.Add(new SetupDefaultsImportItem(key, "Invalid"));
                 continue;
             }
@@ -272,8 +275,9 @@ internal sealed class SetupDefaultsService : ISetupDefaultsService
             result.Items.Add(new SetupDefaultsImportItem(key, changed ? "Updated" : "Unchanged"));
         }
 
-        // Task 039 — all or nothing: one bad item and nothing is written.
-        if (result.Errors.Count > 0 || dryRun)
+        // Task 039 — all or nothing by default: one bad item and nothing is written. With skipInvalid (A51 P5) the valid
+        // records are written (each whole, never partially) and the invalid ones are only reported.
+        if ((result.Errors.Count > 0 && !skipInvalid) || dryRun)
         {
             _db.ChangeTracker.Clear();
             return result;
@@ -285,9 +289,9 @@ internal sealed class SetupDefaultsService : ISetupDefaultsService
     public async Task<SetupDefaultsPackFile> ExportAsync(string? country, string? industry, string? category, CancellationToken ct = default)
     {
         var q = _db.SetupDefaults.AsNoTracking().AsQueryable();
-        if (!string.IsNullOrWhiteSpace(country))  { var c = SetupKey.Country(country);   q = q.Where(r => r.CountryCode == c); }
-        if (!string.IsNullOrWhiteSpace(industry)) { var i = SetupKey.Industry(industry); q = q.Where(r => r.IndustryType == i); }
-        if (!string.IsNullOrWhiteSpace(category)) { var k = SetupKey.Category(category); q = q.Where(r => r.DataCategory == k); }
+        if (!string.IsNullOrWhiteSpace(country))  { var c = SetupKey.Country(country);   q = q.Where(r => r.CountryCode.ToUpper() == c); }
+        if (!string.IsNullOrWhiteSpace(industry)) { var i = SetupKey.Industry(industry); q = q.Where(r => r.IndustryType.ToUpper() == i); }
+        if (!string.IsNullOrWhiteSpace(category)) { var k = SetupKey.Category(category); q = q.Where(r => r.DataCategory.ToUpper() == k); }
         var order = _validator.KnownCategories;
         var rows = (await q.ToListAsync(ct)).OrderBy(r => r.CountryCode).ThenBy(r => r.IndustryType).ThenBy(r => Index(order, r.DataCategory));
         return new SetupDefaultsPackFile
@@ -295,7 +299,7 @@ internal sealed class SetupDefaultsService : ISetupDefaultsService
             ExportedAt = DateTime.UtcNow,
             Defaults = rows.Select(r => new SetupDefaultsPackItem
             {
-                CountryCode = r.CountryCode, IndustryType = r.IndustryType, DataCategory = r.DataCategory, DisplayName = r.DisplayName,
+                CountryCode = r.CountryCode, IndustryType = SetupKey.Industry(r.IndustryType), DataCategory = r.DataCategory, DisplayName = r.DisplayName,
                 Notes = r.Notes, IsActive = r.IsActive, Version = r.Version, Payload = Parse(r.DataPayload)
             }).ToList()
         };
@@ -332,7 +336,7 @@ internal sealed class SetupDefaultsService : ISetupDefaultsService
         payload.ValueKind == JsonValueKind.Undefined ? ["A payload is required."] : _validator.Validate(category, payload);
 
     private async Task<SetupDefault?> FindByKeyAsync(string country, string industry, string category, CancellationToken ct) =>
-        (await _db.SetupDefaults.AsNoTracking().Where(r => r.DataCategory == category).ToListAsync(ct))
+        (await _db.SetupDefaults.AsNoTracking().Where(r => r.DataCategory.ToUpper() == category).ToListAsync(ct))
             .FirstOrDefault(r => r.CountryCode.Equals(country, StringComparison.OrdinalIgnoreCase) && r.IndustryType.Equals(industry, StringComparison.OrdinalIgnoreCase));
 
     private async Task<SetupDefault> FindAsync(Guid uuid, CancellationToken ct, bool tracked = false)
@@ -365,7 +369,7 @@ internal sealed class SetupDefaultsService : ISetupDefaultsService
         var payload = Parse(r.DataPayload);
         return new SetupDefaultModel
         {
-            Uuid = r.Uuid, CountryCode = r.CountryCode, IndustryType = r.IndustryType, DataCategory = r.DataCategory, DisplayName = r.DisplayName,
+            Uuid = r.Uuid, CountryCode = r.CountryCode, IndustryType = SetupKey.Industry(r.IndustryType), DataCategory = r.DataCategory, DisplayName = r.DisplayName,
             Version = r.Version, IsActive = r.IsActive, Notes = r.Notes, IsSystemPack = r.IsSystemPack,
             RecordCount = JsonCanonical.CountRecords(payload), AppliedCount = appliedCount,
             CreatedAt = r.CreatedAt, CreatedBy = r.CreatedBy, ModifiedAt = r.ModifiedAt, ModifiedBy = r.ModifiedBy,
@@ -410,3 +414,5 @@ internal sealed class SetupDefaultsService : ISetupDefaultsService
 
     private static string? Trim(string? s, int max) => s is null ? null : s.Trim().Length <= max ? s.Trim() : s.Trim()[..max];
 }
+
+

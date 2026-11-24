@@ -114,6 +114,33 @@ describe('SetupDefaultsListComponent', () => {
     expect(c.importError).toBe('Invalid');
   });
 
+  it('the toolbar offers Import from JSON and Export All', async () => {
+    await setup();
+    expect(q('import').textContent).toContain('Import from JSON');
+    expect(q('export').textContent).toContain('Export All');
+  });
+
+  it('import: skipping invalid records lets the valid ones be confirmed and is sent to the API', async () => {
+    await setup();
+    c.openImport();
+    c.readText(JSON.stringify([
+      { countryCode: 'AE', industryType: 'RETAIL', dataCategory: 'TAX', payload: {} },
+      { countryCode: 'PK', industryType: 'RETAIL', dataCategory: 'TAX', payload: {} }]));
+    const dry = {
+      dryRun: true, created: 1, updated: 0, unchanged: 0, invalid: 1, errors: [{ index: 0, key: 'AE/RETAIL/TAX', errors: ['bad'] }],
+      items: [{ key: 'AE/RETAIL/TAX', action: 'Invalid' }, { key: 'PK/RETAIL/TAX', action: 'Created' }]
+    };
+    api.import.and.returnValue(of({ success: true, message: '', result: dry as any }));
+    c.skipInvalid = true;
+    c.runImport(true);
+    expect(api.import.calls.mostRecent().args[3]).toBeTrue();
+    expect(c.actionOf(c.importItems[0])).toBe('Invalid');
+    expect(c.actionOf(c.importItems[1])).toBe('Created');
+    expect(c.canConfirmImport).toBeTrue();
+    c.skipInvalid = false;
+    expect(c.canConfirmImport).toBeFalse();
+  });
+
   it('parsePackFile accepts the pack file or a bare array and rejects the rest', () => {
     expect(parsePackFile('[{"countryCode":"PK","industryType":"GLOBAL","dataCategory":"TAX","payload":{}}]').length).toBe(1);
     expect(() => parsePackFile('nope')).toThrowError(/not valid JSON/);

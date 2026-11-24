@@ -1,10 +1,11 @@
-using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using SMS.Modules.Tenancy.Data;
 using SMS.Modules.Tenancy.Models;
 using SMS.Modules.Tenancy.Repositories;
 using SMS.Shared.Common;
 using SMS.Shared.Exceptions;
+using SMS.Shared.Onboarding;
 using SMS.Shared.Pagination;
 
 namespace SMS.Modules.Tenancy.Services;
@@ -20,6 +21,13 @@ internal sealed class TenancyService : ITenancyService
     // A35 D-7 — keeps the stored sale base equal to Organization.BaseCurrency when the profile edit changes it.
     private readonly IOrganizationCurrencySettingsService? _currencySettings;
     private readonly IReadOnlyList<IModuleEnablementGuard> _guards;
+    // A51 P3 — optional so a host (or a test) without Lookups / Onboarding still creates organizations the old way.
+    private readonly ICountryLookup? _countries;
+    private readonly IIndustryCatalog? _industries;
+    private readonly IOrganizationDefaultsApplier? _defaults;
+    private readonly IPlanService? _plans;
+    // A51 P7 — country / industry / setup status for the list and detail (OrganizationSetups lives in Onboarding).
+    private readonly IOrganizationSetupSummaries? _setupSummaries;
 
     /// <param name="currencies">
     /// Lookups' currency catalog, to check a base currency exists. Optional: a host (or a test) without the
@@ -32,8 +40,14 @@ internal sealed class TenancyService : ITenancyService
         ITenancyRepository repo, IOrgUserProvisioningService orgUserProvisioning, ITenantSnapshotProvider snapshots,
         ICurrencyCodeLookup? currencies = null, IEnumerable<IOrganizationProvisionedHandler>? provisioned = null,
         ILogger<TenancyService>? log = null, IOrganizationCurrencySettingsService? currencySettings = null,
-        IEnumerable<IModuleEnablementGuard>? guards = null)
+        IEnumerable<IModuleEnablementGuard>? guards = null, ICountryLookup? countries = null, IIndustryCatalog? industries = null,
+        IOrganizationDefaultsApplier? defaults = null, IPlanService? plans = null, IOrganizationSetupSummaries? setupSummaries = null)
     {
+        _setupSummaries = setupSummaries;
+        _countries = countries;
+        _industries = industries;
+        _defaults = defaults;
+        _plans = plans;
         _guards = guards?.ToList() ?? [];
         _currencySettings = currencySettings;
         _repo = repo;
@@ -46,11 +60,41 @@ internal sealed class TenancyService : ITenancyService
 
     // ── Organizations ────────────────────────────────────────────────────────
 
-    public Task<PaginatedResponse<OrganizationListItemModel>> GetOrganizationsAsync(OrganizationFilter filter) =>
-        _repo.GetOrganizationsAsync(filter);
+    public async Task<PaginatedResponse<OrganizationListItemModel>> GetOrganizationsAsync(OrganizationFilter filter)
+    {
+        var page = await _repo.GetOrganizationsAsync(filter);
+        if (_setupSummaries is null || page.Data.Count == 0) return page;
+        try
+        {
+            var summaries = await _setupSummaries.GetAsync(page.Data.Select(o => o.Id).ToList());
+            foreach (var o in page.Data)
+                if (summaries.TryGetValue(o.Id, out var s)) { o.CountryCode = s.CountryCode; o.IndustryType = s.IndustryType; o.SetupStatus = s.SetupStatus; }
+        }
+        catch (Exception ex)
+        {
+            // The list still works without the extra columns.
+            _log.LogWarning(ex, "The setup status of the organization list could not be read.");
+        }
+        return page;
+    }
 
-    public Task<OrganizationDetailModel?> GetOrganizationByIdAsync(Guid id) =>
-        _repo.GetOrganizationByIdAsync(id);
+    public async Task<OrganizationDetailModel?> GetOrganizationByIdAsync(Guid id)
+    {
+        var org = await _repo.GetOrganizationByIdAsync(id);
+        if (org is null || _setupSummaries is null) return org;
+        try
+        {
+            if ((await _setupSummaries.GetAsync([id])).TryGetValue(id, out var s))
+            {
+                org.CountryCode = s.CountryCode; org.IndustryType = s.IndustryType; org.SetupStatus = s.SetupStatus;
+            }
+        }
+        catch (Exception ex)
+        {
+            _log.LogWarning(ex, "The setup status of organization {OrganizationId} could not be read.", id);
+        }
+        return org;
+    }
 
     public async Task<CreateOrganizationResult> CreateOrganizationWithAdminAsync(CreateOrganizationRequest req, int createdBy)
     {
@@ -58,8 +102,7 @@ internal sealed class TenancyService : ITenancyService
             throw new BadRequestException("Organization code is required.");
         if (string.IsNullOrWhiteSpace(req.OrgName))
             throw new BadRequestException("Organization name is required.");
-        if (!TenancyFeatureCatalog.AllPlans.Contains(req.Plan, StringComparer.OrdinalIgnoreCase))
-            throw new BadRequestException($"Plan must be one of: {string.Join(", ", TenancyFeatureCatalog.AllPlans)}.");
+        req.Plan = await ResolvePlanAsync(string.IsNullOrWhiteSpace(req.PlanCode) ? req.Plan : req.PlanCode);
         if (string.IsNullOrWhiteSpace(req.AdminFirstName) || string.IsNullOrWhiteSpace(req.AdminEmail))
             throw new BadRequestException("The initial admin's first name and email are required.");
         if (req.ModuleCodes?.FirstOrDefault(c => !TenancyFeatureCatalog.ByCode.TryGetValue(c ?? "", out var e)
@@ -69,8 +112,15 @@ internal sealed class TenancyService : ITenancyService
             throw new BadRequestException($"Organization code '{req.OrgCode}' is already in use.");
         if (req.BaseCurrency is { } baseCurrency)
             await EnsureCurrencyUsableAsync(baseCurrency);
+        var region = await ResolveRegionAsync(req);
 
         var result = await _repo.CreateOrganizationWithAdminAsync(req, createdBy);
+        result.Plan = req.Plan;
+        result.Country = req.Country;
+        result.CountryCode = region.CountryCode;
+        result.IndustryType = region.IndustryType;
+        result.TimeZone = req.TimeZone;
+        result.TimeZoneFromCountry = region.TimeZoneFromCountry;
 
         // A32 — after the commit, so a module's setup can never roll the organization back. A handler that fails is
         // logged and skipped: each module also backfills every organization at startup, which repairs a missed call.
@@ -88,7 +138,132 @@ internal sealed class TenancyService : ITenancyService
             }
         }
 
+        // A51 P7 (A51-D12) — the initial admin's invitation goes out now, through the checked send path, so the Super Admin learns
+        // whether it did (the link is returned only when it did not). Best effort: the organization exists whatever happens here.
+        try
+        {
+            var sent = await _orgUserProvisioning.SendInvitationAsync(result.OrganizationId, result.AdminUserId, null, req.OrgName, issueNewToken: false);
+            if (sent is not null)
+                result.Invitation = new OrganizationInvitationOutcome
+                {
+                    AdminEmail = sent.Email, EmailSent = sent.EmailSent, EmailConfigured = sent.EmailConfigured, Error = sent.Error,
+                    InviteLink = sent.EmailSent ? null : sent.InviteLink, InviteExpiresAt = sent.InviteExpiresAt
+                };
+        }
+        catch (Exception ex)
+        {
+            _log.LogError(ex, "Sending the initial invitation of organization {OrganizationId} failed; the Super Admin can resend it.", result.OrganizationId);
+            result.Invitation = new OrganizationInvitationOutcome { AdminEmail = req.AdminEmail?.Trim().ToLowerInvariant(), EmailSent = false, Error = "The invitation could not be sent; use Resend invitation." };
+        }
+
+        // A51 P3 (A51-D4) — create + apply in one flow. After the commit and the handlers (the setup row exists), best effort:
+        // the organization exists whatever happens here. Without a country nothing is applied or pre-filled (the old behaviour).
+        if (region.CountryCode is not null && _defaults is not null)
+        {
+            try
+            {
+                result.Defaults = region.IndustryType is null
+                    ? await _defaults.PrefillAsync(result.OrganizationId, region.CountryCode, null)
+                    // A51 P7 (A51-D7): queued for the background worker; the response says Running and the super admin polls
+                    // GET api/system/organizations/{id}/defaults-status.
+                    : await _defaults.StartApplyAsync(result.OrganizationId, region.CountryCode, region.IndustryType, createdBy);
+            }
+            catch (Exception ex)
+            {
+                _log.LogError(ex, "Applying the default data to new organization {OrganizationId} failed; the setup wizard stays available.", result.OrganizationId);
+                result.Defaults = new OrganizationDefaultsOutcome
+                {
+                    Attempted = true, CountryCode = region.CountryCode, IndustryType = region.IndustryType, Status = OrganizationDefaultsStatuses.Failed,
+                    Message = "The default data could not be applied; the organization admin can run the setup wizard."
+                };
+            }
+        }
+
         return result;
+    }
+
+    private sealed record Region(string? CountryCode, string? IndustryType, bool TimeZoneFromCountry);
+
+    /// <summary>
+    /// A51 P3 — validates country / industry / timezone against the masters and fills the organization fields on the request:
+    /// Country = the master's NAME, TimeZone = the request's or else the country's default. Nothing chosen = nothing changed.
+    /// </summary>
+    private async Task<Region> ResolveRegionAsync(CreateOrganizationRequest req)
+    {
+        var countryCode = string.IsNullOrWhiteSpace(req.CountryCode) ? null : req.CountryCode.Trim().ToUpperInvariant();
+        var industry = string.IsNullOrWhiteSpace(req.IndustryType) ? null : req.IndustryType.Trim().ToUpperInvariant();
+        req.TimeZone = string.IsNullOrWhiteSpace(req.TimeZone) ? null : req.TimeZone.Trim();
+        var fromCountry = false;
+
+        if (countryCode is null)
+        {
+            if (industry is not null)
+                throw new BadRequestException("Choose a country before choosing an industry: the industries offered depend on the country.");
+        }
+        else
+        {
+            if (_countries is null)
+                throw new BadRequestException("The country list is not available, so a country cannot be chosen at creation.");
+            var country = await _countries.FindByCodeAsync(countryCode);
+            if (country is null)
+                throw new BadRequestException($"Country '{countryCode}' is not in the countries list.");
+            if (!country.IsActive)
+                throw new BadRequestException($"Country '{country.Name}' is not active.");
+            countryCode = country.Code;
+            req.Country = country.Name;
+            if (req.TimeZone is null && country.DefaultTimezone is not null)
+            {
+                req.TimeZone = country.DefaultTimezone;
+                fromCountry = true;
+            }
+
+            if (industry is not null)
+            {
+                if (_industries is null)
+                    throw new BadRequestException("The industry list is not available, so an industry cannot be chosen at creation.");
+                switch (await _industries.CheckAsync(countryCode, industry))
+                {
+                    case IndustryAvailability.Unknown:
+                        throw new BadRequestException($"Industry '{industry}' does not exist.");
+                    case IndustryAvailability.Inactive:
+                        throw new BadRequestException($"Industry '{industry}' is not active.");
+                    case IndustryAvailability.NotOfferedInCountry:
+                        throw new BadRequestException($"Industry '{industry}' is not offered in {country.Name}.");
+                }
+            }
+        }
+
+        if (req.TimeZone is not null)
+        {
+            if (req.TimeZone.Length > 50)
+                throw new BadRequestException("The timezone can be at most 50 characters.");
+            try { TimeZoneInfo.FindSystemTimeZoneById(req.TimeZone); }
+            catch (Exception ex) when (ex is TimeZoneNotFoundException or InvalidTimeZoneException)
+            {
+                throw new BadRequestException($"Timezone '{req.TimeZone}' is not a known timezone (use an IANA name such as Asia/Karachi).");
+            }
+        }
+
+        return new Region(countryCode, industry, fromCountry);
+    }
+
+    /// <summary>
+    /// A51 P3 — a plan code must be an active row of tenant.Plans; while that table is empty or unreadable, the three built-in codes
+    /// still validate (the P2 fallback). Returns the canonical (stored) code.
+    /// </summary>
+    private async Task<string> ResolvePlanAsync(string? plan)
+    {
+        var wanted = (plan ?? string.Empty).Trim();
+        List<string> allowed = [];
+        if (_plans is not null)
+        {
+            try { allowed = (await _plans.ListPlansAsync()).Where(p => p.IsActive).Select(p => p.Code).ToList(); }
+            catch (Exception ex) { _log.LogWarning(ex, "The plans table could not be read; validating against the built-in plan codes."); }
+        }
+        if (allowed.Count == 0) allowed = TenancyFeatureCatalog.AllPlans.ToList();
+
+        var hit = allowed.FirstOrDefault(c => c.Equals(wanted, StringComparison.OrdinalIgnoreCase));
+        return hit ?? throw new BadRequestException($"Plan must be one of: {string.Join(", ", allowed)}.");
     }
 
     public async Task<bool> UpdateOrganizationAsync(Guid id, UpdateOrganizationRequest req, int modifiedBy)
@@ -118,7 +293,31 @@ internal sealed class TenancyService : ITenancyService
             await _currencySettings.EnsureProfileBaseCurrencyCanBeClearedAsync(id);
         }
 
-        return await _repo.UpdateOrganizationAsync(id, req, modifiedBy);
+        var updated = await _repo.UpdateOrganizationAsync(id, req, modifiedBy);
+        if (updated) await SyncCountryCodeAsync(id, req.Country);
+        return updated;
+    }
+
+    /// <summary>
+    /// A51 P7 — the organization's Country is free text (a NAME); the setup row keeps the code. When the edited name is a country of the
+    /// countries master and its code differs from the stored one, the stored code follows (so the list and the wizard agree). It does
+    /// NOT re-run any default data. A name the master does not know leaves the code alone. Best effort.
+    /// </summary>
+    private async Task SyncCountryCodeAsync(Guid id, string? countryName)
+    {
+        if (_countries is null || _defaults is null || _setupSummaries is null || string.IsNullOrWhiteSpace(countryName)) return;
+        try
+        {
+            var country = await _countries.FindByNameAsync(countryName.Trim());
+            if (country is null) return;
+            var current = (await _setupSummaries.GetAsync([id])).GetValueOrDefault(id)?.CountryCode;
+            if (string.Equals(current, country.Code, StringComparison.OrdinalIgnoreCase)) return;
+            await _defaults.PrefillAsync(id, country.Code, null);
+        }
+        catch (Exception ex)
+        {
+            _log.LogWarning(ex, "The stored country code of organization {OrganizationId} could not be kept in sync.", id);
+        }
     }
 
     /// <summary>
@@ -160,8 +359,7 @@ internal sealed class TenancyService : ITenancyService
 
     public async Task<bool> PatchPlanAsync(Guid id, string plan, int modifiedBy)
     {
-        if (!TenancyFeatureCatalog.AllPlans.Contains(plan, StringComparer.OrdinalIgnoreCase))
-            throw new BadRequestException($"Plan must be one of: {string.Join(", ", TenancyFeatureCatalog.AllPlans)}.");
+        plan = await ResolvePlanAsync(plan);
         return await _repo.PatchPlanAsync(id, plan, modifiedBy);
     }
 
@@ -170,6 +368,13 @@ internal sealed class TenancyService : ITenancyService
         var applied = await _repo.ApplyPlanTemplateAsync(id, modifiedBy);
         if (applied) _snapshots.Invalidate(id);
         return applied;
+    }
+
+    public async Task<PlanApplyOrgResult?> ApplyPlanTemplateDetailedAsync(Guid id, int modifiedBy)
+    {
+        var result = await _repo.ApplyPlanTemplateDetailedAsync(id, modifiedBy);
+        if (result is not null) _snapshots.Invalidate(id);
+        return result;
     }
 
     // ── Feature catalog / toggles ────────────────────────────────────────────

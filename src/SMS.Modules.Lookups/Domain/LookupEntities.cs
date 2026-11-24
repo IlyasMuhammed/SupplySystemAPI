@@ -16,6 +16,13 @@ internal class Country
     public string Name { get; set; } = string.Empty;
     public string? Code { get; set; }
     public bool IsActive { get; set; }
+    // A51 P1 — the country master (what a new organization in this country starts from).
+    public string? CurrencyCode { get; set; }
+    public string? DefaultTimezone { get; set; }
+    public int FiscalYearStartMonth { get; set; } = 1;
+    public string DateFormat { get; set; } = "DD/MM/YYYY";
+    public string? PhoneCode { get; set; }
+    public int SortOrder { get; set; }
 }
 
 internal class Currency

@@ -1,0 +1,58 @@
+{
+  "categories": [
+    {
+      "code": "RAW",
+      "name": "Raw Materials",
+      "description": "Materials bought to be processed."
+    },
+    {
+      "code": "SFG",
+      "name": "Semi-finished Goods",
+      "description": "Intermediate products made in one step and used in the next."
+    },
+    {
+      "code": "FG",
+      "name": "Finished Goods",
+      "description": "Completed goods ready for sale."
+    },
+    {
+      "code": "PKG",
+      "name": "Packaging Materials",
+      "description": "Boxes, cartons, labels and wrapping.",
+      "children": [
+        {
+          "code": "PKG-PRI",
+          "name": "Primary Packaging",
+          "description": "Packaging that touches the product."
+        },
+        {
+          "code": "PKG-SEC",
+          "name": "Secondary Packaging",
+          "description": "Outer cartons and pallets."
+        }
+      ]
+    },
+    {
+      "code": "STORES",
+      "name": "Stores and Consumables",
+      "description": "Items used up in production."
+    },
+    {
+      "code": "SPARE",
+      "name": "Spare Parts",
+      "description": "Machine spares."
+    },
+    {
+      "code": "SCRAP",
+      "name": "Scrap and By-products",
+      "description": "Material sold off as scrap or by-product."
+    },
+    {
+      "code": "SRV",
+      "name": "Job Work and Services",
+      "description": "Non-stock services bought or sold."
+    }
+  ],
+  "displayName": "Manufacturing product categories",
+  "notes": "Starting categories; add, rename or remove to suit the business."
+}

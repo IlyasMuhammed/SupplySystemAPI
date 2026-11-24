@@ -229,6 +229,13 @@ export function suggestChildCode(parent: CoaAccount, siblings: CoaAccount[], exi
   return candidate;
 }
 
+/** The 16 account roles (A42 default-account keys) a postable account can carry; each is held by at most one account. */
+export const COA_ROLE_KEYS = [
+  'DEFAULT_RECEIVABLE', 'DEFAULT_PAYABLE', 'DEFAULT_CASH', 'DEFAULT_BANK', 'DEFAULT_REVENUE', 'DEFAULT_COGS', 'DEFAULT_TAX_RECEIVABLE',
+  'DEFAULT_TAX_PAYABLE', 'DEFAULT_INVENTORY', 'DEFAULT_PURCHASE', 'DEFAULT_DISCOUNT_GIVEN', 'DEFAULT_DISCOUNT_RECEIVED',
+  'DEFAULT_RETAINED_EARNINGS', 'DEFAULT_OPENING_BALANCE', 'DEFAULT_EXCHANGE_GAIN_LOSS', 'DEFAULT_ROUNDING'
+];
+
 /** Every default role key in a subtree (to refuse removing an account that carries one). */
 export function coaRoleKeys(node: TreeNode<CoaAccount>): string[] {
   const out: string[] = [];

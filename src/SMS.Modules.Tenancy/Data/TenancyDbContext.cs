@@ -11,7 +11,9 @@ internal sealed class TenancyDbContext : DbContext
     internal DbSet<FeatureDefinition> FeatureDefinitions => Set<FeatureDefinition>();
     internal DbSet<OrganizationFeature> OrganizationFeatures => Set<OrganizationFeature>();
     internal DbSet<PlanFeatureTemplate> PlanFeatureTemplates => Set<PlanFeatureTemplate>();
-    internal DbSet<OrganizationSettings> OrganizationSettings => Set<OrganizationSettings>();
+    internal DbSet<Plan> Plans => Set<Plan>();
+    internal DbSet<PlanFeature> PlanFeatures => Set<PlanFeature>();
+    internal DbSet<OrganizationSettings>OrganizationSettings => Set<OrganizationSettings>();
     internal DbSet<SuperAdminUser> SuperAdminUsers => Set<SuperAdminUser>();
     internal DbSet<OrganizationCurrencySettings> OrganizationCurrencySettings => Set<OrganizationCurrencySettings>();
     internal DbSet<FeatureDependency> FeatureDependencies => Set<FeatureDependency>();

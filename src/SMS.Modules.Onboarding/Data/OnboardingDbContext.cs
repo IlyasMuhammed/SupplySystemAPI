@@ -25,6 +25,8 @@ internal sealed class OnboardingDbContext : DbContext, ITenantScopedDbContext
     internal DbSet<DocumentTemplate>        DocumentTemplates       => Set<DocumentTemplate>();
     internal DbSet<EmailTemplate>           EmailTemplates          => Set<EmailTemplate>();
     internal DbSet<DemoRecord>              DemoRecords             => Set<DemoRecord>();
+    internal DbSet<Industry>                Industries              => Set<Industry>();
+    internal DbSet<CountryIndustry>         CountryIndustries       => Set<CountryIndustry>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

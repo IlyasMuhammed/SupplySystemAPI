@@ -20,9 +20,10 @@ import {
 import { RoleMatrixEditorComponent } from './editors/role-matrix-editor.component';
 import { ApprovalRulesEditorComponent } from './editors/approval-rules-editor.component';
 import { UomGroupsEditorComponent } from './editors/uom-groups-editor.component';
+import { ProductCategoriesEditorComponent, categoryProblem } from './editors/product-categories-editor.component';
 
 /** The categories with their own editor (task 158–162); every other one uses the JSON editor (task 163). */
-export const STRUCTURED_EDITORS = ['COA', 'TAX', 'ROLES', 'APPROVAL_RULES', 'UOM'];
+export const STRUCTURED_EDITORS = ['COA', 'TAX', 'ROLES', 'APPROVAL_RULES', 'UOM', 'PRODUCT_CATEGORIES'];
 
 const COUNTRY_RE = /^(GLOBAL|[A-Z]{2})$/;
 const INDUSTRY_RE = /^[A-Za-z0-9_]{1,50}$/;
@@ -59,7 +60,7 @@ export function emptyPayload(category: string): any {
   selector: 'app-setup-default-editor',
   standalone: true,
   imports: [CommonModule, FormsModule, RouterModule, ButtonModule, InputTextModule, SelectModule, ToggleSwitchModule, ToastModule, TextareaModule,
-    ...FLOW, CoaTreeEditorComponent, TaxTableEditorComponent, RoleMatrixEditorComponent, ApprovalRulesEditorComponent, UomGroupsEditorComponent],
+    ...FLOW, CoaTreeEditorComponent, TaxTableEditorComponent, RoleMatrixEditorComponent, ApprovalRulesEditorComponent, UomGroupsEditorComponent, ProductCategoriesEditorComponent],
   styleUrls: ['../../onboarding/onboarding.scss'],
   template: `
 <p-toast></p-toast>
@@ -118,13 +119,16 @@ export function emptyPayload(category: string): any {
           <div>{{ validation.valid ? 'The payload is valid.' : 'The payload has problems:' }}<ul *ngIf="validation.errors.length"><li *ngFor="let e of validation.errors">{{ e }}</li></ul></div></div>
 
         <ng-container *ngIf="!jsonMode && hasEditor; else jsonTpl" [ngSwitch]="dataCategory">
-          <app-coa-tree-editor *ngSwitchCase="'COA'" [payload]="payload" (payloadChange)="onPayload($event)"></app-coa-tree-editor>
+          <app-coa-tree-editor *ngSwitchCase="'COA'" [payload]="payload" [allowRoleEdit]="true" (payloadChange)="onPayload($event)"></app-coa-tree-editor>
           <app-tax-table-editor *ngSwitchCase="'TAX'" [payload]="payload" [allowVerify]="true" (payloadChange)="onPayload($event)"></app-tax-table-editor>
           <app-role-matrix-editor *ngSwitchCase="'ROLES'" [payload]="payload" (payloadChange)="onPayload($event)"></app-role-matrix-editor>
           <app-approval-rules-editor *ngSwitchCase="'APPROVAL_RULES'" [payload]="payload" (payloadChange)="onPayload($event)"></app-approval-rules-editor>
           <app-uom-groups-editor *ngSwitchCase="'UOM'" [payload]="payload" (payloadChange)="onPayload($event)"></app-uom-groups-editor>
+          <app-product-categories-editor *ngSwitchCase="'PRODUCT_CATEGORIES'" [payload]="payload" (payloadChange)="onPayload($event)"></app-product-categories-editor>
         </ng-container>
         <ng-template #jsonTpl>
+          <div class="ob-row" style="margin-bottom:.35rem"><span class="ob-mu ob-sm" data-testid="json-status">{{ jsonError ? 'Invalid JSON' : 'JSON is valid' }}</span>
+            <p-button label="Format" icon="pi pi-align-left" [text]="true" size="small" [disabled]="!!jsonError" (onClick)="formatJson()" data-testid="format-json"></p-button></div>
           <textarea pTextarea class="ob-json" [(ngModel)]="jsonText" (ngModelChange)="onJsonText()" spellcheck="false" aria-label="Payload JSON"
                     data-testid="json"></textarea>
         </ng-template>
@@ -196,6 +200,7 @@ export class SetupDefaultEditorComponent implements OnInit {
     if (this.dataCategory === 'TAX') return taxProblem(this.payload.taxCodes ?? []);
     if (this.dataCategory === 'APPROVAL_RULES') return ApprovalRulesEditorComponent.problemOf(this.payload.rules ?? []);
     if (this.dataCategory === 'UOM') return UomGroupsEditorComponent.problemOf(this.payload.groups ?? []);
+    if (this.dataCategory === 'PRODUCT_CATEGORIES') return categoryProblem(this.payload.categories ?? []);
     return null;
   }
 
@@ -263,6 +268,12 @@ export class SetupDefaultEditorComponent implements OnInit {
     } catch (e: any) {
       this.jsonError = `Not valid JSON: ${e?.message ?? ''}`.trim();
     }
+  }
+
+  /** Re-indents the JSON text (only when it parses). */
+  formatJson(): void {
+    if (this.jsonError) return;
+    this.jsonText = JSON.stringify(this.payload ?? {}, null, 2);
   }
 
   validate(): void {

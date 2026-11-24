@@ -22,6 +22,12 @@ internal sealed class CountryMap : IEntityTypeConfiguration<Country>
         b.HasKey(x => x.Id);
         b.Property(x => x.Name).HasMaxLength(200).IsRequired();
         b.Property(x => x.Code).HasMaxLength(10);
+        b.Property(x => x.CurrencyCode).HasMaxLength(5);
+        b.Property(x => x.DefaultTimezone).HasMaxLength(50);
+        b.Property(x => x.FiscalYearStartMonth).HasDefaultValue(1);
+        b.Property(x => x.DateFormat).HasMaxLength(20).IsRequired().HasDefaultValue("DD/MM/YYYY");
+        b.Property(x => x.PhoneCode).HasMaxLength(5);
+        b.Property(x => x.SortOrder).HasDefaultValue(0);
     }
 }
 

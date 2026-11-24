@@ -1,4 +1,4 @@
-using System.Data;
+﻿using System.Data;
 using Microsoft.EntityFrameworkCore;
 using SMS.Modules.Tenancy.Data;
 using SMS.Modules.Tenancy.Domain;
@@ -139,13 +139,14 @@ internal sealed class TenancyRepository : ITenancyRepository
             // routine TenancyDataSeeder runs for every org on every startup, so a newly-created
             // org and the seeder never disagree about what "default for this plan" means.
             var features  = await _db.FeatureDefinitions.ToListAsync();
-            var templates = await _db.PlanFeatureTemplates
-                .Where(t => t.Plan.ToLower() == req.Plan.ToLower())
-                .ToDictionaryAsync(t => t.FeatureDefinitionId, t => t.IsEnabledByDefault);
+            // A51 P2 — the plan's content comes from tenant.PlanFeatures (PlanTemplateSource), not the legacy template rows.
+            var templates = await PlanTemplateSource.LoadByDefinitionIdAsync(_db, req.Plan);
 
             // The modules the super admin ticked at creation (plus what they depend on); null keeps the plan's defaults.
             var chosen = req.ModuleCodes is null ? null : ExpandWithDependencies(req.ModuleCodes);
             var licensedCodes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var skippedModules = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var skippedComing = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
             // Modules before their sub-features, so a sub-feature sees whether its module was licensed.
             foreach (var feature in features.OrderBy(f => f.ParentModuleCode is null ? 0 : 1))
@@ -161,6 +162,28 @@ internal sealed class TenancyRepository : ITenancyRepository
                     isEnabledByDefault = feature.IsAvailable
                         && (feature.IsCore || (inChosenModule && (feature.ParentModuleCode is null || isEnabledByDefault)));
                     if (isEnabledByDefault) licensedCodes.Add(feature.FeatureCode);
+                }
+                // A51 P7 (A51-D10) — a NEW organization is not licensed for a feature that is ComingSoon or hidden (nobody is grandfathered
+                // yet), nor for the sub-features of such a module. Core features stay. The result lists what was left out.
+                // A51 P8: this applies to explicitly ticked modules too (the form pre-ticks the plan's modules).
+                if (isEnabledByDefault && !feature.IsCore)
+                {
+                    var comingSoon = string.Equals(feature.Status, FeatureStatuses.ComingSoon, StringComparison.OrdinalIgnoreCase);
+                    var moduleLeftOut = feature.ParentModuleCode is not null && skippedModules.Contains(feature.ParentModuleCode);
+                    if (comingSoon || !feature.IsVisible || moduleLeftOut)
+                    {
+                        isEnabledByDefault = false;
+                        licensedCodes.Remove(feature.FeatureCode);
+                        if (feature.ParentModuleCode is null) skippedModules.Add(feature.FeatureCode);
+                        result.SkippedFeatures.Add(new PlanApplyFeatureItem
+                        {
+                            FeatureCode = feature.FeatureCode, FeatureName = feature.FeatureName,
+                            Reason = comingSoon || (moduleLeftOut && skippedComing.Contains(feature.ParentModuleCode!)) ? "ComingSoon" : "NotVisible",
+                            Detail = comingSoon || (moduleLeftOut && skippedComing.Contains(feature.ParentModuleCode!))
+                                ? "Not licensed because it is Coming Soon." : "Not licensed because it is not visible yet."
+                        });
+                        if (comingSoon) skippedComing.Add(feature.FeatureCode);
+                    }
                 }
                 // A37 D-4 — the plan is the licence; MOD-08 — BOM management from the plan is the system's.
                 _db.OrganizationFeatures.Add(new OrganizationFeature
@@ -183,7 +206,8 @@ internal sealed class TenancyRepository : ITenancyRepository
             var adminUserId = await _orgUserProvisioning.CreateOrgAdminUserAsync(
                 new CreateOrgAdminUserRequest(
                     req.AdminFirstName, req.AdminLastName, req.AdminEmail,
-                    org.Id, req.OrgName, (int)EnumRole.OrgAdmin),
+                    org.Id, req.OrgName, (int)EnumRole.OrgAdmin,
+                    SendInviteEmail: false), // A51 P7: TenancyService sends it after the commit and reports whether it went out
                 sqlTx);
 
             // MT-006 — clone the standard PR/PO/GRN/MIR workflow templates into the new org so it
@@ -275,29 +299,27 @@ internal sealed class TenancyRepository : ITenancyRepository
         return true;
     }
 
-    public async Task<bool> ApplyPlanTemplateAsync(Guid id, int modifiedBy)
+    public async Task<bool> ApplyPlanTemplateAsync(Guid id, int modifiedBy) =>
+        await ApplyPlanTemplateDetailedAsync(id, modifiedBy) is not null;
+
+    // A37 D-4 — resets the licence (and the switch with it); only rows that change are written and logged.
+    // A51 P7 — the decision comes from PlanApplier (mode full): ComingSoon / hidden features are not licensed, core, grandfathered and
+    // hand-licensed rows are not removed, and what was added / removed / skipped (with the reason) is returned.
+    public async Task<PlanApplyOrgResult?> ApplyPlanTemplateDetailedAsync(Guid id, int modifiedBy)
     {
         var org = await _db.Organizations.FirstOrDefaultAsync(o => o.Id == id);
-        if (org is null) return false;
+        if (org is null) return null;
 
-        var templates = await _db.PlanFeatureTemplates
-            .Where(t => t.Plan.ToLower() == org.Plan.ToLower())
-            .ToDictionaryAsync(t => t.FeatureDefinitionId, t => t.IsEnabledByDefault);
-
-        // A37 D-4 — resets the licence (and the switch with it); only rows that change are written and logged.
+        var included = await PlanTemplateSource.LoadCodesAsync(_db, org.Plan);
         var writer = await OrgFeatureWriter.LoadAsync(_db, id, DateTime.UtcNow);
-        foreach (var state in writer.States.Where(s => s.Row is not null).ToList())
-        {
-            if (!templates.TryGetValue(state.Definition.Id, out var isEnabledByDefault)) continue;
-            var row = state.Row!;
-            if (row.IsLicensed == isEnabledByDefault && row.IsEnabled == isEnabledByDefault) continue;
-            writer.SetLicence(state.Code, isEnabledByDefault, modifiedBy, $"Plan template {org.Plan} applied.");
-            if (isEnabledByDefault && state.Code.Equals(ModuleCodes.BomManagement, StringComparison.OrdinalIgnoreCase))
-                row.IsSystemManaged = true;
-        }
+        var decision = PlanApplier.Plan(writer.States.ToList(), included, full: true, org.Plan);
+        PlanApplier.Apply(writer, decision, modifiedBy, $"Plan template {org.Plan} applied.");
+        decision.Result.OrganizationId = org.Id;
+        decision.Result.OrgCode = org.OrgCode;
+        decision.Result.OrgName = org.OrgName;
 
         await _db.SaveChangesAsync();
-        return true;
+        return decision.Result;
     }
 
     public Task<bool> OrganizationExistsAsync(Guid orgId) => _db.Organizations.AnyAsync(o => o.Id == orgId);
@@ -317,13 +339,30 @@ internal sealed class TenancyRepository : ITenancyRepository
                 Description  = f.Description,
                 IsCore       = f.IsCore,
                 DisplayOrder = f.DisplayOrder,
-                IsAvailable  = f.IsAvailable
+                IsAvailable  = f.IsAvailable,
+                Status       = f.Status,
+                IsVisible    = f.IsVisible,
+                Icon         = f.Icon
             })
             .ToListAsync();
     }
 
     public async Task<List<PlanFeatureTemplateModel>> GetPlanTemplatesAsync()
     {
+        // A51 P2 — read from tenant.PlanFeatures; the legacy template table only while PlanFeatures is empty.
+        var planRows = await _db.PlanFeatures.AsNoTracking().ToListAsync();
+        if (planRows.Count > 0)
+        {
+            return planRows
+                .GroupBy(p => p.PlanCode, StringComparer.OrdinalIgnoreCase)
+                .Select(g => new PlanFeatureTemplateModel
+                {
+                    Plan = g.Key,
+                    Features = g.Select(p => new PlanFeatureTemplateItem { FeatureCode = p.FeatureCode, IsEnabledByDefault = p.IsIncluded }).ToList()
+                })
+                .ToList();
+        }
+
         var features = await _db.FeatureDefinitions.ToDictionaryAsync(f => f.Id, f => f.FeatureCode);
         var templates = await _db.PlanFeatureTemplates.ToListAsync();
 
@@ -368,7 +407,10 @@ internal sealed class TenancyRepository : ITenancyRepository
                 ParentModuleCode = f.ParentModuleCode,
                 IsAlwaysOn       = f.IsAlwaysOn,
                 IsAvailable      = f.IsAvailable,
-                IsUsable         = access[f.FeatureCode].Level == FeatureAccessLevel.Full
+                IsUsable         = access[f.FeatureCode].Level == FeatureAccessLevel.Full,
+                FeatureStatus    = f.Status,
+                IsVisible        = f.IsVisible,
+                IsGrandfathered  = of?.IsGrandfathered ?? false
             };
         }).ToList();
     }

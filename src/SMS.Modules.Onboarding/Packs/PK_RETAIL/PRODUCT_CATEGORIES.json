@@ -1,0 +1,60 @@
+{
+  "categories": [
+    {
+      "code": "FOOD",
+      "name": "Food and Beverages",
+      "description": "Packaged and fresh food and drink.",
+      "children": [
+        {
+          "code": "FOOD-PKG",
+          "name": "Packaged Food"
+        },
+        {
+          "code": "FOOD-FRESH",
+          "name": "Fresh Food"
+        },
+        {
+          "code": "FOOD-BEV",
+          "name": "Beverages"
+        }
+      ]
+    },
+    {
+      "code": "HOME",
+      "name": "Household",
+      "description": "Cleaning and home items."
+    },
+    {
+      "code": "CARE",
+      "name": "Personal Care",
+      "description": "Health and beauty."
+    },
+    {
+      "code": "APP",
+      "name": "Apparel and Footwear",
+      "description": "Clothing and shoes."
+    },
+    {
+      "code": "ELEC",
+      "name": "Electronics",
+      "description": "Devices and accessories."
+    },
+    {
+      "code": "STAT",
+      "name": "Stationery",
+      "description": "Paper and office items."
+    },
+    {
+      "code": "GIFT",
+      "name": "Gift Items and Vouchers",
+      "description": "Gifts, gift cards and vouchers."
+    },
+    {
+      "code": "OTH",
+      "name": "Other",
+      "description": "Anything that fits no other category."
+    }
+  ],
+  "displayName": "Retail product categories",
+  "notes": "Starting categories; add, rename or remove to suit the business."
+}

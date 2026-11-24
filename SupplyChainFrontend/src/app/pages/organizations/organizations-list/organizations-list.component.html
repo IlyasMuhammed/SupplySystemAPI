@@ -28,7 +28,7 @@
            [paginator]="true" [rows]="15" [rowsPerPageOptions]="[10, 15, 50]"
            [showCurrentPageReport]="true"
            currentPageReportTemplate="{first}–{last} of {totalRecords}"
-           [globalFilterFields]="['orgCode', 'orgName', 'contactEmail']"
+           [globalFilterFields]="['orgCode', 'orgName', 'contactEmail', 'countryCode', 'industryType']"
            [rowHover]="true"
            dataKey="id" responsiveLayout="scroll">
 
@@ -37,6 +37,9 @@
         <th pSortableColumn="orgCode">Code <p-sortIcon field="orgCode"></p-sortIcon></th>
         <th pSortableColumn="orgName">Name <p-sortIcon field="orgName"></p-sortIcon></th>
         <th pSortableColumn="plan" style="width: 10rem">Plan <p-sortIcon field="plan"></p-sortIcon></th>
+        <th pSortableColumn="countryCode" style="width: 7rem">Country <p-sortIcon field="countryCode"></p-sortIcon></th>
+        <th pSortableColumn="industryType" style="width: 9rem">Industry <p-sortIcon field="industryType"></p-sortIcon></th>
+        <th pSortableColumn="setupStatus" style="width: 9rem">Setup <p-sortIcon field="setupStatus"></p-sortIcon></th>
         <th style="width: 12rem">Contact</th>
         <th style="width: 8rem">Status</th>
         <th style="width: 12rem">Actions</th>
@@ -48,6 +51,12 @@
         <td class="sf-mono">{{ o.orgCode }}</td>
         <td class="font-medium">{{ o.orgName }}</td>
         <td><p-tag [value]="planLabel(o.plan)" [severity]="planSeverity(o.plan)"></p-tag></td>
+        <td class="sf-mono" [attr.data-testid]="'country-' + o.orgCode">{{ o.countryCode || '—' }}</td>
+        <td [attr.data-testid]="'industry-' + o.orgCode">{{ o.industryType || '—' }}</td>
+        <td [attr.data-testid]="'setup-' + o.orgCode">
+          <p-tag *ngIf="o.setupStatus" [value]="setupStatusLabel(o.setupStatus)" [severity]="setupStatusSeverity(o.setupStatus)"></p-tag>
+          <span *ngIf="!o.setupStatus">—</span>
+        </td>
         <td>{{ o.contactEmail || '—' }}</td>
         <td>
           <p-tag [value]="o.isActive ? 'Active' : 'Inactive'"
@@ -82,7 +91,7 @@
 
     <ng-template pTemplate="emptymessage">
       <tr>
-        <td colspan="6" class="sf-empty">
+        <td colspan="9" class="sf-empty">
           No organizations found<br />
           <small>Click "Add Organization" to create one.</small>
         </td>
@@ -150,7 +159,8 @@
       <input pInputText formControlName="address" class="w-full" maxlength="500" />
     </div>
 
-    <div class="dlg-row">
+    <!-- Edit: the organization's country name and a free-text timezone, as before. -->
+    <div class="dlg-row" *ngIf="isEditing">
       <div class="dlg-field">
         <label class="dlg-label">Country</label>
         <p-dropdown formControlName="country" [options]="countryOptions" optionLabel="label" optionValue="value"
@@ -162,6 +172,61 @@
         <input pInputText formControlName="timeZone" class="w-full" placeholder="e.g. Asia/Karachi" maxlength="50" />
       </div>
     </div>
+
+    <!-- Edit (A51 P7): the industry and the setup status are shown, read-only. -->
+    <ng-container *ngIf="isEditing">
+      <div class="dlg-row">
+        <div class="dlg-field">
+          <label class="dlg-label">Industry</label>
+          <div class="dlg-static" data-testid="edit-industry">{{ editIndustry || '—' }}</div>
+        </div>
+        <div class="dlg-field">
+          <label class="dlg-label">Setup status</label>
+          <div class="dlg-static" data-testid="edit-setup">
+            <p-tag *ngIf="editSetupStatus" [value]="setupStatusLabel(editSetupStatus)" [severity]="setupStatusSeverity(editSetupStatus)"></p-tag>
+            <span *ngIf="!editSetupStatus">—</span>
+            <span class="sf-mu sf-sm" *ngIf="editCountryCode"> · country code {{ editCountryCode }}</span>
+          </div>
+        </div>
+      </div>
+      <small class="dlg-hint" data-testid="edit-defaults-hint">
+        Changing country or industry later does not re-run default data; use the organization's Default Data page.
+      </small>
+    </ng-container>
+
+    <!-- Create (A51 P3): country -> industry (offered in that country) and a timezone that follows the country. -->
+    <ng-container *ngIf="!isEditing">
+      <div class="dlg-row">
+        <div class="dlg-field">
+          <label class="dlg-label">Country</label>
+          <p-dropdown formControlName="countryCode" [options]="newCountryOptions" optionLabel="label" optionValue="value"
+                      [filter]="true" filterBy="label" placeholder="Select a country"
+                      styleClass="w-full" appendTo="body" [showClear]="true" data-testid="new-country"></p-dropdown>
+        </div>
+        <div class="dlg-field">
+          <label class="dlg-label">Industry</label>
+          <p-dropdown formControlName="industryType" [options]="industryOptions" optionLabel="label" optionValue="value"
+                      [placeholder]="f['countryCode'].value ? (isLoadingIndustries ? 'Loading…' : 'Select an industry') : 'Choose a country first'"
+                      styleClass="w-full" appendTo="body" [showClear]="true"
+                      [disabled]="!f['countryCode'].value || isLoadingIndustries" data-testid="new-industry"></p-dropdown>
+        </div>
+      </div>
+      <small class="dlg-hint" data-testid="country-industry-hint">
+        Leave empty to let the organization admin choose in the setup wizard. With a country and an industry, the standard
+        default data (chart of accounts, tax codes, currencies and more) is applied when the organization is created.
+      </small>
+      <small class="dlg-hint warn" *ngIf="industriesError" data-testid="industries-error">{{ industriesError }}</small>
+      <small class="dlg-hint" *ngIf="f['countryCode'].value && !isLoadingIndustries && !industriesError && industryOptions.length === 0"
+             data-testid="no-industries">No industry is offered in this country yet. The organization admin can choose in the setup wizard.</small>
+
+      <div class="dlg-field">
+        <label class="dlg-label">Time Zone</label>
+        <p-dropdown formControlName="timeZone" [options]="timezoneChoices" optionLabel="label" optionValue="value"
+                    [filter]="true" filterBy="label" placeholder="Select a time zone"
+                    styleClass="w-full" appendTo="body" [showClear]="true" data-testid="new-timezone"></p-dropdown>
+        <small class="dlg-hint" *ngIf="countryTimezone">Filled from the country; you can change it.</small>
+      </div>
+    </ng-container>
 
     <div class="dlg-field">
       <label class="dlg-label">Base Currency</label>
@@ -215,6 +280,109 @@
   </form>
 </p-dialog>
 
+<!-- ── A51 P3: what creating the organization did, including the default data ─────── -->
+<p-dialog [(visible)]="showResultDialog" [modal]="true" [style]="{ width: '640px', maxWidth: '95vw' }"
+          [showHeader]="false" [closable]="false" [draggable]="false"
+          [contentStyle]="{ padding: '0', borderRadius: '0.875rem', overflow: 'hidden' }">
+  <div class="dlg-header">
+    <div class="dlg-icon"><i class="pi pi-check-circle"></i></div>
+    <div class="dlg-title-wrap">
+      <h3 class="dlg-title">Organization created</h3>
+      <p class="dlg-subtitle">{{ createdOrgName }}</p>
+    </div>
+  </div>
+
+  <div class="dlg-body" *ngIf="createResult as r" data-testid="create-result">
+    <div class="sf-fields">
+      <div class="sf-fld">Country <b data-testid="res-country">{{ r.country || '—' }}</b></div>
+      <div class="sf-fld">Time zone <b data-testid="res-timezone">{{ r.timeZone || '—' }}</b></div>
+      <div class="sf-fld">Plan <b data-testid="res-plan">{{ planLabel(r.plan) }}</b></div>
+      <div class="sf-fld" *ngIf="r.industryType">Industry <b>{{ r.industryType }}</b></div>
+    </div>
+
+    <ng-container *ngIf="defaultsView as d">
+      <p class="dlg-section-title">Default data</p>
+      <p class="res-line">
+        <span class="sf-pill" [ngClass]="d.running ? 'in' : d.failed ? 'er' : d.completed ? 'ok' : (d.attempted ? 'wn' : '')" data-testid="res-status">
+          <i class="pi pi-spin pi-spinner" *ngIf="d.running"></i>
+          {{ defaultsHeadline }}
+        </span>
+        <span *ngIf="d.attempted && !d.running && d.packLevel !== 'None'" data-testid="res-pack">Resolved from the {{ packLevelLabel(d.packLevel) }}<ng-container *ngIf="d.fallbackUsed"> (fallback used for some categories)</ng-container>.</span>
+      </p>
+      <p class="dlg-hint" *ngIf="d.message && !d.running" data-testid="res-message">{{ d.message }}</p>
+
+      <!-- A51 P7: while the background worker applies the defaults, one line per category, ticked off as each one finishes. -->
+      <ng-container *ngIf="d.running">
+        <p class="dlg-hint" data-testid="res-running">
+          The organization is created. Its default data is being applied in the background — you can close this window; the work carries on.
+        </p>
+        <ul class="res-checklist" *ngIf="d.categories.length" data-testid="res-checklist">
+          <li *ngFor="let c of d.categories; let i = index" [attr.data-testid]="'chk-' + c.category" [class.done]="c.status === 'Applied'">
+            <i [class]="checklistIcon(c, i)"></i> {{ c.category }}
+            <span class="sf-mu sf-sm" *ngIf="c.status === 'Applied' && c.created">· {{ c.created }} added</span>
+            <span class="sf-mu sf-sm" *ngIf="c.status === 'Failed'">· failed</span>
+          </li>
+        </ul>
+        <p class="dlg-hint warn" *ngIf="pollStopped" data-testid="res-poll-stopped">
+          The progress could not be read just now. The apply is still running; reopen the organization list in a moment to see its setup status.
+        </p>
+      </ng-container>
+
+      <table class="res-table" *ngIf="!d.running && d.categories.length" data-testid="res-categories">
+        <thead><tr><th>Category</th><th>Result</th><th class="num">Added</th><th>Pack</th><th>Note</th></tr></thead>
+        <tbody>
+          <tr *ngFor="let c of d.categories" [attr.data-testid]="'res-' + c.category">
+            <td>{{ c.category }}</td>
+            <td><span class="sf-pill" [ngClass]="categoryTone(c)">{{ c.status }}</span></td>
+            <td class="num">{{ c.created }}</td>
+            <td>{{ c.packLevel === 'None' ? '—' : c.packLevel }}</td>
+            <td class="note">{{ c.message || '' }}</td>
+          </tr>
+        </tbody>
+      </table>
+      <p class="dlg-hint" *ngIf="d.failed && d.message" data-testid="res-failed">{{ d.message }}</p>
+      <p class="dlg-hint warn" *ngIf="categoryProblems.length" data-testid="res-problems">
+        {{ categoryProblems.length }} categor{{ categoryProblems.length === 1 ? 'y' : 'ies' }} did not apply. The organization exists;
+        its admin can finish in the setup wizard, which opens pre-filled.
+      </p>
+    </ng-container>
+
+    <!-- A51 P7: not licensed because Coming Soon -->
+    <ng-container *ngIf="skippedFeatures.length">
+      <p class="dlg-section-title">Features not licensed</p>
+      <p class="dlg-hint" data-testid="res-skipped">
+        <ng-container *ngIf="comingSoonNames">Not licensed because Coming Soon: <b>{{ comingSoonNames }}</b>. </ng-container>
+        You can license them later from Manage Features once they are opened.
+      </p>
+    </ng-container>
+
+    <!-- A51 P7: did the invitation e-mail go out? The link is shown ONLY when it did not (and only to the super admin, who is on this page). -->
+    <ng-container *ngIf="r.invitation as inv">
+      <p class="dlg-section-title">Initial admin invitation</p>
+      <p class="res-line" *ngIf="inv.emailSent" data-testid="res-invite-ok">
+        <span class="sf-pill ok"><i class="pi pi-envelope"></i> Invitation email sent</span>
+        <span>to {{ inv.adminEmail }}</span>
+      </p>
+      <ng-container *ngIf="!inv.emailSent">
+        <p class="res-line" data-testid="res-invite-failed">
+          <span class="sf-pill er"><i class="pi pi-exclamation-triangle"></i> Invitation email could NOT be sent — copy invite link</span>
+        </p>
+        <p class="dlg-hint warn" *ngIf="inv.error" data-testid="res-invite-error">{{ inv.error }}</p>
+        <div class="res-link" *ngIf="inv.inviteLink" data-testid="res-invite-link-box">
+          <input pInputText class="w-full sf-mono" readonly [value]="inv.inviteLink" data-testid="res-invite-link" (focus)="$any($event.target).select()" />
+          <p-button [label]="inviteCopied ? 'Copied' : 'Copy link'" [icon]="inviteCopied ? 'pi pi-check' : 'pi pi-copy'" type="button" [outlined]="true"
+                    (onClick)="copyInviteLink(inv.inviteLink)" data-testid="res-invite-copy"></p-button>
+        </div>
+        <p class="dlg-hint" *ngIf="inv.inviteLink">Send this link to {{ inv.adminEmail }} yourself. It works once and expires in 7 days. You can also use "Resend invitation" under View / Change Admin.</p>
+      </ng-container>
+    </ng-container>
+
+    <div class="dlg-footer">
+      <p-button label="Close" icon="pi pi-check" type="button" (onClick)="closeResult()" data-testid="res-close"></p-button>
+    </div>
+  </div>
+</p-dialog>
+
 <!-- ── Select features at creation ──────────────────────────────────────────── -->
 <p-dialog [(visible)]="showFeaturesDialog" [modal]="true" [style]="{ width: '560px', maxWidth: '95vw' }"
           [showHeader]="false" [closable]="false" [draggable]="false"
@@ -236,10 +404,12 @@
     </div>
 
     <div class="dlg-field" *ngFor="let m of moduleChoices">
-      <label class="feature-pick">
-        <p-checkbox [binary]="true" [ngModel]="selectedModules.has(m.featureCode)"
+      <label class="feature-pick" [attr.data-testid]="isComingSoon(m) ? 'pick-coming-soon-' + m.featureCode : null"
+             [attr.title]="isComingSoon(m) ? 'Not available to new organizations yet; license it later from the organization\'s Features page if needed' : null">
+        <p-checkbox [binary]="true" [ngModel]="selectedModules.has(m.featureCode)" [disabled]="isComingSoon(m)"
                     (ngModelChange)="toggleModule(m.featureCode, $event)" [inputId]="'pick-' + m.featureCode"></p-checkbox>
-        <span><b>{{ m.featureName }}</b><br /><small class="dlg-hint">{{ m.description }}</small></span>
+        <span><b>{{ m.featureName }}</b>
+          <span *ngIf="isComingSoon(m)" class="dlg-hint" data-testid="coming-soon-tag"> &nbsp;[Coming soon]</span><br /><small class="dlg-hint">{{ m.description }}</small></span>
       </label>
     </div>
 
@@ -301,7 +471,7 @@
       <!-- Resend invite: only while the invite is pending or the account is not active -->
       <div *ngIf="showReinvite" class="sf-card quiet adm-section" data-testid="reinvite-section">
         <p class="dlg-section-title">Resend invite</p>
-        <p class="dlg-hint">Sends a fresh link valid for 7 days; the previous link stops working. Correct the address first if it was mistyped.</p>
+        <p class="dlg-hint">Sends a fresh link valid for 7 days; the previous link stops working. Correct the address first if it was mistyped. If the e-mail cannot be sent you get the link to copy.</p>
         <div class="sf-fields">
           <label class="sf-fld">
             E-mail
@@ -310,6 +480,19 @@
           </label>
         </div>
         <small class="dlg-error" *ngIf="reinviteError" data-testid="reinvite-error">{{ reinviteError }}</small>
+        <!-- A51 P7: the outcome of the last resend; the link only when the mail did not go out. -->
+        <div *ngIf="resendResult as rr" class="adm-resend" data-testid="resend-result">
+          <span class="sf-pill ok" *ngIf="rr.emailSent" data-testid="resend-sent"><i class="pi pi-envelope"></i> Invitation email sent</span>
+          <ng-container *ngIf="!rr.emailSent">
+            <span class="sf-pill er" data-testid="resend-failed"><i class="pi pi-exclamation-triangle"></i> Invitation email could NOT be sent — copy invite link</span>
+            <small class="dlg-hint warn" *ngIf="rr.error" data-testid="resend-error">{{ rr.error }}</small>
+            <div class="res-link" *ngIf="rr.inviteLink">
+              <input pInputText class="w-full sf-mono" readonly [value]="rr.inviteLink" data-testid="resend-link" (focus)="$any($event.target).select()" />
+              <p-button [label]="inviteCopied ? 'Copied' : 'Copy link'" [icon]="inviteCopied ? 'pi pi-check' : 'pi pi-copy'" type="button" [outlined]="true"
+                        (onClick)="copyInviteLink(rr.inviteLink)" data-testid="resend-copy"></p-button>
+            </div>
+          </ng-container>
+        </div>
         <div class="adm-actions">
           <p-button label="Send new invite" icon="pi pi-send" type="button" [outlined]="true"
                     data-testid="reinvite-send"

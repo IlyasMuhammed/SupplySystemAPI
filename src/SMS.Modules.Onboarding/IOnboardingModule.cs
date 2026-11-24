@@ -8,6 +8,7 @@ using Microsoft.Extensions.Logging;
 using SMS.Modules.Onboarding.Checklist;
 using SMS.Modules.Onboarding.Data;
 using SMS.Modules.Onboarding.SampleData;
+using SMS.Modules.Onboarding.Services;
 using SMS.Modules.Onboarding.Services.Defaults;
 using SMS.Modules.Onboarding.Services.Setup;
 using SMS.Modules.Onboarding.Templates;
@@ -43,6 +44,16 @@ public static class OnboardingModuleExtensions
         services.AddScoped<SetupPayloadValidator>();
         services.AddScoped<ISetupDefaultsService, SetupDefaultsService>();
         services.AddScoped<SetupPackSeeder>();
+        services.AddScoped<IIndustryService, IndustryService>();   // A51 P1
+        services.AddScoped<IndustrySeeder>();
+        services.AddScoped<IIndustryCatalog, IndustryCatalog>();                         // A51 P3
+        services.AddScoped<IOrganizationDefaultsApplier, OrganizationDefaultsApplier>();  // A51 P3
+        // A51 P7 — the create call queues the apply; one worker per API process runs it and the status endpoint reads it.
+        services.AddSingleton<OrganizationDefaultsQueue>();
+        services.AddSingleton<OrganizationDefaultsTracker>();
+        services.AddHostedService<OrganizationDefaultsWorker>();
+        services.AddScoped<IOrganizationDefaultsStatusReader, OrganizationDefaultsStatusReader>();
+        services.AddScoped<IOrganizationSetupSummaries, OrganizationSetupSummaries>();
         services.AddScoped<ISetupUserInviter, SetupUserInviter>();
         services.AddScoped<ITenantSetupService, TenantSetupService>();
         services.AddScoped<SetupProvisioningHandler>();
@@ -78,6 +89,16 @@ public static class OnboardingModuleExtensions
         catch (Exception ex)
         {
             logger?.LogError(ex, "Built-in setup defaults could not be seeded at startup.");
+        }
+
+        try
+        {
+            var industries = scope.ServiceProvider.GetRequiredService<IndustrySeeder>().SeedAsync().GetAwaiter().GetResult();
+            if (industries > 0) logger?.LogInformation("Seeded {Count} industry / country-industry row(s).", industries);
+        }
+        catch (Exception ex)
+        {
+            logger?.LogError(ex, "The industries master could not be seeded at startup.");
         }
 
         try

@@ -8,7 +8,7 @@ import { InputTextModule } from 'primeng/inputtext';
 import { SelectModule } from 'primeng/select';
 import { TooltipModule } from 'primeng/tooltip';
 import {
-  COA_MAX_LEVEL, CoaAccount, allCoa, clone, coaProblem, coaRoleKeys, coaToTree, suggestChildCode, treeToCoa
+  COA_MAX_LEVEL, COA_ROLE_KEYS, CoaAccount, allCoa, clone, coaProblem, coaRoleKeys, coaToTree, suggestChildCode, treeToCoa
 } from '../onboarding.shared';
 
 /**
@@ -52,7 +52,13 @@ import {
                    (keydown.enter)="commit(node)" (keydown.escape)="commit(node)" (click)="$event.stopPropagation()" />
             <p-button icon="pi pi-check" [text]="true" size="small" ariaLabel="Done" (onClick)="commit(node)" data-testid="coa-commit"></p-button>
           </ng-template>
-          <span class="ob-badge" *ngIf="node.data.default_account_key" [attr.data-testid]="'coa-role-' + node.data.code">{{ node.data.default_account_key }}</span>
+          <span class="ob-badge" *ngIf="node.data.default_account_key && !(allowRoleEdit && !readonly && !node.data.is_group)"
+                [attr.data-testid]="'coa-role-' + node.data.code">{{ node.data.default_account_key }}</span>
+          <span *ngIf="allowRoleEdit && !readonly && !node.data.is_group && editingKey !== node.key" (click)="$event.stopPropagation()">
+            <p-select [options]="roleOptions" optionLabel="label" optionValue="value" [ngModel]="node.data.default_account_key ?? ''"
+                      (ngModelChange)="setRole(node, $event)" appendTo="body" [style]="{ minWidth: '12rem' }" size="small" aria-label="Account role"
+                      [attr.data-testid]="'coa-role-select-' + node.data.code"></p-select>
+          </span>
           <span class="ob-acts" *ngIf="!readonly && editingKey !== node.key">
             <p-button icon="pi pi-pencil" [text]="true" size="small" ariaLabel="Rename" pTooltip="Rename" (onClick)="edit(node, $event)"
                       [attr.data-testid]="'coa-rename-' + node.data.code"></p-button>
@@ -79,7 +85,11 @@ export class CoaTreeEditorComponent implements OnChanges {
   /** The COA payload ({ accounts: [...] , template fields… }). Not mutated: a copy is edited. */
   @Input() payload: any;
   @Input() readonly = false;
+  /** A51 P5 — show a role (default-account key) dropdown on every postable account (the super admin COA editor; off in the setup wizard). */
+  @Input() allowRoleEdit = false;
   @Output() payloadChange = new EventEmitter<any>();
+
+  readonly roleOptions = [{ label: '(no role)', value: '' }, ...COA_ROLE_KEYS.map(k => ({ label: k.replace(/^DEFAULT_/, '').replace(/_/g, ' ').toLowerCase().replace(/^./, c => c.toUpperCase()), value: k }))];
 
   nodes: TreeNode<CoaAccount>[] = [];
   problem: string | null = null;
@@ -165,6 +175,28 @@ export class CoaTreeEditorComponent implements OnChanges {
     const parent = this.parentOf(node);
     if (!parent) return;
     parent.children = (parent.children ?? []).filter(c => c !== node);
+    this.nodes = [...this.nodes];
+    this.changed();
+  }
+
+  /** Gives the account a role ('' clears it). A role is held by one account, so it moves from its previous holder. */
+  setRole(node: TreeNode<CoaAccount>, key: string | null): void {
+    if (!node.data || node.data.is_group) return;
+    const clear = (n: TreeNode<CoaAccount>) => {
+      delete n.data!.default_account_key;
+      delete n.data!.is_default_account;
+    };
+    if (key) {
+      const walk = (ns: TreeNode<CoaAccount>[]) => ns.forEach(n => {
+        if (n !== node && n.data?.default_account_key === key) clear(n);
+        walk(n.children ?? []);
+      });
+      walk(this.nodes);
+      node.data.default_account_key = key;
+      node.data.is_default_account = true;
+    } else {
+      clear(node);
+    }
     this.nodes = [...this.nodes];
     this.changed();
   }

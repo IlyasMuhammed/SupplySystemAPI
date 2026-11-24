@@ -45,7 +45,20 @@ public interface IOrgUserProvisioningService
     // reported as EXISTS and that account is left unchanged; a bad address or a role the organization cannot assign is
     // INVALID. Own SaveChanges (no shared transaction).
     Task<OrgUserInviteResult> InviteUserAsync(OrgUserInviteRequest request, CancellationToken ct = default);
+
+    // A51 P7 (A51-D12) — sends the invitation e-mail for a user who has not set up their account, SYNCHRONOUSLY and through the
+    // checked send path, and reports whether it went out. <paramref name="issueNewToken"/> false keeps a still-valid token (the
+    // initial admin's: the account was just created with one); true issues a fresh 7-day token (the old link stops working).
+    // The invite link comes back in the result ONLY when the send failed or e-mail is not configured, for the Super Admin to hand
+    // over; it is never logged. Default: null (a host without the Auth module's sender).
+    Task<OrgInviteSendResult?> SendInvitationAsync(Guid organizationId, int userId, string? newEmail, string organizationName,
+        bool issueNewToken, CancellationToken ct = default) => Task.FromResult<OrgInviteSendResult?>(null);
 }
+
+/// <summary>A51 P7. <see cref="InviteLink"/> is set only when <see cref="EmailSent"/> is false.</summary>
+public sealed record OrgInviteSendResult(
+    int UserId, string Email, bool EmailSent, string? Error, bool EmailConfigured, string? InviteLink, DateTime? InviteExpiresAt,
+    OrgUserSummary? User = null);
 
 /// <summary>A50 D-22. <paramref name="FirstName"/> null = the e-mail's local part.</summary>
 public sealed record OrgUserInviteRequest(
@@ -62,7 +75,7 @@ public static class OrgUserInviteOutcomes
 }
 
 public sealed record CreateOrgAdminUserRequest(
-    string FirstName, string LastName, string Email, Guid OrganizationId, string OrganizationName, int RoleId);
+    string FirstName, string LastName, string Email, Guid OrganizationId, string OrganizationName, int RoleId, bool SendInviteEmail = true);
 
 public sealed record OrgUserSummary(
     int UserId, string FirstName, string? LastName, string Email, int RoleId, string RoleName, bool IsActive,

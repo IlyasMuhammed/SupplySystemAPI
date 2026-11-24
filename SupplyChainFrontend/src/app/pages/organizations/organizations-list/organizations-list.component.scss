@@ -187,3 +187,70 @@
   gap: 0.6rem;
   cursor: pointer;
 }
+
+// ── A51 P3: create result ──
+.res-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 0 0.5rem;
+  color: var(--sms-text);
+}
+
+.res-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8125rem;
+  margin: 0.5rem 0;
+
+  th, td {
+    padding: 0.4rem 0.5rem;
+    text-align: left;
+    border-bottom: 1px solid var(--sms-border);
+    color: var(--sms-text);
+  }
+  th { color: var(--sms-text-muted); font-weight: 600; background: var(--sms-surface-2); }
+  .num { text-align: right; font-variant-numeric: tabular-nums; }
+  .note { color: var(--sms-text-muted); max-width: 14rem; overflow-wrap: anywhere; }
+}
+
+// ── A51 P7: progress checklist, invite link, read-only edit facts ──
+.res-checklist {
+  list-style: none;
+  margin: 0.25rem 0 0.75rem;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
+  gap: 0.25rem 1rem;
+  font-size: 0.8125rem;
+  color: var(--sms-text);
+
+  li { display: flex; align-items: center; gap: 0.4rem; color: var(--sms-text-muted); }
+  li.done { color: var(--sms-text); }
+  li.done i { color: var(--sms-success, #16a34a); }
+}
+
+.res-link {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  margin: 0.25rem 0 0.5rem;
+
+  input { min-width: 0; flex: 1 1 auto; }
+}
+
+.adm-resend {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin: 0.5rem 0;
+}
+
+.dlg-static {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 2.5rem;
+  color: var(--sms-text);
+}

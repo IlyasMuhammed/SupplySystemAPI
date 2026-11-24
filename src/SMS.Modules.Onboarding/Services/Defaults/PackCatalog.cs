@@ -73,7 +73,7 @@ internal sealed class PackCatalog
     }
 }
 
-/// <summary>Normalization of the (country, industry, category) key: upper-case country and category, GLOBAL upper-case.</summary>
+/// <summary>Normalization of the (country, industry, category) key: upper-case country, industry (A51 P5: the Industries master uses upper-case codes, so TRADING) and category.</summary>
 internal static class SetupKey
 {
     public static string Country(string? code) =>
@@ -81,9 +81,10 @@ internal static class SetupKey
 
     public static string Industry(string? industry) =>
         string.IsNullOrWhiteSpace(industry) || industry.Trim().Equals(SetupCodes.Global, StringComparison.OrdinalIgnoreCase)
-            ? SetupCodes.Global : industry.Trim();
+            ? SetupCodes.Global : industry.Trim().ToUpperInvariant();
 
     public static string Category(string? category) => (category ?? string.Empty).Trim().ToUpperInvariant();
 
     public static string Format(string country, string industry, string category) => $"{country}/{industry}/{category}";
 }
+

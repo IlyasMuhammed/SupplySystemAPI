@@ -91,8 +91,9 @@ public sealed class SetupDefaultsController : ControllerBase
 
     /// <summary>Bulk import of a pack file (or a bare array of items); all or nothing (task 039). 400 with the same body on errors.</summary>
     [HttpPost("import")]
+    [RequestSizeLimit(SetupDefaultsPackFormat.MaxBodyBytes)]
     public async Task<IActionResult> Import([FromBody] JsonElement body, [FromQuery] bool dryRun = false, [FromQuery] string mode = SetupImportModes.Upsert,
-        CancellationToken ct = default)
+        [FromQuery] bool skipInvalid = false, CancellationToken ct = default)
     {
         SetupDefaultsPackFile pack;
         try
@@ -106,10 +107,11 @@ public sealed class SetupDefaultsController : ControllerBase
             throw new BadRequestException($"The file is not a setup defaults pack: {ex.Message}");
         }
 
-        var result = await _defaults.ImportAsync(pack, dryRun, mode, UserId, ct);
-        if (result.Errors.Count > 0)
+        var result = await _defaults.ImportAsync(pack, dryRun, mode, UserId, ct, skipInvalid);
+        if (result.Errors.Count > 0 && !skipInvalid)
             return BadRequest(ApiResponse.Fail($"{result.Errors.Count} item(s) are invalid — nothing was imported.", result));
         return Ok(ApiResponse<SetupDefaultsImportResult>.Ok(result,
-            dryRun ? "Dry run: nothing was saved." : $"Imported: {result.Created} created, {result.Updated} updated, {result.Unchanged} unchanged."));
+            dryRun ? "Dry run: nothing was saved." : result.Invalid > 0 ? $"Imported: {result.Created} created, {result.Updated} updated, {result.Unchanged} unchanged, {result.Invalid} invalid skipped." : $"Imported: {result.Created} created, {result.Updated} updated, {result.Unchanged} unchanged."));
     }
 }
+

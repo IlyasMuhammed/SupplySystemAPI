@@ -1,0 +1,28 @@
+{
+  "zoneTypes": [
+    {
+      "code": "SALES_FLOOR",
+      "name": "Sales Floor",
+      "description": "Shelves and displays customers shop from.",
+      "default": true
+    },
+    {
+      "code": "BACK_ROOM",
+      "name": "Back Room",
+      "description": "Reserve stock behind the sales floor.",
+      "default": true
+    },
+    {
+      "code": "RETURNS",
+      "name": "Returns and Damaged",
+      "description": "Customer returns and damaged goods awaiting a decision.",
+      "default": true
+    }
+  ],
+  "defaultWarehouse": {
+    "code": "WH-STORE",
+    "name": "Main Store"
+  },
+  "displayName": "Retail store zones",
+  "notes": "Sales floor, back room and returns zones for a store."
+}

@@ -32,6 +32,8 @@ public interface ITenantSetupService
     Task<SetupApplyResponse> ApplyAsync(SetupApplyRequest request, int? userId, CancellationToken ct = default);
     Task<SetupApplyResponse> SkipAsync(int? userId, CancellationToken ct = default);
     Task<SetupStateModel> GetStateAsync(CancellationToken ct = default);
+    /// <summary>A51 P3 — records the country / industry on the setup row without touching status or step (the wizard opens pre-filled).</summary>
+    Task PrefillAsync(string? countryCode, string? industryType, CancellationToken ct = default);
     Task<SetupStateModel> SaveStepAsync(int step, SaveSetupStepRequest request, CancellationToken ct = default);
     Task<SetupCategoriesModel> GetCategoriesAsync(CancellationToken ct = default);
     Task<SetupCategoryResult> ResetAsync(string category, SetupResetRequest request, int? userId, CancellationToken ct = default);
@@ -88,6 +90,14 @@ internal sealed class TenantSetupService : ITenantSetupService
 
     public async Task<SetupStateModel> GetStateAsync(CancellationToken ct = default) => await ToStateAsync(await GetOrCreateAsync(ct), ct);
 
+    public async Task PrefillAsync(string? countryCode, string? industryType, CancellationToken ct = default)
+    {
+        var setup = await GetOrCreateAsync(ct);
+        if (!string.IsNullOrWhiteSpace(countryCode)) setup.CountryCode = SetupKey.Country(countryCode);
+        if (!string.IsNullOrWhiteSpace(industryType)) setup.IndustryType = SetupKey.Industry(industryType);
+        await SaveAsync(ct);
+    }
+
     public async Task<SetupStateModel> SaveStepAsync(int step, SaveSetupStepRequest request, CancellationToken ct = default)
     {
         if (step < 1 || step > MaxStep) throw new BadRequestException($"The step must be between 1 and {MaxStep}.");
@@ -124,9 +134,10 @@ internal sealed class TenantSetupService : ITenantSetupService
         var industries = await _db.SetupDefaults.AsNoTracking()
             .Where(d => d.IsActive && (d.CountryCode == c || d.CountryCode == SetupCodes.Global))
             .Select(d => d.IndustryType).Distinct().ToListAsync(ct);
-        var list = industries.Where(i => !i.Equals(SetupCodes.Global, StringComparison.OrdinalIgnoreCase))
+        // A51 P5: codes are the Industries master's upper-case ones; a legacy title-case row and a new upper-case one are one industry.
+        var list = industries.Select(SetupKey.Industry).Where(i => i != SetupCodes.Global)
             .Distinct(StringComparer.OrdinalIgnoreCase)
-            .Select(i => new SetupOptionModel(i, i.Replace('_', ' ')))
+            .Select(i => new SetupOptionModel(i, System.Globalization.CultureInfo.InvariantCulture.TextInfo.ToTitleCase(i.Replace('_', ' ').ToLowerInvariant())))
             .OrderBy(i => i.Name, StringComparer.OrdinalIgnoreCase).ToList();
         list.Add(new SetupOptionModel(SetupCodes.Global, "General (any industry)"));
         return list;
@@ -223,6 +234,11 @@ internal sealed class TenantSetupService : ITenantSetupService
         var snapshot = ReadObject(setup.DefaultsSnapshotJson);
         var results = new List<SetupCategoryResult>();
         var stop = false;
+        // A51 P7 — the organization's provenance rows are read ONCE (tracked) instead of twice per category (the "already seeded"
+        // list the seeder gets, and the upsert in RecordProvenanceAsync): two round trips saved per category.
+        var trackedSeeded = (await _db.SeededRecords.Where(s => s.OrganizationId == org).ToListAsync(ct))
+            .GroupBy(s => s.Category, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.ToList(), StringComparer.OrdinalIgnoreCase);
 
         foreach (var category in _validator.KnownCategories)
         {
@@ -269,7 +285,7 @@ internal sealed class TenantSetupService : ITenantSetupService
                 continue;
             }
 
-            var already = await SeededAsync(org, category, ct);
+            var already = (trackedSeeded.GetValueOrDefault(category) ?? []).Select(s => new SeededRecordRef(s.NaturalKey, s.EntityRef, s.Fingerprint, s.Reused)).ToList();
             var context = Context(country, industry, hit?.Row.Version ?? 0, userId, inputs.TryGetValue(category, out var input) ? input : null, already,
                 overridden, DefaultOf(hit));
             SetupApplyResult applied;
@@ -290,7 +306,7 @@ internal sealed class TenantSetupService : ITenantSetupService
                 continue;
             }
 
-            await RecordProvenanceAsync(org, category, hit?.Row.Version ?? 0, applied, replaceFingerprints: false, countReset: false, ct);
+            await RecordProvenanceAsync(org, category, hit?.Row.Version ?? 0, applied, replaceFingerprints: false, countReset: false, ct, trackedSeeded.GetValueOrDefault(category) ?? []);
             Log(org, country, industry, category, hit, applied.Created, SetupLogActions.Seed, Summary(applied), userId);
             snapshot[category] = Snapshot(hit, payload.Value, overridden);
             result.Status = SetupCategoryOutcomes.Applied;
@@ -525,9 +541,10 @@ internal sealed class TenantSetupService : ITenantSetupService
     /// edit still reads as "modified"), unless the record was re-created (its EntityRef changed); Overwrite / Full replace it.
     /// </summary>
     internal async Task RecordProvenanceAsync(Guid org, string category, int version, SetupApplyResult applied, bool replaceFingerprints, bool countReset,
-        CancellationToken ct)
+        CancellationToken ct, List<SeededRecord>? tracked = null)
     {
-        var rows = await _db.SeededRecords.Where(s => s.OrganizationId == org && s.Category == category).ToListAsync(ct);
+        // The apply loop passes the rows it already loaded; reset and the tests read them here.
+        var rows = tracked ?? await _db.SeededRecords.Where(s => s.OrganizationId == org && s.Category == category).ToListAsync(ct);
         var byKey = rows.ToDictionary(r => r.NaturalKey, StringComparer.OrdinalIgnoreCase);
 
         foreach (var removed in applied.RemovedKeys.Distinct(StringComparer.OrdinalIgnoreCase))

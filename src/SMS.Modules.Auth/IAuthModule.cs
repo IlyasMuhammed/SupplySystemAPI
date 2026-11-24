@@ -38,6 +38,9 @@ public static class AuthModuleExtensions
         services.AddAuthRateLimits();
         services.AddScoped<IEmailService, EmailService>();
         services.AddScoped<IEmailSender, EmailSender>();
+        // A51 P7 — e-mail health for the Super Admin (last send result of this process, configured yes / no).
+        services.AddSingleton<EmailSendTracker>();
+        services.AddSingleton<IEmailStatusProvider, EmailStatusProvider>();
         services.AddScoped<IUserLookupService, UserLookupService>();
         services.AddScoped<IUserQueryService, UserQueryService>();
         // A36 — "Team: …" on service orders (a team is an auth role).

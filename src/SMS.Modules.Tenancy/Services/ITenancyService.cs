@@ -13,6 +13,8 @@ public interface ITenancyService
     Task<bool> DeactivateOrganizationAsync(Guid id, int modifiedBy);
     Task<bool> PatchPlanAsync(Guid id, string plan, int modifiedBy);
     Task<bool> ApplyPlanTemplateAsync(Guid id, int modifiedBy);
+    /// <summary>A51 P7 — the reset to plan defaults with what it added / removed / skipped; null when the organization does not exist.</summary>
+    Task<PlanApplyOrgResult?> ApplyPlanTemplateDetailedAsync(Guid id, int modifiedBy);
 
     Task<List<FeatureDefinitionModel>> GetFeatureCatalogAsync();
     Task<List<PlanFeatureTemplateModel>> GetPlanTemplatesAsync();

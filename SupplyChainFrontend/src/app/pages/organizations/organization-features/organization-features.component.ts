@@ -13,6 +13,7 @@ import { MessageService, ConfirmationService } from 'primeng/api';
 import {
   OrganizationsService, OrganizationDetailModel, OrganizationFeatureModel, OrganizationFeatureHistoryEntry, planLabel
 } from '../../../services/organizations.service';
+import type { PlanApplyFeatureItem, PlanApplyOrgResult } from '../../../services/features-admin.service';
 import { moduleName } from '../../../services/module.models';
 
 /** One feature row: the model (its checkbox binds `f.isEnabled` = the licence) plus labels computed once per load. */
@@ -22,6 +23,8 @@ export interface FeatureRowVm {
   statusTone: FlowTone;
   comingSoon: boolean;
   alwaysOn: boolean;
+  /** A51 P7: not licensed because the platform marks it Coming Soon (and this organization is not grandfathered for it). */
+  platformComingSoon: boolean;
 }
 
 /** A module with the screens and features that belong to it (parentModuleCode). `module` is null for "Other". */
@@ -88,6 +91,8 @@ export class OrganizationFeaturesComponent implements OnInit {
   isLoading = true;
   savingCode: string | null = null;
   isApplyingTemplate = false;
+  /** A51 P7: what the last Reset to Plan Defaults added, removed and skipped (Coming Soon features are skipped, not licensed). */
+  lastReset: PlanApplyOrgResult | null = null;
 
   tab: 'features' | 'history' = 'features';
   historyRows: FeatureHistoryRow[] = [];
@@ -236,7 +241,8 @@ export class OrganizationFeaturesComponent implements OnInit {
       statusLabel,
       statusTone,
       comingSoon: f.isAvailable === false,
-      alwaysOn: !!f.isAlwaysOn
+      alwaysOn: !!f.isAlwaysOn,
+      platformComingSoon: f.featureStatus === 'ComingSoon' && !f.isGrandfathered && !f.isLicensed && !f.isEnabled
     };
   }
 
@@ -343,8 +349,9 @@ export class OrganizationFeaturesComponent implements OnInit {
       accept: () => {
         this.isApplyingTemplate = true;
         this.orgsService.applyPlanTemplate(this.orgId).subscribe({
-          next: () => {
+          next: (res) => {
             this.isApplyingTemplate = false;
+            this.lastReset = res.result ?? null;
             this.messageService.add({ severity: 'success', summary: 'Reset', detail: 'Feature toggles reset to plan defaults.' });
             this.historyLoaded = false;
             this.load();
@@ -359,6 +366,20 @@ export class OrganizationFeaturesComponent implements OnInit {
   }
 
   readonly planLabel = planLabel;
+
+  resetNames(items: PlanApplyFeatureItem[]): string {
+    return items.map(i => i.featureName).join(', ');
+  }
+
+  /** Skipped by the last reset because the feature is Coming Soon. */
+  get resetComingSoon(): PlanApplyFeatureItem[] {
+    return (this.lastReset?.skipped ?? []).filter(s => s.reason === 'ComingSoon' || s.reason === 'NotVisible');
+  }
+
+  /** Skipped by the last reset for another reason (grandfathered, in use, hand-licensed ...). */
+  get resetOtherSkipped(): PlanApplyFeatureItem[] {
+    return (this.lastReset?.skipped ?? []).filter(s => s.reason !== 'ComingSoon' && s.reason !== 'NotVisible');
+  }
 
   planSeverity(plan?: string): 'success' | 'info' | 'warn' {
     switch (plan) {

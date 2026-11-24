@@ -14,6 +14,12 @@ internal sealed record OrgFeatureState(FeatureDefinition Definition, Organizatio
     public bool IsLicensed => Row?.IsLicensed == true;
     /// <summary>Licensed and switched on (the row itself — not its parent).</summary>
     public bool IsOn => Definition.IsAvailable && Row is { IsLicensed: true, IsEnabled: true };
+    public bool IsGrandfathered => Row?.IsGrandfathered == true;
+    /// <summary>A51 P4 — the definition's Status / IsVisible stop this org using it: ComingSoon, or hidden, unless the org is
+    /// grandfathered. (Deprecated is not a restriction for an org that holds it; one that does not is already at None.)</summary>
+    public bool IsStatusRestricted =>
+        !IsGrandfathered && (!Definition.IsVisible
+            || string.Equals(Definition.Status, FeatureStatuses.ComingSoon, StringComparison.OrdinalIgnoreCase));
 }
 
 /// <summary>
@@ -33,6 +39,7 @@ internal static class ModuleState
     /// <summary>The row's own level, ignoring its parent.</summary>
     internal static FeatureAccessLevel SelfLevel(OrgFeatureState s, DateTime utcNow)
     {
+        if (s.IsStatusRestricted) return FeatureAccessLevel.None;
         if (s.IsOn) return FeatureAccessLevel.Full;
         if (s.Row is null || !s.Definition.IsAvailable) return FeatureAccessLevel.None;
         if (!s.Row.IsEnabled && s.Row.GracePeriodEndsAt is { } ends && ends > utcNow && s.Row.IsLicensed) return FeatureAccessLevel.Grace;

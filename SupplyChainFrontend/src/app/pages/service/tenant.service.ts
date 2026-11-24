@@ -1,8 +1,21 @@
 import { HttpClient } from '@angular/common/http';
-import { Injectable, signal } from '@angular/core';
+import { Injectable, computed, signal } from '@angular/core';
 import { tap } from 'rxjs';
 import { ApiResponse } from './auth.service';
 import { environment } from '../../../environments/environment';
+
+/**
+ * A51 P4 - one entry of GET /api/tenant/current's featureStates (CurrentTenantFeatureState).
+ * `usable` is exactly what enabledFeatureCodes lists; `isVisible` = definition visible OR the org is grandfathered;
+ * `includedInPlan` = the org's plan includes it or the org holds a licence row for it.
+ */
+export interface FeatureState {
+  code: string;
+  status: 'Live' | 'Beta' | 'ComingSoon' | 'Deprecated' | string;
+  isVisible: boolean;
+  usable: boolean;
+  includedInPlan: boolean;
+}
 
 // Mirrors SMS.Modules.Tenancy.Models.CurrentTenantModel (GET /api/tenant/current, MT-004).
 export interface CurrentTenant {
@@ -13,6 +26,8 @@ export interface CurrentTenant {
   /** The organization's base currency (a lookups currency id); null when none is configured. */
   baseCurrency?: string | null;
   enabledFeatureCodes: string[];
+  /** A51 P4 - per-feature status for the menu and route guard; absent on an older API (then enabledFeatureCodes alone decides). */
+  featureStates?: FeatureState[];
   isSuperAdmin: boolean;
   roleName: string;
   permissions: string[];
@@ -34,6 +49,9 @@ export class TenantService {
 
   readonly tenant = signal<CurrentTenant | null>(null);
 
+  /** A51 P4 - featureStates by code (empty while the tenant is not loaded or the API predates the list). */
+  readonly featureStates = computed(() => new Map((this.tenant()?.featureStates ?? []).map((s) => [s.code, s] as const)));
+
   constructor(private http: HttpClient) {}
 
   loadCurrent() {
@@ -48,6 +66,30 @@ export class TenantService {
 
   hasFeature(featureCode: string): boolean {
     return this.tenant()?.enabledFeatureCodes.includes(featureCode) ?? false;
+  }
+
+  /** A51 P4 - the state of one feature, or undefined when the API sent none for it. */
+  featureState(featureCode: string): FeatureState | undefined {
+    return this.featureStates().get(featureCode);
+  }
+
+  /** A51 P4 - the Angular counterpart of useFeatureGuard: can the org use this feature now? Super admin: yes. */
+  isFeatureUsable(featureCode: string): boolean {
+    if (this.isSuperAdmin()) return true;
+    const state = this.featureState(featureCode);
+    return state ? state.usable : this.hasFeature(featureCode);
+  }
+
+  /** A51 P4 - visible to the org (a feature without a state counts as visible, like before). */
+  isFeatureVisible(featureCode: string): boolean {
+    if (this.isSuperAdmin()) return true;
+    return this.featureState(featureCode)?.isVisible ?? true;
+  }
+
+  /** A51 P4 - visible, ComingSoon, in the org's plan and not usable: the menu shows it greyed with a badge. */
+  isComingSoon(featureCode: string): boolean {
+    const s = this.featureState(featureCode);
+    return !!s && s.status === 'ComingSoon' && s.isVisible && s.includedInPlan && !s.usable;
   }
 
   isSuperAdmin(): boolean {

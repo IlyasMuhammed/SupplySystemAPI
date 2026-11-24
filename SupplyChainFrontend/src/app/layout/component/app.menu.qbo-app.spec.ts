@@ -21,8 +21,8 @@ const tenant = (isSuperAdmin: boolean): CurrentTenant => ({
     roleName: 'Admin', permissions: []
 });
 
-/** docs/quickbooks/APP-CREDENTIALS.md â€” System Administration â€º QuickBooks App: super admins only. */
-describe('AppMenu â€” QuickBooks App (platform keys)', () => {
+/** docs/quickbooks/APP-CREDENTIALS.md — System Administration › QuickBooks App: super admins only. */
+describe('AppMenu — QuickBooks App (platform keys)', () => {
     let tenantService: FakeTenantService;
     let authService: FakeAuthService;
     let menu: AppMenu;
@@ -37,8 +37,8 @@ describe('AppMenu â€” QuickBooks App (platform keys)', () => {
 
     it('is under System Administration for a super admin', () => {
         tenantService.tenant.set(tenant(true));
-        expect(group()!.items!.map((i: any) => i.label)).toEqual(['Organizations', 'QuickBooks App', 'Setup Defaults']);
-        expect(group()!.items![1].routerLink).toEqual(['/portal/pages/system/quickbooks-app']);
+        expect(group()!.items!.map((i: any) => i.label)).toEqual(['Organizations', 'Countries', 'Industries', 'Features', 'Plans', 'QuickBooks App', 'Setup Defaults']);
+        expect(group()!.items![5].routerLink).toEqual(['/portal/pages/system/quickbooks-app']);
     });
 
     it('is not shown to an organization admin, even one holding INTEGRATION_MANAGE', () => {

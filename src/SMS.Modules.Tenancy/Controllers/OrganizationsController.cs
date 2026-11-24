@@ -94,9 +94,9 @@ public class OrganizationsController : ControllerBase
     [HttpPost("{id:guid}/apply-plan-template")]
     public async Task<IActionResult> ApplyPlanTemplate(Guid id)
     {
-        var updated = await _svc.ApplyPlanTemplateAsync(id, User.GetUserId());
-        return updated
-            ? Ok(ApiResponse.Ok("Plan template applied."))
+        var result = await _svc.ApplyPlanTemplateDetailedAsync(id, User.GetUserId());
+        return result is not null
+            ? Ok(ApiResponse<PlanApplyOrgResult>.Ok(result, "Plan template applied."))
             : NotFound(ApiResponse.Fail(StaticResponseMessage.recordNotFound));
     }
 
@@ -143,6 +143,24 @@ public class OrganizationsController : ControllerBase
     {
         await _orgUsers.ReassignOrgAdminAsync(id, req.NewAdminUserId);
         return Ok(ApiResponse.Ok("Organization admin updated."));
+    }
+
+    // A51 P7 (A51-D12) — a fresh invitation (new 7-day token, the old link stops working) sent NOW through the checked send path:
+    // the answer says whether it went out. The invite link is in the answer only when it did not (copy it to the admin yourself).
+    [HttpPost("{id:guid}/users/{userId:int}/resend-invitation")]
+    public async Task<IActionResult> ResendInvitation(Guid id, int userId, [FromBody] ResendInvitationRequest? req, CancellationToken ct)
+    {
+        var org = await _svc.GetOrganizationByIdAsync(id);
+        if (org is null) return NotFound(ApiResponse.Fail(StaticResponseMessage.recordNotFound));
+
+        var sent = await _orgUsers.SendInvitationAsync(id, userId, req?.Email, org.OrgName, issueNewToken: true, ct)
+                   ?? throw new SMS.Shared.Exceptions.BadRequestException("Sending invitations is not available.");
+        var result = new ResendInvitationResult
+        {
+            User = sent.User, EmailSent = sent.EmailSent, EmailConfigured = sent.EmailConfigured, Error = sent.Error,
+            InviteLink = sent.EmailSent ? null : sent.InviteLink
+        };
+        return Ok(ApiResponse<ResendInvitationResult>.Ok(result, sent.EmailSent ? $"A new invitation was sent to {sent.Email}." : "The invitation could not be sent; copy the link."));
     }
 
     // A fresh invite link for a user who never set up their account — e.g. the admin's address was mistyped or the

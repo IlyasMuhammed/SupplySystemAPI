@@ -59,6 +59,17 @@ describe('SetupDefaultsService', () => {
     expect(i.request.params.get('mode')).toBe('insertOnly');
     i.flush({ success: true, result: {} });
 
+    svc.import({ defaults: [] }, false, 'upsert', true).subscribe();
+    const s = http.expectOne(x => x.url === `${base}/import`);
+    expect(s.request.params.get('skipInvalid')).toBe('true');
+    expect(s.request.params.get('dryRun')).toBe('false');
+    s.flush({ success: true, result: {} });
+
+    svc.import({ defaults: [] }, true).subscribe();
+    const plain = http.expectOne(x => x.url === `${base}/import`);
+    expect(plain.request.params.has('skipInvalid')).toBeFalse();
+    plain.flush({ success: true, result: {} });
+
     svc.export({ country: 'PK' }).subscribe();
     const e = http.expectOne(x => x.url === `${base}/export`);
     expect(e.request.responseType).toBe('blob');

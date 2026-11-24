@@ -1,0 +1,34 @@
+{
+  "zoneTypes": [
+    {
+      "code": "RAW_MATERIAL",
+      "name": "Raw Material Store",
+      "description": "Incoming materials waiting to be issued to production.",
+      "default": true
+    },
+    {
+      "code": "WIP",
+      "name": "Work in Progress",
+      "description": "Shop floor: materials issued to production orders.",
+      "default": true
+    },
+    {
+      "code": "FINISHED_GOODS",
+      "name": "Finished Goods",
+      "description": "Completed production ready for dispatch.",
+      "default": true
+    },
+    {
+      "code": "QUALITY_CONTROL",
+      "name": "Quality Control",
+      "description": "Inspection area for incoming and finished goods, and rejected stock.",
+      "default": true
+    }
+  ],
+  "defaultWarehouse": {
+    "code": "WH-FACTORY",
+    "name": "Factory Warehouse"
+  },
+  "displayName": "Manufacturing warehouse zones",
+  "notes": "Raw material, work in progress, finished goods and quality control zones."
+}

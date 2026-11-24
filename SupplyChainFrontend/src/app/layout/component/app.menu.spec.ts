@@ -6,7 +6,7 @@ import pageRoutes from '../../pages/pages.routes';
 import hrmRoutes from '../../pages/hrm/hrm.routes';
 import onboardingRoutes from '../../pages/onboarding/onboarding.routes';
 
-// Duck-typed test doubles â€” AppMenu only ever calls these specific members, and its `model` is a
+// Duck-typed test doubles — AppMenu only ever calls these specific members, and its `model` is a
 // plain computed() signal, so constructing it directly (bypassing TestBed/HttpClient/Router) is
 // both simpler and a more direct test of the actual filtering logic (MT-005 acceptance criteria).
 class FakeTenantService {
@@ -102,7 +102,7 @@ describe('AppMenu filtering (MT-005)', () => {
         expect(allLabels(menu.model())).not.toContain('System Administration');
     });
 
-    /** An organization user who holds every feature and permission â€” the way to read the whole menu tree. */
+    /** An organization user who holds every feature and permission — the way to read the whole menu tree. */
     function showWholeTree(): void {
         tenantService.everyFeature = true;
         authService.everyPermission = true;
@@ -115,7 +115,7 @@ describe('AppMenu filtering (MT-005)', () => {
         tenantService.tenant.set(baseTenant({ isSuperAdmin: true, enabledFeatureCodes: [] }));
 
         const labels = allLabels(menu.model());
-        expect(labels).toEqual(['System Administration', 'Organizations', 'QuickBooks App', 'Setup Defaults']);
+        expect(labels).toEqual(['System Administration', 'Organizations', 'Countries', 'Industries', 'Features', 'Plans', 'QuickBooks App', 'Setup Defaults']);
     });
 
     it('a Requester with no procurement permissions sees no Procurement menu, even with the feature enabled', () => {
@@ -195,7 +195,7 @@ describe('AppMenu filtering (MT-005)', () => {
 
     it('every menu link points at a route that exists', () => {
         showWholeTree();
-        // A49 â€” the HRM routes are lazy children of `hrm`.
+        // A49 — the HRM routes are lazy children of `hrm`.
         const paths = new Set([...(pageRoutes as Routes).map(r => r.path), ...hrmRoutes.map(r => `hrm/${r.path}`),
             // A50 — the onboarding routes are lazy children of `onboarding`.
             ...(onboardingRoutes as Routes).map(r => `onboarding/${r.path}`)]);
@@ -210,7 +210,7 @@ describe('AppMenu filtering (MT-005)', () => {
 
     it('reaches the logistics tracking and freight settlement screens from the menu', () => {
         authService.permissions = ['DELIVERY_VIEW', 'FREIGHT_INVOICE_VIEW', 'SHIPMENT_RATE_VIEW', 'SHIPPING_RULE_MANAGE', 'DELIVERY_TRACK'];
-        // A37 â€” the Tracking screens need only Logistics (FEATURE_SHIPMENT_TRACKING guards consignments, not these).
+        // A37 — the Tracking screens need only Logistics (FEATURE_SHIPMENT_TRACKING guards consignments, not these).
         tenantService.tenant.set(baseTenant({ enabledFeatureCodes: ['MODULE_LOGISTICS'], permissions: authService.permissions }));
 
         const labels = allLabels(menu.model());
@@ -277,7 +277,7 @@ describe('AppMenu filtering (MT-005)', () => {
                               'Department Cost Ledger', 'Batch / Serial Trace', 'Consumption (Detail)', 'Stock Movement / Ledger']) {
             expect(reports).withContext(ledger).toContain(ledger);
         }
-        // â€¦and nowhere else.
+        // …and nowhere else.
         for (const group of ['Manufacturing', 'Warehouse & Inventory', 'Material Management', 'Finance']) {
             const labels = allLabels(menu.model().filter((g: any) => g.label === group));
             expect(labels).not.toContain('Manufacturing Reports');
@@ -336,7 +336,7 @@ describe('AppMenu filtering (MT-005)', () => {
         expect(allLabels(menu.model())).toContain('Stock Movement / Ledger');
     });
 
-    // â”€â”€ A37: module sub-features, Settings â€º Modules, refresh â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // â”€â”€ A37: module sub-features, Settings › Modules, refresh â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     it('hides RFQs, picking, tracking and supplier returns when their sub-feature is switched off', () => {
         authService.permissions = ['RFQ_VIEW', 'PO_VIEW', 'PICKING', 'DELIVERY_VIEW', 'GOODS_RECEIVE'];
@@ -374,7 +374,7 @@ describe('AppMenu filtering (MT-005)', () => {
         }
     });
 
-    it('offers Settings â€º System â€º Modules to MODULES_VIEW holders only', () => {
+    it('offers Settings › System › Modules to MODULES_VIEW holders only', () => {
         authService.permissions = ['MODULES_VIEW'];
         tenantService.tenant.set(baseTenant({ enabledFeatureCodes: [], permissions: authService.permissions }));
         expect(allLabels(menu.model())).toContain('Modules');
@@ -397,7 +397,7 @@ describe('AppMenu filtering (MT-005)', () => {
         expect(calls).toBeGreaterThan(before);
     });
 
-    it('Organization Admin is a real permission holder, not a blanket bypass â€” sees only what its default grants (USER_MANAGE, PO_TEMPLATE_MANAGE) justify', () => {
+    it('Organization Admin is a real permission holder, not a blanket bypass — sees only what its default grants (USER_MANAGE, PO_TEMPLATE_MANAGE) justify', () => {
         authService.permissions = ['USER_MANAGE', 'PO_TEMPLATE_MANAGE']; // Org Admin's actual defaults
         tenantService.tenant.set(baseTenant({
             roleName: 'Organization Admin',

@@ -13,6 +13,8 @@ internal interface ITenancyRepository
     Task<bool> PatchStatusAsync(Guid id, bool isActive, int modifiedBy);
     Task<bool> PatchPlanAsync(Guid id, string plan, int modifiedBy);
     Task<bool> ApplyPlanTemplateAsync(Guid id, int modifiedBy);
+    /// <summary>A51 P7 — the reset with what it added / removed / skipped; null when the organization does not exist.</summary>
+    Task<PlanApplyOrgResult?> ApplyPlanTemplateDetailedAsync(Guid id, int modifiedBy) => Task.FromResult<PlanApplyOrgResult?>(null);
 
     Task<List<FeatureDefinitionModel>> GetFeatureCatalogAsync();
     Task<List<PlanFeatureTemplateModel>> GetPlanTemplatesAsync();

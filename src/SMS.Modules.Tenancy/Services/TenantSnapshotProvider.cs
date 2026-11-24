@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Primitives;
 using SMS.Modules.Tenancy.Data;
 using SMS.Shared.Common;
 
@@ -45,9 +46,17 @@ internal sealed class TenantSnapshotProvider : ITenantSnapshotProvider
 
         var states = await ModuleState.LoadAsync(_db, organizationId, track: false);
         var snapshot = ModuleState.ToSnapshot(isActive.Value, states, _clock.GetUtcNow().UtcDateTime);
-        _cache.Set(CacheKey(organizationId), snapshot, CacheTtl);
+        // A51 P4 — a status / visibility change on a feature definition affects every org: it expires all entries at once.
+        var options = new MemoryCacheEntryOptions { AbsoluteExpirationRelativeToNow = CacheTtl };
+        options.AddExpirationToken(new CancellationChangeToken(AllEntries.Token));
+        _cache.Set(CacheKey(organizationId), snapshot, options);
         return snapshot;
     }
+
+    private static CancellationTokenSource AllEntries = new();
+
+    /// <summary>Drops every cached snapshot (this process). Called when a feature definition's Status / IsVisible changes.</summary>
+    public static void InvalidateAll() => Interlocked.Exchange(ref AllEntries, new CancellationTokenSource()).Cancel();
 
     public void Invalidate(Guid organizationId) => _cache.Remove(CacheKey(organizationId));
 }

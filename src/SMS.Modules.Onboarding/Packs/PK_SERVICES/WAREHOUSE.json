@@ -1,0 +1,16 @@
+{
+  "zoneTypes": [
+    {
+      "code": "SUPPLIES",
+      "name": "Office Supplies",
+      "description": "Small store of supplies and consumables.",
+      "default": true
+    }
+  ],
+  "defaultWarehouse": {
+    "code": "WH-OFFICE",
+    "name": "Office Supplies Store"
+  },
+  "displayName": "Services warehouse (minimal)",
+  "notes": "A service business holds no trading stock: one small supplies store only. Remove it if the warehouse module is not used."
+}

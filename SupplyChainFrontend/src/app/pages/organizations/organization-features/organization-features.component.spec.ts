@@ -129,6 +129,59 @@ describe('OrganizationFeaturesComponent — licence semantics (A37 §1.2)', () =
       });
     });
 
+    // ── A51 P7: Coming Soon features are not licensed by a plan ──
+
+    it('marks a feature the platform holds Coming Soon (and the organization is not grandfathered for) as "Not licensed - Coming Soon"', () => {
+      const rows = [
+        f({ featureCode: 'MODULE_POS', featureName: 'Point of Sale', category: 'MODULE', status: 'NOT_LICENSED', isEnabled: false, isLicensed: false, featureStatus: 'ComingSoon' }),
+        f({ featureCode: 'MODULE_HRM', featureName: 'HR', category: 'MODULE', status: 'ACTIVE', isEnabled: true, isLicensed: true, featureStatus: 'ComingSoon', isGrandfathered: true }),
+        f({ featureCode: 'MODULE_CRM', featureName: 'CRM', category: 'MODULE', status: 'NOT_LICENSED', isEnabled: false, isLicensed: false, featureStatus: 'Live' })
+      ].map(x => OrganizationFeaturesComponent.row(x));
+      expect(rows.map(r => r.platformComingSoon)).toEqual([true, false, false]);
+    });
+
+    it('shows the note on the row of such a feature', () => {
+      const cmp = fixture.componentInstance;
+      cmp.features = [
+        f({ featureCode: 'MODULE_POS', featureName: 'Point of Sale', category: 'MODULE', status: 'NOT_LICENSED', isEnabled: false, isLicensed: false, featureStatus: 'ComingSoon' }),
+        f({ featureCode: 'FEATURE_POS_ORDERS', featureName: 'POS Orders', parentModuleCode: 'MODULE_POS', status: 'NOT_LICENSED', isEnabled: false, isLicensed: false })
+      ];
+      cmp.groupedFeatures = OrganizationFeaturesComponent.group(cmp.features);
+      cmp.applyFilter();
+      cmp.toggleGroup('MODULE_POS');
+      fixture.detectChanges();
+      expect(q('cs-note-MODULE_POS')!.textContent).toContain('Coming Soon');
+    });
+
+    it('Reset to Plan Defaults shows what it skipped because of Coming Soon, and what it left for other reasons', () => {
+      svc.applyPlanTemplate.and.returnValue(of({ success: true, message: 'Plan template applied.', result: {
+        organizationId: 'o1', plan: 'STANDARD', added: [{ featureCode: 'MODULE_CRM', featureName: 'CRM' }], removed: [],
+        skipped: [
+          { featureCode: 'MODULE_POS', featureName: 'Point of Sale', reason: 'ComingSoon', detail: 'Not licensed because it is Coming Soon.' },
+          { featureCode: 'MODULE_HRM', featureName: 'Human Resources', reason: 'LicensedByHandOnly', detail: 'Licensed by hand; a plan never removes it.' }
+        ]
+      } }));
+      const cmp = fixture.componentInstance;
+      (cmp as any).confirmationService.confirm = (c: any) => c.accept();
+      cmp.confirmApplyPlanTemplate();
+      fixture.detectChanges();
+
+      expect(svc.applyPlanTemplate).toHaveBeenCalledWith('o1');
+      expect(q('reset-result')!.textContent).toContain('1 added');
+      expect(q('reset-coming-soon')!.textContent).toContain('Not licensed because Coming Soon');
+      expect(q('reset-coming-soon')!.textContent).toContain('Point of Sale');
+      expect(q('reset-other-skipped')!.textContent).toContain('Human Resources');
+    });
+
+    it('a reset answer without a body (an older server) shows no banner', () => {
+      svc.applyPlanTemplate.and.returnValue(of({ success: true, message: 'Plan template applied.', result: null }));
+      const cmp = fixture.componentInstance;
+      (cmp as any).confirmationService.confirm = (c: any) => c.accept();
+      cmp.confirmApplyPlanTemplate();
+      fixture.detectChanges();
+      expect(q('reset-result')).toBeNull();
+    });
+
     it('a tick sets the licence and re-reads the statuses', () => {
       const cmp = fixture.componentInstance;
       const qi = cmp.features.find(x => x.featureCode === 'FEATURE_QUALITY_INSPECTION')!;

@@ -2,6 +2,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
+import type { PlanApplyFeatureItem, PlanApplyOrgResult } from './features-admin.service';
 
 const BASE = `${environment.apiUrl}/system/organizations`;
 
@@ -39,6 +40,32 @@ export interface OrganizationListItemModel {
   isActive: boolean;
   contactEmail?: string;
   createdDate: string;
+  /** A51 P7 - from the organization's setup row (null when it has none). */
+  countryCode?: string | null;
+  industryType?: string | null;
+  setupStatus?: SetupStatus | null;
+}
+
+/** A51 P7 - the organization's onboarding setup status. */
+export type SetupStatus = 'NotStarted' | 'InProgress' | 'Completed' | 'Skipped';
+
+export function setupStatusLabel(s?: string | null): string {
+  switch (s) {
+    case 'Completed':  return 'Completed';
+    case 'InProgress': return 'In progress';
+    case 'NotStarted': return 'Not started';
+    case 'Skipped':    return 'Skipped';
+    default:           return '—';
+  }
+}
+
+export function setupStatusSeverity(s?: string | null): 'success' | 'info' | 'warn' | 'secondary' {
+  switch (s) {
+    case 'Completed':  return 'success';
+    case 'InProgress': return 'info';
+    case 'NotStarted': return 'warn';
+    default:           return 'secondary';
+  }
 }
 
 export interface OrganizationDetailModel {
@@ -58,6 +85,10 @@ export interface OrganizationDetailModel {
   createdDate: string;
   modifiedBy?: number;
   modifiedDate?: string;
+  /** A51 P7 - read-only: changing country or industry later does not re-run default data. */
+  countryCode?: string | null;
+  industryType?: string | null;
+  setupStatus?: SetupStatus | null;
 }
 
 export interface OrganizationFilter {
@@ -71,12 +102,17 @@ export interface OrganizationFilter {
 export interface CreateOrganizationRequest {
   orgCode: string;
   orgName: string;
-  plan: OrgPlan;
+  /** A plan code from the Plans master (BASIC is shown as "Default"). */
+  plan: OrgPlan | string;
   contactEmail?: string;
   contactPhone?: string;
   address?: string;
   country?: string;
   timeZone?: string;
+  /** A51 P3 - alpha-2 code from the countries master; the server stores the country name and, without a timeZone, the country's default zone. */
+  countryCode?: string;
+  /** A51 P3 - an industry offered in countryCode; needs a countryCode. With both, the server applies the A50 default data to the new organization. */
+  industryType?: string;
   /** A Lookups currency id; optional. */
   baseCurrency?: string;
   // Initial Admin user, created atomically with the organization — receives an email
@@ -88,9 +124,99 @@ export interface CreateOrganizationRequest {
   moduleCodes?: string[];
 }
 
+/** Pack level of the A50 fallback chain a category's default came from. */
+export type PackLevel = 'Exact' | 'Country' | 'Industry' | 'Global' | 'None';
+
+export interface OrgDefaultsCategoryResult {
+  category: string;
+  status: string;
+  ok: boolean;
+  created: number;
+  skipped: number;
+  message?: string | null;
+  packLevel: PackLevel;
+  resolvedCountry?: string | null;
+  resolvedIndustry?: string | null;
+}
+
+/** A51 P7 - where the background apply of the default data stands. */
+export type DefaultsRunStatus = 'Running' | 'Completed' | 'InProgress' | 'Failed' | 'NotStarted';
+
+/** A51 P7 - GET api/system/organizations/{id}/defaults-status. Per-category rows are 'Pending' until their turn. */
+export interface OrgDefaultsStatus {
+  organizationId: string;
+  status: DefaultsRunStatus;
+  setupStatus?: string | null;
+  countryCode?: string | null;
+  industryType?: string | null;
+  packLevel: PackLevel;
+  fallbackUsed: boolean;
+  message?: string | null;
+  startedAt?: string | null;
+  finishedAt?: string | null;
+  categories: OrgDefaultsCategoryResult[];
+}
+
+/** A51 P7 - did the initial admin's invitation e-mail go out? The link is present only when it did not (Super Admin only; never shown elsewhere). */
+export interface OrgInvitationOutcome {
+  adminEmail?: string | null;
+  emailSent: boolean;
+  emailConfigured: boolean;
+  error?: string | null;
+  inviteLink?: string | null;
+  inviteExpiresAt?: string | null;
+}
+
+/** A51 P7 - POST .../users/{id}/resend-invitation. */
+export interface ResendInvitationResult {
+  user?: OrgUserSummary | null;
+  emailSent: boolean;
+  emailConfigured: boolean;
+  error?: string | null;
+  inviteLink?: string | null;
+}
+
+/** A51 P3 - what applying the default data to the new organization did (best effort: the organization exists either way). */
+export interface OrgDefaultsOutcome {
+  /** A51 P7 - 'Running' right after create (the apply is queued for a background worker); the dialog then polls the status endpoint. */
+  status?: DefaultsRunStatus;
+  attempted: boolean;
+  setupStatus?: string | null;
+  completed: boolean;
+  countryCode?: string | null;
+  industryType?: string | null;
+  packLevel: PackLevel;
+  fallbackUsed: boolean;
+  message?: string | null;
+  categories: OrgDefaultsCategoryResult[];
+}
+
 export interface CreateOrganizationResult {
   organizationId: string;
   adminUserId: number;
+  plan?: string | null;
+  country?: string | null;
+  countryCode?: string | null;
+  industryType?: string | null;
+  timeZone?: string | null;
+  timeZoneFromCountry?: boolean;
+  /** Null when no country was chosen (nothing applied; the wizard asks on the admin's first login). */
+  defaults?: OrgDefaultsOutcome | null;
+  /** A51 P7 - plan features not licensed to the new organization because they are Coming Soon or not visible. */
+  skippedFeatures?: PlanApplyFeatureItem[] | null;
+  /** A51 P7 - whether the invitation e-mail went out. */
+  invitation?: OrgInvitationOutcome | null;
+}
+
+/** Plain-words name of a pack level for the create result. */
+export function packLevelLabel(level?: string | null): string {
+  switch (level) {
+    case 'Exact':    return 'country + industry pack';
+    case 'Country':  return 'country pack (general industry)';
+    case 'Industry': return 'industry pack (general country)';
+    case 'Global':   return 'general pack (no country or industry pack)';
+    default:         return 'no pack';
+  }
 }
 
 export interface UpdateOrganizationRequest {
@@ -137,6 +263,10 @@ export interface OrganizationFeatureModel {
   parentModuleCode?: string | null;
   isAlwaysOn?: boolean;
   isAvailable?: boolean;
+  /** A51 P7 - the platform status of the feature (Live / Beta / ComingSoon / Deprecated), whether it is listed, and whether this organization is grandfathered for it. */
+  featureStatus?: string;
+  isVisible?: boolean;
+  isGrandfathered?: boolean;
 }
 
 /** A37 — GET …/features/history (newest first). */
@@ -218,8 +348,14 @@ export class OrganizationsService {
     return this.http.patch<ApiResponse<null>>(`${BASE}/${id}/plan`, { plan });
   }
 
-  applyPlanTemplate(id: string): Observable<ApiResponse<null>> {
-    return this.http.post<ApiResponse<null>>(`${BASE}/${id}/apply-plan-template`, {});
+  /** Reset to Plan Defaults. A51 P7: the answer lists what was added / removed / skipped (Coming Soon features are skipped). */
+  applyPlanTemplate(id: string): Observable<ApiResponse<PlanApplyOrgResult | null>> {
+    return this.http.post<ApiResponse<PlanApplyOrgResult | null>>(`${BASE}/${id}/apply-plan-template`, {});
+  }
+
+  /** A51 P7 - progress of the background default-data apply (poll every few seconds while status is Running). */
+  getDefaultsStatus(id: string): Observable<ApiResponse<OrgDefaultsStatus>> {
+    return this.http.get<ApiResponse<OrgDefaultsStatus>>(`${BASE}/${id}/defaults-status`);
   }
 
   // ── Feature toggles (nested under Organizations per the ticket's route shape) ──────
@@ -254,5 +390,14 @@ export class OrganizationsService {
   reinviteOrgUser(orgId: string, userId: number, email?: string | null): Observable<ApiResponse<OrgUserSummary>> {
     return this.http.post<ApiResponse<OrgUserSummary>>(
       `${BASE}/${orgId}/users/${userId}/reinvite`, { email: email?.trim() || null });
+  }
+
+  /**
+   * A51 P7 - the same, sent now through the checked send path: the answer says whether the mail went out and, only when it did not,
+   * carries the invite link for the super admin to copy. The old link stops working.
+   */
+  resendInvitation(orgId: string, userId: number, email?: string | null): Observable<ApiResponse<ResendInvitationResult>> {
+    return this.http.post<ApiResponse<ResendInvitationResult>>(
+      `${BASE}/${orgId}/users/${userId}/resend-invitation`, { email: email?.trim() || null });
   }
 }

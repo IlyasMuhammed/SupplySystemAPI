@@ -519,6 +519,16 @@ export default [
       loadComponent: () => import('./system/setup-defaults/setup-defaults-list.component').then(m => m.SetupDefaultsListComponent) },
     { path: 'system/setup-defaults/:uuid', canActivate: [permissionGuard(P.PLATFORM_SUPER_ADMIN)],
       loadComponent: () => import('./system/setup-defaults/setup-default-editor.component').then(m => m.SetupDefaultEditorComponent) },
+    // A51 P1 — System Administration › Countries and Industries masters (super admin).
+    { path: 'system/countries', canActivate: [permissionGuard(P.PLATFORM_SUPER_ADMIN)],
+      loadComponent: () => import('./system/countries/countries-list.component').then(m => m.CountriesListComponent) },
+    { path: 'system/industries', canActivate: [permissionGuard(P.PLATFORM_SUPER_ADMIN)],
+      loadComponent: () => import('./system/industries/industries-list.component').then(m => m.IndustriesListComponent) },
+    // A51 P2 - System Administration > Features (status / visibility) and Plans (included features), super admin.
+    { path: 'system/features', canActivate: [permissionGuard(P.PLATFORM_SUPER_ADMIN)],
+      loadComponent: () => import('./system/features/features-list.component').then(m => m.FeaturesListComponent) },
+    { path: 'system/plans', canActivate: [permissionGuard(P.PLATFORM_SUPER_ADMIN)],
+      loadComponent: () => import('./system/plans/plans-list.component').then(m => m.PlansListComponent) },
     // A50 — Settings › Organization: setup wizard, default data (FE-A50) + templates / sample data (FE-B50). Lazy.
     { path: 'onboarding', loadChildren: () => import('./onboarding/onboarding.routes') },
 

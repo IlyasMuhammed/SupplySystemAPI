@@ -27,8 +27,11 @@ internal sealed class FeatureDefinitionMap : IEntityTypeConfiguration<FeatureDef
 {
     public void Configure(EntityTypeBuilder<FeatureDefinition> b)
     {
-        b.ToTable("FeatureDefinitions");
+        b.ToTable("FeatureDefinitions", t =>
+            t.HasCheckConstraint("CK_FeatureDefinitions_Status", "[Status] IN ('Live','Beta','ComingSoon','Deprecated')"));
         b.HasKey(x => x.Id);
+        // A51 P2 — SQL defaults ('Live', 1) live in the guarded migration only, for the same reason as the A37 bools.
+        b.Property(x => x.Status).HasMaxLength(20).IsRequired();
         b.Property(x => x.FeatureCode).HasMaxLength(50).IsRequired();
         b.HasIndex(x => x.FeatureCode).IsUnique();
         b.Property(x => x.FeatureName).HasMaxLength(150).IsRequired();
@@ -92,7 +95,35 @@ internal sealed class PlanFeatureTemplateMap : IEntityTypeConfiguration<PlanFeat
     }
 }
 
-internal sealed class OrganizationSettingsMap : IEntityTypeConfiguration<OrganizationSettings>
+internal sealed class PlanMap : IEntityTypeConfiguration<Plan>
+{
+    public void Configure(EntityTypeBuilder<Plan> b)
+    {
+        b.ToTable("Plans");
+        b.HasKey(x => x.Id);
+        b.Property(x => x.Code).HasMaxLength(20).IsRequired();
+        b.HasIndex(x => x.Code).IsUnique().HasDatabaseName("UQ_Plans_Code");
+        b.Property(x => x.Name).HasMaxLength(100).IsRequired();
+        b.Property(x => x.Description).HasMaxLength(500);
+        b.Property(x => x.MonthlyPrice).HasColumnType("decimal(18,2)");
+        b.Property(x => x.CreatedAt).IsRequired();
+        b.Property(x => x.ModifiedAt).IsRequired();
+    }
+}
+
+internal sealed class PlanFeatureMap : IEntityTypeConfiguration<PlanFeature>
+{
+    public void Configure(EntityTypeBuilder<PlanFeature> b)
+    {
+        b.ToTable("PlanFeatures");
+        b.HasKey(x => x.Id);
+        b.Property(x => x.PlanCode).HasMaxLength(20).IsRequired();
+        b.Property(x => x.FeatureCode).HasMaxLength(50).IsRequired();
+        b.HasIndex(x => new { x.PlanCode, x.FeatureCode }).IsUnique().HasDatabaseName("UQ_PlanFeatures_Key");
+    }
+}
+
+internal sealed class OrganizationSettingsMap: IEntityTypeConfiguration<OrganizationSettings>
 {
     public void Configure(EntityTypeBuilder<OrganizationSettings> b)
     {

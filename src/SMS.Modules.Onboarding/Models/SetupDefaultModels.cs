@@ -95,6 +95,9 @@ public sealed class SetupDefaultsPackFile
 public static class SetupDefaultsPackFormat
 {
     public const string Name = "sms-setup-defaults";
+    /// <summary>A51 P5 — most records one import accepts (the request body is capped as well).</summary>
+    public const int MaxItems = 1000;
+    public const long MaxBodyBytes = 20 * 1024 * 1024;
 }
 
 public sealed class SetupDefaultsPackItem
@@ -116,6 +119,8 @@ public sealed class SetupDefaultsImportResult
     public int  Created { get; set; }
     public int  Updated { get; set; }
     public int  Unchanged { get; set; }
+    /// <summary>Records that failed validation (A51 P5); reported in <see cref="Errors"/>.</summary>
+    public int  Invalid { get; set; }
     public List<SetupDefaultsImportError> Errors { get; init; } = new();
     public List<SetupDefaultsImportItem> Items { get; init; } = new();
 }
@@ -129,3 +134,4 @@ public static class SetupImportModes
     public const string Upsert = "upsert";
     public const string InsertOnly = "insertOnly";
 }
+

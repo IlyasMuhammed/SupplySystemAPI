@@ -319,7 +319,9 @@ internal sealed class ModuleRegistryService : IModuleRegistryService
             }).ToList();
 
         var row = module.Row;
-        var status = ModuleState.Status(module, now);
+        // A51 P6: a feature the super admin has set ComingSoon / hidden for this organization is refused by the API (403), so the
+        // card must not claim ACTIVE; it shows as Coming soon (not toggleable) until the status is opened or the org is grandfathered.
+        var status = module.IsStatusRestricted ? ModuleState.StatusComingSoon : ModuleState.Status(module, now);
         return new ModuleCardModel
         {
             Code           = module.Code,

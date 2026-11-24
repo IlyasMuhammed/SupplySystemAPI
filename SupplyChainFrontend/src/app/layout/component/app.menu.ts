@@ -4,7 +4,7 @@ import { RouterModule } from '@angular/router';
 import { MenuItem } from 'primeng/api';
 import { AppMenuitem } from './app.menuitem';
 import { AuthService } from '../../pages/service/auth.service';
-import { TenantService } from '../../pages/service/tenant.service';
+import { FeatureState, TenantService } from '../../pages/service/tenant.service';
 import { ModuleService } from '../../services/module.service';
 import { AccountingService } from '../../services/accounting.service';
 import { hrmMenuGroup, HRM_ROUTE } from '../../pages/hrm/core/hrm.nav';
@@ -34,7 +34,7 @@ export const GL_DASHBOARD_ID = 'gl-dashboard';
  * The groups follow the work: sales → production → procurement → warehouse → fulfilment → finance,
  * then reports (in the same order) and administration.
  */
-type NavItem = MenuItem & {
+export type NavItem = MenuItem & {
     permRequired?: string[];
     alsoRequired?: string[];
     featureCode?: string | string[];
@@ -42,6 +42,8 @@ type NavItem = MenuItem & {
     anyFeature?: string[];
     superAdminOnly?: boolean;
     items?: NavItem[];
+    /** Set by filterItems on a visible ComingSoon item (A51 P4). */
+    comingSoon?: boolean;
 };
 
 /** A42 — the three GL codes every A42 page opens for. */
@@ -85,7 +87,8 @@ export class AppMenu {
 
     // Static structure — the underlying nav tree never changes mid-session, only its filtered
     // visibility does (see `model`), so this is built once rather than in ngOnInit.
-    private readonly fullMenu: NavItem[] = [
+    // A51 P4 - static so the route guard (featureVisibilityGuard) reads the very same route -> feature map the menu uses.
+    static readonly FULL_MENU: NavItem[] = [
 
         // ── Home ──────────────────────────────────────────────────────────
         // What most people open first: the dashboard, their approvals, the KPIs.
@@ -1040,6 +1043,16 @@ export class AppMenu {
             items: [
                 { label: 'Organizations', icon: 'pi pi-fw pi-sitemap',
                   routerLink: ['/portal/pages/organizations'] },
+                // A51 P1 — the country and industry masters a new organization is created from.
+                { label: 'Countries', icon: 'pi pi-fw pi-globe',
+                  routerLink: ['/portal/pages/system/countries'] },
+                { label: 'Industries', icon: 'pi pi-fw pi-briefcase',
+                  routerLink: ['/portal/pages/system/industries'] },
+                // A51 P2 - the platform feature catalog (status / visibility) and the plans with their included features.
+                { label: 'Features', icon: 'pi pi-fw pi-th-large',
+                  routerLink: ['/portal/pages/system/features'] },
+                { label: 'Plans', icon: 'pi pi-fw pi-tags',
+                  routerLink: ['/portal/pages/system/plans'] },
                 // docs/quickbooks/APP-CREDENTIALS.md — the platform's Intuit app keys.
                 { label: 'QuickBooks App', icon: 'pi pi-fw pi-key',
                   routerLink: ['/portal/pages/system/quickbooks-app'] },
@@ -1049,6 +1062,8 @@ export class AppMenu {
             ]
         }
     ];
+
+    private readonly fullMenu: NavItem[] = AppMenu.FULL_MENU;
 
     readonly model = computed<NavItem[]>(() => {
         const tenant = this.tenantService.tenant();
@@ -1063,7 +1078,8 @@ export class AppMenu {
         const menu = tenant.isSuperAdmin ? this.fullMenu.filter(item => item.superAdminOnly) : this.fullMenu;
 
         return this.withGlState(this.filterItems(menu, {
-            isSuperAdmin: tenant.isSuperAdmin
+            isSuperAdmin: tenant.isSuperAdmin,
+            states: new Map((tenant.featureStates ?? []).map(s => [s.code, s] as const))
         }));
     });
 
@@ -1089,10 +1105,28 @@ export class AppMenu {
         return result;
     }
 
-    private filterItems(items: NavItem[], ctx: { isSuperAdmin: boolean }): NavItem[] {
+    /**
+     * A51 P4 - the verdict of the feature gates of one item. 'show': every feature usable. 'comingSoon': the only thing missing
+     * is features that are visible, ComingSoon and in the org's plan (rendered greyed with a badge). 'hide': anything else -
+     * hidden by the super admin, not in the plan, not licensed, switched off. The server's featureStates are optional, so an
+     * older API (or a test double without them) behaves exactly as before: usable or hidden.
+     */
+    private featureVerdict(features: string[], states: ReadonlyMap<string, FeatureState>): 'show' | 'hide' | 'comingSoon' {
+        let comingSoon = false;
+        for (const code of features) {
+            if (this.tenantService.hasFeature(code)) continue;
+            const state = states.get(code);
+            if (state && state.isVisible && state.status === 'ComingSoon' && state.includedInPlan) { comingSoon = true; continue; }
+            return 'hide';
+        }
+        return comingSoon ? 'comingSoon' : 'show';
+    }
+
+    private filterItems(items: NavItem[], ctx: { isSuperAdmin: boolean; states?: ReadonlyMap<string, FeatureState>; ignoreFeatures?: boolean }): NavItem[] {
         const result: NavItem[] = [];
         for (const item of items) {
             if (item.separator) { result.push(item); continue; }
+            let comingSoon = false;
 
             // Super Admin sees only the superAdminOnly System Administration group (model() drops the rest
             // before this runs). Everyone else never sees that group.
@@ -1100,7 +1134,9 @@ export class AppMenu {
                 if (!ctx.isSuperAdmin) continue;
             } else if (!ctx.isSuperAdmin) {
                 const features = item.featureCode === undefined ? [] : ([] as string[]).concat(item.featureCode);
-                if (features.some(code => !this.tenantService.hasFeature(code))) continue;
+                const verdict = ctx.ignoreFeatures ? 'show' : this.featureVerdict(features, ctx.states ?? new Map());
+                if (verdict === 'hide') continue;
+                comingSoon = verdict === 'comingSoon';
                 if (item.anyFeature && !item.anyFeature.some(code => this.tenantService.hasFeature(code))) continue;
 
                 // Org Admin is a real permission holder like anyone else now (USER_MANAGE,
@@ -1112,6 +1148,15 @@ export class AppMenu {
                 if (item.alsoRequired?.length && !this.authService.hasAnyPermission(...item.alsoRequired)) {
                     continue;
                 }
+            }
+
+            if (comingSoon) {
+                // A51 P4 - visible but not usable yet: no link, no children, a badge; the click is swallowed (AppMenuitem).
+                // A group is shown only when the user could open at least one of its entries (permissions), as it would if the feature were on.
+                if (item.items?.length && this.filterItems(item.items, { ...ctx, ignoreFeatures: true }).length === 0) continue;
+                const { items: _children, routerLink: _link, queryParams: _query, ...rest } = item;
+                result.push({ ...rest, disabled: true, badge: 'Coming Soon', styleClass: 'menuitem-coming-soon', comingSoon: true });
+                continue;
             }
 
             if (item.items?.length) {

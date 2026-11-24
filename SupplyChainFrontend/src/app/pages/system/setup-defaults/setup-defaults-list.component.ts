@@ -52,8 +52,8 @@ export function packKey(i: { countryCode: string; industryType: string; dataCate
 <sf-page [crumbs]="['System administration', 'Setup defaults']">
   <div sfCmd class="sf-cmd" role="toolbar" aria-label="Commands">
     <p-button label="New default" icon="pi pi-plus" [routerLink]="[route, 'new']" data-testid="new"></p-button>
-    <p-button label="Import JSON" icon="pi pi-upload" [text]="true" (onClick)="openImport()" data-testid="import"></p-button>
-    <p-button label="Export all" icon="pi pi-download" [text]="true" [loading]="exporting" (onClick)="exportAll()" data-testid="export"></p-button>
+    <p-button label="Import from JSON" icon="pi pi-upload" [text]="true" (onClick)="openImport()" data-testid="import"></p-button>
+    <p-button label="Export All" icon="pi pi-download" [text]="true" [loading]="exporting" (onClick)="exportAll()" data-testid="export"></p-button>
     <span class="sf-end"><p-button label="Refresh" icon="pi pi-refresh" [text]="true" [loading]="loading" (onClick)="load()"></p-button></span>
   </div>
   <div class="sf-body">
@@ -107,11 +107,15 @@ export function packKey(i: { countryCode: string; industryType: string; dataCate
 <p-dialog [(visible)]="importOpen" [modal]="true" header="Import setup defaults" [style]="{ width: '46rem', maxWidth: '96vw' }" styleClass="sdlg">
   <div data-testid="import-dialog">
     <p class="ob-mu ob-sm">Upload a JSON file exported from this page (or an array of defaults). Nothing is saved until you confirm, and an invalid
-      item stops the whole import.</p>
+      item stops the whole import unless you choose to skip invalid records. Files up to 10 MB / 1000 defaults.</p>
     <input type="file" accept=".json,application/json" (change)="onFile($event)" data-testid="import-file" />
     <div class="ob-row" style="margin:.5rem 0" *ngIf="importItems.length">
       <span class="ob-sm">When a default already exists:</span>
       <p-select [options]="modeOptions" optionLabel="label" optionValue="value" [(ngModel)]="importMode" (ngModelChange)="importCheck = null" data-testid="import-mode"></p-select>
+    </div>
+    <div class="ob-row" style="margin:.5rem 0" *ngIf="importItems.length">
+      <input type="checkbox" id="imp-skip" [(ngModel)]="skipInvalid" (ngModelChange)="importCheck = null" data-testid="import-skip" />
+      <label for="imp-skip" class="ob-sm">Skip invalid records and import the valid ones (each record is saved whole or not at all)</label>
     </div>
     <div class="ob-note er" *ngIf="importError" data-testid="import-error"><i class="pi pi-times-circle"></i><div>{{ importError }}</div></div>
     <div class="ob-scroll" *ngIf="importItems.length" data-testid="import-preview">
@@ -126,7 +130,7 @@ export function packKey(i: { countryCode: string; industryType: string; dataCate
       </table>
     </div>
     <div class="ob-note" *ngIf="importCheck" data-testid="import-summary"><i class="pi pi-info-circle"></i>
-      <div>{{ importCheck.dryRun ? 'Check:' : 'Imported:' }} {{ importCheck.created }} new, {{ importCheck.updated }} updated, {{ importCheck.unchanged }} unchanged.
+      <div>{{ importCheck.dryRun ? 'Check:' : 'Imported:' }} {{ importCheck.created }} new, {{ importCheck.updated }} updated, {{ importCheck.unchanged }} unchanged, {{ importCheck.invalid ?? importCheck.errors.length }} invalid.
         <ul *ngIf="importCheck.errors.length"><li *ngFor="let e of importCheck.errors">{{ e.key }}: {{ e.errors.join('; ') }}</li></ul></div></div>
   </div>
   <ng-template pTemplate="footer">
@@ -165,6 +169,7 @@ export class SetupDefaultsListComponent implements OnInit {
   importItems: SetupDefaultPackItem[] = [];
   importError = '';
   importMode: 'upsert' | 'insertOnly' = 'upsert';
+  skipInvalid = false;
   importCheck: SetupDefaultsImportResult | null = null;
   importing = false;
 
@@ -263,6 +268,7 @@ export class SetupDefaultsListComponent implements OnInit {
     this.importError = '';
     this.importCheck = null;
     this.importMode = 'upsert';
+    this.skipInvalid = false;
     this.importOpen = true;
   }
 
@@ -290,14 +296,17 @@ export class SetupDefaultsListComponent implements OnInit {
 
   /** Confirm only after a clean check for the same file and mode. */
   get canConfirmImport(): boolean {
-    return !!this.importItems.length && !!this.importCheck?.dryRun && !this.importCheck.errors?.length && !this.importing;
+    const c = this.importCheck;
+    if (!this.importItems.length || !c?.dryRun || this.importing) return false;
+    if (!c.errors?.length) return true;
+    return this.skipInvalid && (c.created + c.updated + c.unchanged) > 0;
   }
 
   runImport(dryRun: boolean): void {
     if (!this.importItems.length) return;
     this.importing = true;
     this.importError = '';
-    this.api.import({ format: 'sms-setup-defaults', version: 1, defaults: this.importItems }, dryRun, this.importMode).subscribe({
+    this.api.import({ format: 'sms-setup-defaults', version: 1, defaults: this.importItems }, dryRun, this.importMode, this.skipInvalid).subscribe({
       next: r => {
         this.importing = false;
         this.importCheck = r?.result ?? null;
